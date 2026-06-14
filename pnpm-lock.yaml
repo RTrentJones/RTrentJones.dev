@@ -952,7 +952,7 @@ packages:
     version: 0.1.0
 
   '@rtrentjones/greenlight@file:vendor/rtrentjones-greenlight-0.1.0.tgz':
-    resolution: {integrity: sha512-5t/bg48Cz+c6SM2KkKV5DIYuMv5euhzXylm/jZdQDFGWIro1WuQ3YSEWWIxocJpdit3PhZ6bY4lqrysbsvGxSw==, tarball: file:vendor/rtrentjones-greenlight-0.1.0.tgz}
+    resolution: {integrity: sha512-1SI0TOgJhCDS76Lx0esCsK+hQV0OhBsWr04YaGmTJUGd6sUcVUKGPKHzPId9toO7ItF7kMw/r9AX6wiqPhwnfA==, tarball: file:vendor/rtrentjones-greenlight-0.1.0.tgz}
     version: 0.1.0
     hasBin: true
 

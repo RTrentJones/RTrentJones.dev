@@ -16,8 +16,7 @@ mise install                 # Node 24 + pnpm 10
 pnpm install                 # framework from vendored tarballs (bootstrap), blog deps
 pnpm greenlight config       # validate the manifest
 pnpm greenlight doctor       # consistency checks
-pnpm blog:build && pnpm blog:preview
-pnpm greenlight verify blog --url http://localhost:4321
+pnpm greenlight preview blog # build + serve locally + verify, one command
 ```
 
 Shipping a change is the deploy-verify-promote loop — install the Greenlight Claude Code plugin (`/plugin marketplace add RTrentJones/greenlight` → `/plugin install greenlight@greenlight`) or run `pnpm greenlight agent sync` to get the skill in this repo.
