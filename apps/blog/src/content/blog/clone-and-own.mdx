@@ -1,0 +1,13 @@
+---
+title: "Clone and own"
+date: 2026-06-12
+description: "Why the blog is the first thing Greenlight builds."
+---
+
+The blog is the greenfield validator for the harness: the cheapest, safest way to
+prove `greenlight add` → preview → verify → beta → promote → prod works on a brand
+new tool. A bug here ships a typo, not data loss.
+
+It runs on Cloudflare Workers (static now, with room for a dynamic KV endpoint
+later) and is verified with the `api` mode — routes return 200, the RSS feed and
+sitemap parse, and no internal links are broken.

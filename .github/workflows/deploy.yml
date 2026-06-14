@@ -1,0 +1,51 @@
+name: deploy
+
+# PR -> preview, develop -> beta, main -> prod. Creds-guarded: skips cleanly without
+# CLOUDFLARE_API_TOKEN. Calls the Greenlight CLI (installed from the framework packages).
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve target env
+        id: env
+        run: |
+          case "${{ github.ref }}" in
+            refs/heads/main) echo "env=prod" >> "$GITHUB_OUTPUT" ;;
+            refs/heads/develop) echo "env=beta" >> "$GITHUB_OUTPUT" ;;
+            *) echo "env=preview" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Check Cloudflare creds
+        id: creds
+        env:
+          CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CF" ]; then echo "have=1" >> "$GITHUB_OUTPUT"; else echo "have=0" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Deploy + verify
+        if: steps.creds.outputs.have == '1'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          pnpm exec greenlight deploy blog --env "${{ steps.env.outputs.env }}"
+          pnpm exec greenlight verify blog --env "${{ steps.env.outputs.env }}"
+
+      - name: Skip notice
+        if: steps.creds.outputs.have != '1'
+        run: echo "No CLOUDFLARE_API_TOKEN secret — deploy/verify skipped."

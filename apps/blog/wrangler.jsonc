@@ -1,0 +1,18 @@
+{
+  // Blog on Cloudflare Workers Static Assets, served at the apex + beta subdomain via
+  // custom domains. Requires rtrentjones.dev to be a zone in this Cloudflare account
+  // and a token with Workers + DNS + Workers Routes edit.
+  "name": "rtrentjones-blog",
+  "compatibility_date": "2025-06-01",
+  "assets": { "directory": "./dist" },
+  "env": {
+    "beta": {
+      "name": "rtrentjones-blog-beta",
+      "routes": [{ "pattern": "beta.rtrentjones.dev", "custom_domain": true }]
+    },
+    "prod": {
+      "name": "rtrentjones-blog",
+      "routes": [{ "pattern": "rtrentjones.dev", "custom_domain": true }]
+    }
+  }
+}

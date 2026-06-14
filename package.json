@@ -1,0 +1,32 @@
+{
+  "name": "rtrentjones-dev",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "greenlight": "greenlight",
+    "blog:build": "pnpm --filter rtrentjones-blog build",
+    "blog:preview": "pnpm --filter rtrentjones-blog preview"
+  },
+  "dependencies": {
+    "@rtrentjones/greenlight": "file:vendor/rtrentjones-greenlight-0.1.0.tgz",
+    "@rtrentjones/greenlight-adapters": "file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz",
+    "@rtrentjones/greenlight-loop": "file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz",
+    "@rtrentjones/greenlight-shared": "file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz",
+    "@rtrentjones/greenlight-verify": "file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp", "workerd"],
+    "overrides": {
+      "@rtrentjones/greenlight": "file:vendor/rtrentjones-greenlight-0.1.0.tgz",
+      "@rtrentjones/greenlight-adapters": "file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz",
+      "@rtrentjones/greenlight-loop": "file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz",
+      "@rtrentjones/greenlight-shared": "file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz",
+      "@rtrentjones/greenlight-verify": "file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz"
+    }
+  }
+}

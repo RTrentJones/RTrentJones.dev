@@ -1,0 +1,4 @@
+# Toolchain, managed by mise. `mise install` to set up.
+[tools]
+node = "24"
+pnpm = "10.12.1"

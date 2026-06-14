@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.astro/
+.turbo/
+.wrangler/
+*.tsbuildinfo
+
+# Local secrets — never commit
+.greenlight/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+.DS_Store
+*.log

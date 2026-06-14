@@ -1,0 +1,29 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="alternate" type="application/rss+xml" title={title} href="/rss.xml" />
+  </head>
+  <body>
+    <header>
+      <a href="/">Greenlight Blog</a>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer>
+      <a href="/rss.xml">RSS</a>
+    </footer>
+  </body>
+</html>
