@@ -17,10 +17,14 @@ pnpm install                 # framework from vendored tarballs (see below), plu
 pnpm greenlight config       # load + validate the manifest, print it
 pnpm greenlight doctor       # manifest + repo consistency checks
 
+pnpm greenlight preview blog # build + serve locally + verify, one command (preferred local loop)
+
 pnpm blog:build              # build the blog (alias: pnpm --filter rtrentjones-blog build)
 pnpm blog:preview            # preview the built blog locally (serves on :4321)
-pnpm greenlight verify blog --url http://localhost:4321   # run the verify harness against a URL
+pnpm greenlight verify blog --url http://localhost:4321   # run the verify harness against a running URL
 ```
+
+The three `blog:*` / `verify` steps above are the manual decomposition of `greenlight preview blog`; reach for them when you need an intermediate step.
 
 Inside `apps/blog/`: `pnpm dev` / `pnpm build` / `pnpm preview` (Astro). No test runner or linter is configured yet — adding tests is welcome and valuable. The Greenlight `verify` harness (run against a previewed/deployed URL) is a "close the loop" end-to-end check for the deploy flow, not a substitute for unit/integration tests.
 
@@ -29,11 +33,14 @@ Inside `apps/blog/`: `pnpm dev` / `pnpm build` / `pnpm preview` (Astro). No test
 `pnpm greenlight <command>` (or `pnpm exec greenlight` in CI). Key commands:
 
 - `config` — validate + print the manifest.
+- `doctor` — manifest + repo consistency checks.
 - `add <name> --lane <l> --target <t>` — scaffold a new tool from a lane template and append a manifest entry.
+- `preview <name>` — build + serve locally + verify in one shot (the local dev loop).
 - `deploy <name> --env <env>` — build + deploy via the target adapter (needs `CLOUDFLARE_API_TOKEN`).
-- `verify <name> [--env <env> | --url <url>]` — run the verify harness.
+- `verify <name> [--env <env> | --url <url>]` — run the verify harness. Mode is per-lane (`api`/`playwright` for web, `mcp` for MCP servers); the blog's checks are in `apps/blog/verify.config.ts` (RSS + sitemap parse, no broken internal links).
 - `promote <name> [--perform] [--push]` — gated `develop → main` fast-forward.
-- `doctor` — consistency checks.
+- `secrets sync` — push local `.greenlight/secrets.env` to the configured secret stores.
+- `agent sync` — (re)install the deploy-verify-promote skill + MCP recommendations into this repo.
 
 ## Deploy / promote model
 
