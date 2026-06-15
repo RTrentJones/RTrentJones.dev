@@ -1,6 +1,7 @@
 name: promote
 
-# Explicit, gated develop -> main fast-forward: verify beta -> promote -> verify prod.
+# Explicit, gated develop -> main fast-forward: verify beta -> FF -> deploy + verify prod.
+# (A GITHUB_TOKEN push doesn't trigger deploy.yml, so this job owns the prod deploy.)
 on:
   workflow_dispatch:
     inputs:
@@ -42,8 +43,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           pnpm exec greenlight promote "${{ inputs.name }}" --perform --push
 
-      - name: Verify prod
+      - name: Deploy + verify prod
         if: steps.creds.outputs.have == '1'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec greenlight verify "${{ inputs.name }}" --env prod
+        run: |
+          pnpm exec greenlight deploy "${{ inputs.name }}" --env prod
+          pnpm exec greenlight verify "${{ inputs.name }}" --env prod

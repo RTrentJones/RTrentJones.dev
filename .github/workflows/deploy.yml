@@ -1,11 +1,11 @@
 name: deploy
 
-# PR -> preview, develop -> beta, main -> prod. Creds-guarded: skips cleanly without
-# CLOUDFLARE_API_TOKEN. Calls the Greenlight CLI (installed from the framework packages).
+# develop -> beta, main -> prod. Creds-guarded: skips cleanly without CLOUDFLARE_API_TOKEN.
+# Calls the Greenlight CLI (from the framework packages). (PR -> preview not wired —
+# Workers preview URLs aren't deterministic; verify --env preview throws by design.)
 on:
   push:
     branches: [develop, main]
-  pull_request:
 
 permissions:
   contents: read
@@ -25,11 +25,11 @@ jobs:
       - name: Resolve target env
         id: env
         run: |
-          case "${{ github.ref }}" in
-            refs/heads/main) echo "env=prod" >> "$GITHUB_OUTPUT" ;;
-            refs/heads/develop) echo "env=beta" >> "$GITHUB_OUTPUT" ;;
-            *) echo "env=preview" >> "$GITHUB_OUTPUT" ;;
-          esac
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "env=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "env=beta" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check Cloudflare creds
         id: creds
