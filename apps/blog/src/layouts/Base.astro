@@ -4,6 +4,10 @@ interface Props {
   description?: string;
 }
 const { title, description } = Astro.props;
+
+// Beta builds get SITE_URL=https://beta.rtrentjones.dev (set by the Greenlight
+// adapter); prod and local dev resolve to the apex domain. Surface that in the header.
+const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
 ---
 
 <!doctype html>
@@ -18,6 +22,7 @@ const { title, description } = Astro.props;
   <body>
     <header>
       <a href="/">Greenlight Blog</a>
+      {isBeta && <span class="env-badge">BETA</span>}
     </header>
     <main>
       <slot />
@@ -27,3 +32,19 @@ const { title, description } = Astro.props;
     </footer>
   </body>
 </html>
+
+<style>
+  .env-badge {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    color: #92400e;
+    background: #fde68a;
+    border: 1px solid #f59e0b;
+    border-radius: 0.25rem;
+  }
+</style>
