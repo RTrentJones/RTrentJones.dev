@@ -57,3 +57,14 @@ The blog runs on **Cloudflare Workers Static Assets** (`apps/blog/wrangler.jsonc
 `package.json` currently **bootstraps the framework from vendored tarballs** (`vendor/*.tgz`, wired via both `dependencies` and `pnpm.overrides`) because the `@rtrentjones/greenlight*` packages aren't on npm yet. This is temporary.
 
 **After the framework's first `npm publish`:** delete `vendor/`, switch the `@rtrentjones/greenlight*` deps from `file:vendor/...` to `^0.1.0`, and ensure the framework is tagged so `infra/main.tf`'s `?ref=` resolves. Updates then arrive via `pnpm update` — never by merging framework source into this repo.
+
+## Greenlight loop (deploy → verify → promote)
+
+This repo uses Greenlight. Ship changes through the deploy-verify-promote skill:
+branch → change → deploy preview → `greenlight verify` → beta → verify → `greenlight promote` → prod → verify.
+
+Agentic kit:
+- Skill: `.claude/skills/deploy-verify-promote/SKILL.md` (the loop).
+- MCP servers: `.mcp.json` recommends Cloudflare's — run `/mcp` to authenticate.
+- Best-practice skills (one-time, user scope):
+    `claude plugin marketplace add cloudflare/skills && claude plugin install cloudflare@cloudflare`
