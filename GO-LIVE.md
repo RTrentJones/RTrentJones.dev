@@ -44,13 +44,11 @@ Publishing** from CI — no `NPM_TOKEN`, no automation token.
 
 ## Phase C — BAMCP live (OCI Container Instance)
 
-### C1. OCI account (👤 console, one-time)
-9. 👤 **Convert tenancy → Pay-As-You-Go** + a low **billing budget alarm**
-   (`Greenlight/docs/oci-payg-runbook.md`). Without PAYG the A1 instance is idle-reclaimed.
-10. 🔑 **API signing key** (Console → your user → API Keys → Add). Capture: **tenancy OCID**,
-    **user OCID**, **fingerprint**, **private key (PEM)**, **region**.
-11. 👤 **Placement**: a **compartment OCID**, an **availability domain**, and a **public subnet
-    OCID** (run the VCN "Internet Connectivity" wizard if you have no VCN).
+### C1. OCI creds (free tier — NO PAYG)
+9. 👤 At cloud.oracle.com (stay on the free tier): **profile → User settings → Tokens and keys →
+   Add API key** — capture **tenancy OCID, user OCID, fingerprint, private key (PEM), region**.
+   Note a **compartment OCID + availability domain + a public subnet OCID** (VCN "Internet
+   Connectivity" wizard if you have none). Always-Free A1 Container Instance; no PAYG.
 
 ### C2. Cloudflare (🔑)
 12. 🔑 Add **Account → Cloudflare Tunnel → Edit** to `CLOUDFLARE_API_TOKEN` (keep Zone:DNS:Edit);
@@ -70,16 +68,14 @@ Publishing** from CI — no `NPM_TOKEN`, no automation token.
 14. ▶️ **TF lockfile**: `terraform -chdir=infra init` (adds `oci` + `random`); commit
     `infra/.terraform.lock.hcl`.
 
-### C4. Secrets (🔑)
-15. 🔑 **Wrapper** (`gh secret set … -R RTrentJones/RTrentJones.dev`):
-    - apply: `TF_VAR_oci_tenancy_ocid`, `TF_VAR_oci_user_ocid`, `TF_VAR_oci_fingerprint`,
-      `TF_VAR_oci_private_key`, `TF_VAR_oci_region`, `TF_VAR_oci_compartment_id`,
-      `TF_VAR_oci_availability_domain`, `TF_VAR_oci_subnet_id`
-    - deploy listener: `OCI_CLI_TENANCY`, `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`,
-      `OCI_CLI_KEY_CONTENT`, `OCI_CLI_REGION`
-    - `GREENLIGHT_STATUS_TOKEN` (PAT, Commits:write on BAMCP — status callback)
-16. 🔑 **BAMCP** (`-R RTrentJones/BAMCP`): `GREENLIGHT_DISPATCH_TOKEN` (PAT, Contents:write on the
-    wrapper — fires the deploy dispatch).
+### C4. Secrets → GitHub (one guided CLI, no disk/logs)
+15. 🔑 `greenlight secrets gather bamcp --repo RTrentJones/RTrentJones.dev` — prints each token's
+    create-it link + scopes, hidden-prompts, pushes straight to the wrapper's GitHub secrets (value
+    on stdin, never logged). Fill the **8 `TF_VAR_OCI_*`** + **`GREENLIGHT_STATUS_TOKEN`**; press
+    Enter to skip the rest. (The deploy listener reuses the same `TF_VAR_OCI_*` for the OCI CLI —
+    no separate `OCI_CLI_*` set.)
+16. 🔑 `greenlight secrets gather bamcp --repo RTrentJones/BAMCP` — fill **`GREENLIGHT_DISPATCH_TOKEN`**
+    (PAT, Contents:write on the wrapper); skip the rest.
 
 ### C5. Image + apply (▶️ / ⚙️)
 17. ▶️ **Merge BAMCP PR #20** → `greenlight-build.yml` builds + pushes
