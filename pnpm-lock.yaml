@@ -940,11 +940,11 @@ packages:
     version: 0.1.0
 
   '@rtrentjones/greenlight-loop@file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz':
-    resolution: {integrity: sha512-brt0S0/Yj9Pw5x7IkmhfZr+kK5XGX2wu4KUICvxwxN1SOj1YB2dPTHmrmU8lgI5ZoWdvUUpkKZK66yCDhCBErg==, tarball: file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz}
+    resolution: {integrity: sha512-+RAzgnFvQ8K6tPGIlw1nlvurCza2a6CzV/1TEbGkhW8btPXmDVP/8+lZBRR3qVoMTkuIXCmmtK+ygDkavmhgqA==, tarball: file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz}
     version: 0.1.0
 
   '@rtrentjones/greenlight-shared@file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz':
-    resolution: {integrity: sha512-ULpWD8mdw7hH7d449iEJSLBZt0K6gLgPY4q+totko2ZlqsfRxwUiphCYLJidS1GlmsEKWVrMUYIDyGSzM72uew==, tarball: file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz}
+    resolution: {integrity: sha512-vGQPgpy+QtSsc4UQsWH3LOFbmrIrBYL4SSx0UkjPg4R291UpAOcAg1ihvBNjVUrqbQ+6YtoMY4kuiyWa3w+GGA==, tarball: file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz}
     version: 0.1.0
 
   '@rtrentjones/greenlight-verify@file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz':
@@ -952,7 +952,7 @@ packages:
     version: 0.1.0
 
   '@rtrentjones/greenlight@file:vendor/rtrentjones-greenlight-0.1.0.tgz':
-    resolution: {integrity: sha512-WjQ7KfBeHdW7e5dzM1RH8wiifFKElIrwr+Kkj7OVkGN5sgSxjr5IjcF4dzVhjXBPZONPLprHvnW9xRPEXq6Qcw==, tarball: file:vendor/rtrentjones-greenlight-0.1.0.tgz}
+    resolution: {integrity: sha512-cDYVG3QYjdtH+GhSo4ZOVCN2VsKlylKT0nMiDdky13G3DlWp/T+amCi8YssB8lAgb82L3DJMvDWCswm0RLxyvg==, tarball: file:vendor/rtrentjones-greenlight-0.1.0.tgz}
     version: 0.1.0
     hasBin: true
 
