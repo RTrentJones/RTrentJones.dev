@@ -28,8 +28,17 @@ module "bamcp_instance" {
   image_url           = var.bamcp_image
   tunnel_token        = module.bamcp_tunnel.token
 
-  # Tool runtime env — fill in (e.g. PORT/listen settings, auth). The container must listen on 8000.
-  environment = {}
+  # BAMCP runtime env — the container listens on 8000 (the tunnel routes there). OAuth on in prod.
+  environment = {
+    BAMCP_TRANSPORT           = "streamable-http"
+    BAMCP_HOST                = "0.0.0.0"
+    BAMCP_PORT                = "8000"
+    BAMCP_AUTH_ENABLED        = "true"
+    BAMCP_ISSUER_URL          = "https://bamcp.rtrentjones.dev"
+    BAMCP_RESOURCE_SERVER_URL = "https://bamcp.rtrentjones.dev"
+    BAMCP_ALLOW_REMOTE_FILES  = "true"
+    BAMCP_RATE_LIMIT          = "60"
+  }
 }
 
 variable "bamcp_image" {
