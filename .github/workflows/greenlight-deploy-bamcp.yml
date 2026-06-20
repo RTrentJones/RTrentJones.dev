@@ -1,0 +1,38 @@
+name: greenlight-deploy-bamcp
+
+# Option B: RTrentJones/BAMCP fires repository_dispatch(deploy-bamcp) after pushing a new image.
+on:
+  repository_dispatch:
+    types: [deploy-bamcp]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      - run: pip install --quiet oci-cli
+      - name: Deploy (restart container instance -> re-pull GHCR image)
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CONTAINER_INSTANCE_OCID: ${{ secrets.BAMCP_OCI_CONTAINER_INSTANCE_OCID }}
+        run: pnpm exec greenlight deploy bamcp --env prod
+      - name: Report status back to RTrentJones/BAMCP
+        if: ${{ always() && github.event.client_payload.sha != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GREENLIGHT_STATUS_TOKEN }}
+        run: |
+          [ -z "$GH_TOKEN" ] && exit 0
+          gh api repos/RTrentJones/BAMCP/statuses/${{ github.event.client_payload.sha }} \
+            -f state="${{ job.status == 'success' && 'success' || 'failure' }}" \
+            -f context="greenlight/deploy-bamcp" \
+            -f description="${{ job.status }}"
