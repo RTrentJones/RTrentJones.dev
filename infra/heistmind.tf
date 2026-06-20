@@ -46,7 +46,7 @@ locals {
 
 # One Supabase project (schema-per-env), imported + kept declarative + recreatable.
 module "heistmind_supabase" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.2.2"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.2.3"
 
   name              = "heistmind"
   project_name      = "heistmind-db" # exact existing name (replace-forcing — must match)
@@ -57,7 +57,7 @@ module "heistmind_supabase" {
 
 # Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
 module "heistmind_vercel" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.2.2"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.2.3"
 
   project_id  = "prj_QF5mBjNr8sw0F8wckqWdfw1vCI2X"
   name        = "heistmind"
@@ -94,7 +94,7 @@ module "heistmind_vercel" {
 
 # Subdomain DNS — CNAME heistmind/beta.heistmind -> cname.vercel-dns.com.
 module "heistmind_dns" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.2"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.3"
 
   name        = "heistmind"
   domain      = "rtrentjones.dev"
@@ -104,12 +104,14 @@ module "heistmind_dns" {
   target      = "vercel"
   data        = "supabase"
   envs        = ["beta", "prod"]
+  # HeistMind's repo is managed elsewhere; no GitHub envs here so CI stays single-repo (no PAT).
+  manage_github_environments = false
 }
 
 # Keepalive Worker (deployed as code) — pings the Supabase project on a cron + alerts.
 # The module ships its own bundled worker.js (self-contained), so no local build is needed.
 module "keepalive" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.2"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.3"
 
   account_id        = var.cloudflare_account_id
   alert_github_repo = "RTrentJones/RTrentJones.dev"

@@ -23,7 +23,13 @@ terraform {
       version = "~> 1.0"
     }
   }
-  # backend "s3" {}  # Cloudflare R2 — configured at apply time (state isolation, versioning).
+  # Remote state on HCP Terraform (free tier, no credit card). Execution mode is "local":
+  # HCP stores state + does locking; terraform runs here / in CI with our own creds. See
+  # the Greenlight framework docs/terraform-state-r2.md.
+  cloud {
+    organization = "Greenlight-rtj"
+    workspaces { name = "rtrentjones-dev" }
+  }
 }
 
 provider "cloudflare" {}
@@ -35,28 +41,8 @@ variable "cloudflare_zone_id" {
   type = string
 }
 
-# The blog (apex domain). Requires the framework to be tagged v0.1.0 (the module ref).
-module "blog" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.2"
-
-  name        = "" # apex
-  domain      = "rtrentjones.dev"
-  zone_id     = var.cloudflare_zone_id
-  github_repo = "RTrentJones/RTrentJones.dev"
-  lane        = "astro"
-  target      = "workers"
-  data        = "none"
-  envs        = ["beta", "prod"]
-}
-
-# Repo-level setup: the develop (beta) branch + branch protection on main/develop.
-module "repo" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/repo?ref=v0.2.2"
-
-  repository      = "RTrentJones.dev"
-  required_checks = ["ci"]
-}
-
-output "blog_prod_url" {
-  value = module.blog.prod_url
-}
+# NOTE: the blog (apex rtrentjones.dev) is deployed + DNS-managed by wrangler
+# (Workers custom_domain), NOT Terraform — a TF cloudflare_dns_record for the apex would
+# collide with wrangler's. So this wrapper's Terraform manages only HeistMind (heistmind.tf).
+# If the blog ever needs declarative infra, re-add module "tool"/"repo" and import the
+# existing records first.
