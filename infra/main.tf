@@ -13,6 +13,15 @@ terraform {
       source  = "integrations/github"
       version = "~> 6.0"
     }
+    # HeistMind (see heistmind.tf). Configured from this wrapper; app code stays in its repo.
+    vercel = {
+      source  = "vercel/vercel"
+      version = "~> 3.0"
+    }
+    supabase = {
+      source  = "supabase/supabase"
+      version = "~> 1.0"
+    }
   }
   # backend "s3" {}  # Cloudflare R2 — configured at apply time (state isolation, versioning).
 }
@@ -28,7 +37,7 @@ variable "cloudflare_zone_id" {
 
 # The blog (apex domain). Requires the framework to be tagged v0.1.0 (the module ref).
 module "blog" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.1.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.2"
 
   name        = "" # apex
   domain      = "rtrentjones.dev"
@@ -42,7 +51,7 @@ module "blog" {
 
 # Repo-level setup: the develop (beta) branch + branch protection on main/develop.
 module "repo" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/repo?ref=v0.1.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/repo?ref=v0.2.2"
 
   repository      = "RTrentJones.dev"
   required_checks = ["ci"]

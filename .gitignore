@@ -12,6 +12,9 @@ dist/
 .terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
+*.auto.tfvars
+crash.log
 
 .DS_Store
 *.log

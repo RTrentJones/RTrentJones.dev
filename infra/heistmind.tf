@@ -1,0 +1,132 @@
+# HeistMind — Vercel + Supabase + keepalive, configured from this wrapper (app code stays
+# in RTrentJones/HeistMind, which deploys via Vercel's git integration). Centralizing this
+# is the fix for the Supabase pause that took it down: declarative + recreatable + kept alive.
+#
+# APPLIED (2026-06): live as of v0.2.2. The keepalive module is self-contained (ships its
+# own bundled worker.js), so no local build is needed. To re-apply from a fresh clone:
+# │  1. Creds (see infra/TOKENS.md / Greenlight docs/provider-tokens.md): SUPABASE_ACCESS_TOKEN,
+# │     VERCEL_API_TOKEN, a CLOUDFLARE_API_TOKEN with **Workers Scripts: Edit + Zone DNS: Edit**,
+# │     and TF_VAR_cloudflare_zone_id / TF_VAR_supabase_database_password.
+# │  2. The live Supabase project is imported (not recreated — name/region are replace-forcing
+# │     and the module sets ignore_changes). On a fresh state, re-import before apply:
+# │       terraform import module.heistmind_supabase.supabase_project.this kjcdddzyibwqahgiypdb
+# │     (The Vercel module manages only domains + env on the EXISTING project by id — nothing to import.)
+# │  3. Apply is currently run manually (state is local). CI apply-on-push needs R2 remote state.
+
+provider "vercel" {
+  # api_token from VERCEL_API_TOKEN; scope all resources to the team.
+  team = "team_43JnQTGSMAIlMIVyBuOjiS8W"
+}
+
+provider "supabase" {
+  # access_token from the SUPABASE_ACCESS_TOKEN environment variable.
+}
+
+variable "supabase_database_password" {
+  type      = string
+  sensitive = true
+  # heistmind-db already exists; this is ignored on import (ignore_changes) and only used
+  # if the project is ever recreated from scratch.
+}
+
+variable "cloudflare_account_id" {
+  type    = string
+  default = "47f5715fc54e2280476f65d03cce71f5"
+}
+
+variable "keepalive_github_token" {
+  type      = string
+  sensitive = true
+  default   = "" # token with issues:write for the alert sink; empty = alerts no-op
+}
+
+locals {
+  heistmind_supabase_url = module.heistmind_supabase.url
+}
+
+# One Supabase project (schema-per-env), imported + kept declarative + recreatable.
+module "heistmind_supabase" {
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.2.2"
+
+  name              = "heistmind"
+  project_name      = "heistmind-db" # exact existing name (replace-forcing — must match)
+  organization_id   = "kvscndbazripnyavwjkq"
+  database_password = var.supabase_database_password
+  region            = "us-east-1"
+}
+
+# Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
+module "heistmind_vercel" {
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.2.2"
+
+  project_id  = "prj_QF5mBjNr8sw0F8wckqWdfw1vCI2X"
+  name        = "heistmind"
+  domain      = "rtrentjones.dev"
+  beta_branch = "development" # HeistMind uses main/development
+
+  # One project shared by both envs (schema-per-env happens in the app); Supabase creds
+  # flow straight from the supabase module (no manual copy — the old fragility).
+  environment = {
+    site_url_prod     = { key = "SITE_URL", target = ["production"], sensitive = false }
+    site_url_beta     = { key = "SITE_URL", target = ["preview"], sensitive = false }
+    supa_url_prod     = { key = "NEXT_PUBLIC_SUPABASE_URL", target = ["production"], sensitive = false }
+    supa_anon_prod    = { key = "NEXT_PUBLIC_SUPABASE_ANON_KEY", target = ["production"], sensitive = false }
+    supa_service_prod = { key = "SUPABASE_SERVICE_ROLE_KEY", target = ["production"], sensitive = true }
+    supa_proj_prod    = { key = "SUPABASE_PROJECT_ID", target = ["production"], sensitive = false }
+    supa_url_beta     = { key = "NEXT_PUBLIC_SUPABASE_URL", target = ["preview"], sensitive = false }
+    supa_anon_beta    = { key = "NEXT_PUBLIC_SUPABASE_ANON_KEY", target = ["preview"], sensitive = false }
+    supa_service_beta = { key = "SUPABASE_SERVICE_ROLE_KEY", target = ["preview"], sensitive = true }
+    supa_proj_beta    = { key = "SUPABASE_PROJECT_ID", target = ["preview"], sensitive = false }
+  }
+  environment_values = {
+    site_url_prod     = "https://heistmind.rtrentjones.dev"
+    site_url_beta     = "https://beta.heistmind.rtrentjones.dev"
+    supa_url_prod     = local.heistmind_supabase_url
+    supa_anon_prod    = module.heistmind_supabase.anon_key
+    supa_service_prod = module.heistmind_supabase.service_role_key
+    supa_proj_prod    = module.heistmind_supabase.project_ref
+    supa_url_beta     = local.heistmind_supabase_url
+    supa_anon_beta    = module.heistmind_supabase.anon_key
+    supa_service_beta = module.heistmind_supabase.service_role_key
+    supa_proj_beta    = module.heistmind_supabase.project_ref
+  }
+}
+
+# Subdomain DNS — CNAME heistmind/beta.heistmind -> cname.vercel-dns.com.
+module "heistmind_dns" {
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.2"
+
+  name        = "heistmind"
+  domain      = "rtrentjones.dev"
+  zone_id     = var.cloudflare_zone_id
+  github_repo = "RTrentJones/HeistMind"
+  lane        = "next"
+  target      = "vercel"
+  data        = "supabase"
+  envs        = ["beta", "prod"]
+}
+
+# Keepalive Worker (deployed as code) — pings the Supabase project on a cron + alerts.
+# The module ships its own bundled worker.js (self-contained), so no local build is needed.
+module "keepalive" {
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.2"
+
+  account_id        = var.cloudflare_account_id
+  alert_github_repo = "RTrentJones/RTrentJones.dev"
+  github_token      = var.keepalive_github_token
+  targets_json = jsonencode([
+    {
+      name    = "heistmind"
+      env     = "prod"
+      url     = local.heistmind_supabase_url
+      anonKey = module.heistmind_supabase.anon_key
+    }
+  ])
+}
+
+output "heistmind_prod_url" {
+  value = module.heistmind_vercel.prod_url
+}
+output "heistmind_beta_url" {
+  value = module.heistmind_vercel.beta_url
+}
