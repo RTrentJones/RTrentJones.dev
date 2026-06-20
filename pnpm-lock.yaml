@@ -4,32 +4,13 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@rtrentjones/greenlight': file:vendor/rtrentjones-greenlight-0.1.0.tgz
-  '@rtrentjones/greenlight-adapters': file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz
-  '@rtrentjones/greenlight-loop': file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz
-  '@rtrentjones/greenlight-shared': file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
-  '@rtrentjones/greenlight-verify': file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz
-
 importers:
 
   .:
     dependencies:
       '@rtrentjones/greenlight':
-        specifier: file:vendor/rtrentjones-greenlight-0.1.0.tgz
-        version: file:vendor/rtrentjones-greenlight-0.1.0.tgz(zod@4.4.3)
-      '@rtrentjones/greenlight-adapters':
-        specifier: file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz
-        version: file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz
-      '@rtrentjones/greenlight-loop':
-        specifier: file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz
-        version: file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz(zod@4.4.3)
-      '@rtrentjones/greenlight-shared':
-        specifier: file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
-        version: file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
-      '@rtrentjones/greenlight-verify':
-        specifier: file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz
-        version: file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz(zod@4.4.3)
+        specifier: ^0.2.4
+        version: 0.2.4
 
   apps/blog:
     dependencies:
@@ -51,6 +32,15 @@ importers:
         version: 4.100.0
 
 packages:
+
+  '@anthropic-ai/sdk@0.69.0':
+    resolution: {integrity: sha512-L92d2q47BSq+7slUqHBL1d2DwloulZotYGCTDt9AYRtPmYF+iK6rnwq9JaZwPPJgk+LenbcbQ/nj6gfaDFsl9w==}
+    hasBin: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
 
   '@astrojs/compiler@2.13.1':
     resolution: {integrity: sha512-f3FN83d2G/v32ipNClRKgYv30onQlMZX1vCeZMjPsMMPl1mDpmbl0+N5BYo4S/ofzqJyS5hvwacEo0CCVDn/Qg==}
@@ -93,6 +83,10 @@ packages:
     resolution: {integrity: sha512-hnORnjP/1P/zFEndoeX+n+t1RwWRJiJpM/jO7FW32Kn9r5+sJB2JWOdYo4L6k78j15eCwY3Gm/7364B1EMwtNg==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  '@babel/runtime@7.29.7':
+    resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
+    engines: {node: '>=6.9.0'}
 
   '@babel/types@7.29.7':
     resolution: {integrity: sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA==}
@@ -935,25 +929,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rtrentjones/greenlight-adapters@file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz':
-    resolution: {integrity: sha512-ChyKVihR8x/Dt1e7tS658QBN0Pa2NknxFIk0qIuTFOA4zj8q25UlvCDc05G4xKS2HwZGR0oKZEmmcUeo2r+PZg==, tarball: file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz}
-    version: 0.1.0
-
-  '@rtrentjones/greenlight-loop@file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz':
-    resolution: {integrity: sha512-+RAzgnFvQ8K6tPGIlw1nlvurCza2a6CzV/1TEbGkhW8btPXmDVP/8+lZBRR3qVoMTkuIXCmmtK+ygDkavmhgqA==, tarball: file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz}
-    version: 0.1.0
-
-  '@rtrentjones/greenlight-shared@file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz':
-    resolution: {integrity: sha512-vGQPgpy+QtSsc4UQsWH3LOFbmrIrBYL4SSx0UkjPg4R291UpAOcAg1ihvBNjVUrqbQ+6YtoMY4kuiyWa3w+GGA==, tarball: file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz}
-    version: 0.1.0
-
-  '@rtrentjones/greenlight-verify@file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz':
-    resolution: {integrity: sha512-i7tM+imbH222m/696hVC68QpoQg2cdZRpmhvwCj3rYr64ZA8HwalIqWyQuO3QAAeidjyewSH948mZF2HM2nJdg==, tarball: file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz}
-    version: 0.1.0
-
-  '@rtrentjones/greenlight@file:vendor/rtrentjones-greenlight-0.1.0.tgz':
-    resolution: {integrity: sha512-cDYVG3QYjdtH+GhSo4ZOVCN2VsKlylKT0nMiDdky13G3DlWp/T+amCi8YssB8lAgb82L3DJMvDWCswm0RLxyvg==, tarball: file:vendor/rtrentjones-greenlight-0.1.0.tgz}
-    version: 0.1.0
+  '@rtrentjones/greenlight@0.2.4':
+    resolution: {integrity: sha512-zctrvQvnfErAq02XkNcXawmOan4MDN3ASB8u6iRtyfSoMOzGbOXf7Cu4sCBSgFpLNtGYD3KFUzfI7cL6iq9gzg==}
     hasBin: true
 
   '@shikijs/core@3.23.0':
@@ -1645,6 +1622,10 @@ packages:
     resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
     hasBin: true
 
+  json-schema-to-ts@3.1.1:
+    resolution: {integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==}
+    engines: {node: '>=16'}
+
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
 
@@ -2264,6 +2245,9 @@ packages:
   trough@2.2.0:
     resolution: {integrity: sha512-tmMpK00BjZiUyVyvrBK7knerNgmgvcV/KLVyuma/SC+TQN167GrMRciANTz09+k3zW8L8t60jWO1GpfkZdjTaw==}
 
+  ts-algebra@2.0.0:
+    resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
+
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
@@ -2573,6 +2557,13 @@ packages:
 
 snapshots:
 
+  '@anthropic-ai/sdk@0.69.0(zod@3.25.76)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+    optionalDependencies:
+      zod: 3.25.76
+    optional: true
+
   '@astrojs/compiler@2.13.1': {}
 
   '@astrojs/internal-helpers@0.7.6': {}
@@ -2657,6 +2648,9 @@ snapshots:
   '@babel/parser@7.29.7':
     dependencies:
       '@babel/types': 7.29.7
+
+  '@babel/runtime@7.29.7':
+    optional: true
 
   '@babel/types@7.29.7':
     dependencies:
@@ -3072,7 +3066,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.25)
       ajv: 8.20.0
@@ -3089,8 +3083,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -3193,47 +3187,17 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.0':
     optional: true
 
-  '@rtrentjones/greenlight-adapters@file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz':
+  '@rtrentjones/greenlight@0.2.4':
     dependencies:
-      '@rtrentjones/greenlight-shared': file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
-
-  '@rtrentjones/greenlight-loop@file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz(zod@4.4.3)':
-    dependencies:
-      '@rtrentjones/greenlight-adapters': file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz
-      '@rtrentjones/greenlight-shared': file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
-      '@rtrentjones/greenlight-verify': file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz(zod@4.4.3)
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - supports-color
-      - zod
-
-  '@rtrentjones/greenlight-shared@file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz':
-    dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       jiti: 2.7.0
       zod: 3.25.76
-
-  '@rtrentjones/greenlight-verify@file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz(zod@4.4.3)':
-    dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
-      '@rtrentjones/greenlight-shared': file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
     optionalDependencies:
+      '@anthropic-ai/sdk': 0.69.0(zod@3.25.76)
       playwright: 1.60.0
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
-      - zod
-
-  '@rtrentjones/greenlight@file:vendor/rtrentjones-greenlight-0.1.0.tgz(zod@4.4.3)':
-    dependencies:
-      '@rtrentjones/greenlight-adapters': file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz
-      '@rtrentjones/greenlight-loop': file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz(zod@4.4.3)
-      '@rtrentjones/greenlight-shared': file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz
-      '@rtrentjones/greenlight-verify': file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz(zod@4.4.3)
-      jiti: 2.7.0
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - supports-color
-      - zod
 
   '@shikijs/core@3.23.0':
     dependencies:
@@ -4161,6 +4125,12 @@ snapshots:
   js-yaml@4.2.0:
     dependencies:
       argparse: 2.0.1
+
+  json-schema-to-ts@3.1.1:
+    dependencies:
+      '@babel/runtime': 7.29.7
+      ts-algebra: 2.0.0
+    optional: true
 
   json-schema-traverse@1.0.0: {}
 
@@ -5188,6 +5158,9 @@ snapshots:
 
   trough@2.2.0: {}
 
+  ts-algebra@2.0.0:
+    optional: true
+
   tsconfck@3.1.6(typescript@5.9.3):
     optionalDependencies:
       typescript: 5.9.3
@@ -5404,10 +5377,6 @@ snapshots:
   zod-to-json-schema@3.25.2(zod@3.25.76):
     dependencies:
       zod: 3.25.76
-
-  zod-to-json-schema@3.25.2(zod@4.4.3):
-    dependencies:
-      zod: 4.4.3
 
   zod-to-ts@1.2.0(typescript@5.9.3)(zod@3.25.76):
     dependencies:

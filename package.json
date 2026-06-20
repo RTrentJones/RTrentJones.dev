@@ -13,20 +13,9 @@
     "blog:preview": "pnpm --filter rtrentjones-blog preview"
   },
   "dependencies": {
-    "@rtrentjones/greenlight": "file:vendor/rtrentjones-greenlight-0.1.0.tgz",
-    "@rtrentjones/greenlight-adapters": "file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz",
-    "@rtrentjones/greenlight-loop": "file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz",
-    "@rtrentjones/greenlight-shared": "file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz",
-    "@rtrentjones/greenlight-verify": "file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz"
+    "@rtrentjones/greenlight": "^0.2.4"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "sharp", "workerd"],
-    "overrides": {
-      "@rtrentjones/greenlight": "file:vendor/rtrentjones-greenlight-0.1.0.tgz",
-      "@rtrentjones/greenlight-adapters": "file:vendor/rtrentjones-greenlight-adapters-0.1.0.tgz",
-      "@rtrentjones/greenlight-loop": "file:vendor/rtrentjones-greenlight-loop-0.1.0.tgz",
-      "@rtrentjones/greenlight-shared": "file:vendor/rtrentjones-greenlight-shared-0.1.0.tgz",
-      "@rtrentjones/greenlight-verify": "file:vendor/rtrentjones-greenlight-verify-0.1.0.tgz"
-    }
+    "onlyBuiltDependencies": ["esbuild", "sharp", "workerd"]
   }
 }

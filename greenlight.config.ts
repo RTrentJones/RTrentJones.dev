@@ -1,4 +1,4 @@
-import { defineConfig } from '@rtrentjones/greenlight-shared';
+import { defineConfig } from '@rtrentjones/greenlight';
 
 export default defineConfig({
   domain: 'rtrentjones.dev',
