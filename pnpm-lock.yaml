@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@rtrentjones/greenlight':
-        specifier: ^0.2.12
-        version: 0.2.12
+        specifier: ^0.2.14
+        version: 0.2.14
 
   apps/blog:
     dependencies:
@@ -929,8 +929,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rtrentjones/greenlight@0.2.12':
-    resolution: {integrity: sha512-ayw9NtEhQt/jSfn4soP5QK5vc3eLo+mXK31PUYOOf2TuCUIQbW3xjzZspNQU5bGYkU3P2EwX3GIaFg/YDCIpRA==}
+  '@rtrentjones/greenlight@0.2.14':
+    resolution: {integrity: sha512-tAeniEZvDf12nigRt4mulPI7vw7PiucwH/iR7jeQcIX7Mg/84HCHG1yJZvOTU2Ki5MyttIjl6++rLU0dLR4fNA==}
     hasBin: true
 
   '@shikijs/core@3.23.0':
@@ -3187,7 +3187,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.0':
     optional: true
 
-  '@rtrentjones/greenlight@0.2.12':
+  '@rtrentjones/greenlight@0.2.14':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       jiti: 2.7.0
