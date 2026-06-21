@@ -1,16 +1,25 @@
 // Verify spec for BAMCP (external MCP server — code in RTrentJones/BAMCP, wrapped here as the
-// tools/bamcp submodule). Lives in the wrapper because the tool is a registry pointer;
-// `greenlight verify bamcp --env beta|prod` connects to bamcp.<domain>/mcp.
+// tools/bamcp submodule). `greenlight verify bamcp --env beta|prod` connects to bamcp.<domain>/mcp.
 //
-// BAMCP runs with BAMCP_AUTH_ENABLED=true (OAuth) in prod and gates the `initialize` handshake
-// itself, so an unauthenticated mcp probe can't list tools. We use `api` mode asserting GET /mcp
-// returns 401 — which proves BOTH that the server is up (tunnel + container serving) AND that auth
-// is enforced (a public MCP would be a security regression). This is the recommended gate for a
-// fully OAuth-gated MCP without managing a bearer token in CI. To assert tool *behavior* later,
-// add an mcp-mode spec with a bearer token (verifyAll array).
-// NB: the verify base URL is already the connect URL `…/mcp`, so the check path is '' (empty) —
-// `{ path: '/mcp' }` would hit `…/mcp/mcp` → 404.
-export default {
-  mode: 'api',
-  checks: [{ path: '', status: 401 }],
-};
+// An ARRAY (verifyAll / allPass) combines two signals:
+//  1. api — always runs. GET <base>/mcp must 401, proving the server is up (tunnel + container
+//     serving) AND OAuth is enforced (a public MCP would be a security regression). Base path is
+//     '' since the verify base URL is already the …/mcp connect URL ('/mcp' would hit …/mcp/mcp).
+//  2. mcp (functional / "eval") — runs ONLY when BAMCP_VERIFY_TOKEN is set: an authenticated
+//     initialize → tools/list asserting the real tools are registered + callable. Token is injected
+//     from the env (never committed); absent → this spec is omitted so the gate stays green on the
+//     401 alone until a CI token is provisioned (BAMCP OAuth client-credentials → wrapper secret).
+const token = process.env.BAMCP_VERIFY_TOKEN;
+
+export default [
+  { mode: 'api', checks: [{ path: '', status: 401 }] },
+  ...(token
+    ? [
+        {
+          mode: 'mcp',
+          expectTools: ['get_variants', 'get_coverage', 'list_contigs', 'visualize_region'],
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      ]
+    : []),
+];

@@ -49,6 +49,10 @@ jobs:
         # The deploy "succeeds" only if the NEW image is actually serving. verify has a built-in
         # readiness wait, so this covers re-pull + container start before asserting. A failure here
         # fails the job → the status posted back to BAMCP is red (oci is verify-gated direct-to-prod).
+        # BAMCP_VERIFY_TOKEN (optional) enables the authenticated functional/eval mcp check; absent →
+        # the api 401 check alone gates (see verify/bamcp.config.ts).
+        env:
+          BAMCP_VERIFY_TOKEN: ${{ secrets.BAMCP_VERIFY_TOKEN }}
         run: pnpm exec greenlight verify bamcp --env prod
       - name: Report status back to RTrentJones/BAMCP
         if: ${{ always() && github.event.client_payload.sha != '' }}
