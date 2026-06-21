@@ -27,6 +27,9 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
       TF_VAR_cloudflare_zone_id: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_ID }}
       TF_VAR_supabase_database_password: ${{ secrets.TF_VAR_SUPABASE_DATABASE_PASSWORD }}
+      # keepalive Worker token: github-issue alerts (Issues:write) + auto-heal repository_dispatch
+      # (Contents:write). Empty/unset → keepalive still pings, but alerts + self-heal no-op.
+      TF_VAR_keepalive_github_token: ${{ secrets.TF_VAR_KEEPALIVE_GITHUB_TOKEN }}
       # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
       # module + AD data source), so only the auth values + optional compartment are secrets.
       TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
