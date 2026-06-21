@@ -1,26 +1,49 @@
-name: greenlight-deploy-bamcp
+name: greenlight-remediate-bamcp
 
-# Option B: RTrentJones/BAMCP fires repository_dispatch(deploy-bamcp) after pushing a new image.
+# Auto-heal: the keepalive Worker dispatches remediate-bamcp when bamcp (oci) is unreachable.
 on:
   repository_dispatch:
-    types: [deploy-bamcp]
+    types: [remediate-bamcp]
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: write
 
-# Share the self-heal workflow's group so a deploy and a remediation never run at the same time.
+# Same group as greenlight-deploy-bamcp: a self-heal never overlaps a deploy or another heal, and
+# re-applying an already-healthy instance is idempotent (no diff) — anti-flap with no extra state.
 concurrency:
   group: deploy-bamcp
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  remediate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~1.10'
+          terraform_wrapper: false
+      - name: Re-apply the instance (recreate it if OCI idle-reclaimed the Always-Free box)
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }} # HCP state backend auth
+          TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
+          TF_VAR_oci_user_ocid: ${{ secrets.TF_VAR_OCI_USER_OCID }}
+          TF_VAR_oci_fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
+          TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
+          TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
+          TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+        run: |
+          if [ -z "$TF_TOKEN_app_terraform_io" ]; then
+            echo "::warning::no TF_API_TOKEN — skipping re-apply; will still attempt a restart below"
+            exit 0
+          fi
+          terraform -chdir=infra init -input=false
+          # -target pulls in the instance's deps (the bamcp_network module) automatically.
+          terraform -chdir=infra apply -input=false -auto-approve -target=module.bamcp_instance
       - run: pip install --quiet oci-cli
       - name: Deploy (resolve instance OCID by name -> restart -> re-pull GHCR image)
         env:
@@ -50,23 +73,18 @@ jobs:
           fi
           echo "Resolved bamcp instance: $OCID"
           OCI_CONTAINER_INSTANCE_OCID="$OCID" pnpm exec greenlight deploy bamcp --env prod
-      - name: Verify prod (gate the signal on real health, not just the restart)
-        # The deploy "succeeds" only if the NEW image is actually serving. verify has a built-in
-        # readiness wait, so this covers re-pull + container start before asserting. A failure here
-        # fails the job → the status posted back to BAMCP is red (oci is verify-gated direct-to-prod).
+      - name: Verify prod (gate the self-heal on real health, not just the restart)
         # BAMCP_VERIFY_TOKEN (optional) enables the authenticated functional/eval mcp check; absent →
-        # the api 401 check alone gates (see verify/bamcp.config.ts).
+        # the api 401 check alone confirms the server is back (see verify/bamcp.config.ts).
         env:
           BAMCP_VERIFY_TOKEN: ${{ secrets.BAMCP_VERIFY_TOKEN }}
         run: pnpm exec greenlight verify bamcp --env prod
-      - name: Report status back to RTrentJones/BAMCP
-        if: ${{ always() && github.event.client_payload.sha != '' }}
+      - name: Escalate if the self-heal failed
+        if: ${{ failure() }}
         env:
-          # Per-tool name: the status PAT lives on the shared wrapper, scoped to BAMCP's repo.
-          GH_TOKEN: ${{ secrets.GREENLIGHT_STATUS_TOKEN_BAMCP }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          [ -z "$GH_TOKEN" ] && exit 0
-          gh api repos/RTrentJones/BAMCP/statuses/${{ github.event.client_payload.sha }} \
-            -f state="${{ job.status == 'success' && 'success' || 'failure' }}" \
-            -f context="greenlight/deploy-bamcp" \
-            -f description="${{ job.status }}"
+          gh issue create --repo ${{ github.repository }} \
+            --title "remediate-bamcp: self-heal FAILED" \
+            --body "Automatic remediation for bamcp (reason: ${{ github.event.client_payload.reason }}) did not bring prod back. Manual attention needed." \
+            --label keepalive || true

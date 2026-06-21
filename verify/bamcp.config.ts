@@ -11,8 +11,14 @@
 //     401 alone until a CI token is provisioned (BAMCP OAuth client-credentials → wrapper secret).
 const token = process.env.BAMCP_VERIFY_TOKEN;
 
+// Telemetry-into-verify: on a FAILED check, capture the actual HTTP response (status + headers +
+// body head) from the exact verify URL. $GREENLIGHT_VERIFY_URL is injected by the harness (no
+// hard-coded URL). Best-effort — attaches to the report so a red gate carries its own "why"
+// (e.g. 502/523 vs the expected 401 → tunnel/container down vs auth working). Never fails the gate.
+const logsOnFailure = 'curl -sS -i "$GREENLIGHT_VERIFY_URL" 2>&1 | head -30 || true';
+
 export default [
-  { mode: 'api', checks: [{ path: '', status: 401 }] },
+  { mode: 'api', checks: [{ path: '', status: 401 }], logsOnFailure },
   ...(token
     ? [
         {

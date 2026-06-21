@@ -108,14 +108,19 @@ module "heistmind_dns" {
   manage_github_environments = false
 }
 
-# Keepalive Worker (deployed as code) — pings the Supabase project on a cron + alerts.
-# The module ships its own bundled worker.js (self-contained), so no local build is needed.
+# Keepalive Worker (deployed as code) — pings the Supabase project on a cron + alerts, and now
+# AUTO-HEALS oci targets: on an outage it fires repository_dispatch(remediate-<tool>) so the
+# wrapper's greenlight-remediate-<tool>.yml re-applies + redeploys + verifies (the no-PAYG
+# recover-on-alert strategy, automated). The module ships its own bundled worker.js.
 module "keepalive" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.5"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.12"
 
   account_id        = var.cloudflare_account_id
   alert_github_repo = "RTrentJones/RTrentJones.dev"
-  github_token      = var.keepalive_github_token
+  # Self-heal: dispatch remediate-<tool> here (this wrapper owns the infra + deploy). The token
+  # needs contents:write (dispatch) in addition to issues:write (alerts).
+  dispatch_github_repo = "RTrentJones/RTrentJones.dev"
+  github_token         = var.keepalive_github_token
   targets_json = jsonencode([
     {
       name    = "heistmind"
@@ -124,11 +129,13 @@ module "keepalive" {
       anonKey = module.heistmind_supabase.anon_key
     },
     {
-      # OCI health-check (kind:"oci" → HTTP probe, no DB query). Alerts if the free A1
-      # instance is ever idle-reclaimed → re-apply/redeploy restores it (the no-PAYG strategy).
+      # OCI health-check (kind:"oci" → HTTP probe, no DB query). remediate:true → a failed probe
+      # auto-fires greenlight-remediate-bamcp.yml (re-apply the A1 box if idle-reclaimed, redeploy,
+      # verify). No PAYG: the instance is recovered on alert, not kept warm.
       name      = "bamcp"
       env       = "prod"
       kind      = "oci"
+      remediate = true
       url       = "https://bamcp.rtrentjones.dev"
       probePath = "/mcp" # 401 (auth-gated) is reachable; proves tunnel + container are serving
     }
