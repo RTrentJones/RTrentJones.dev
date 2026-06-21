@@ -111,7 +111,7 @@ module "heistmind_dns" {
 # Keepalive Worker (deployed as code) — pings the Supabase project on a cron + alerts.
 # The module ships its own bundled worker.js (self-contained), so no local build is needed.
 module "keepalive" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.3"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.2.5"
 
   account_id        = var.cloudflare_account_id
   alert_github_repo = "RTrentJones/RTrentJones.dev"
@@ -122,6 +122,15 @@ module "keepalive" {
       env     = "prod"
       url     = local.heistmind_supabase_url
       anonKey = module.heistmind_supabase.anon_key
+    },
+    {
+      # OCI health-check (kind:"oci" → HTTP probe, no DB query). Alerts if the free A1
+      # instance is ever idle-reclaimed → re-apply/redeploy restores it (the no-PAYG strategy).
+      name      = "bamcp"
+      env       = "prod"
+      kind      = "oci"
+      url       = "https://bamcp.rtrentjones.dev"
+      probePath = "/mcp" # 401 (auth-gated) is reachable; proves tunnel + container are serving
     }
   ])
 }
