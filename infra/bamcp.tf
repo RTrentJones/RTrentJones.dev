@@ -1,7 +1,7 @@
 # bamcp — mcp/oci, emitted by `greenlight add`.
 # Review, then commit + push: the wrapper's infra.yml (HCP-backed) runs `terraform apply`.
 # Assumes infra/main.tf declares: oci provider(s)
-# and the variables var.cloudflare_zone_id, var.cloudflare_account_id, var.oci_compartment_id, var.oci_availability_domain, var.oci_subnet_id.
+# and var.cloudflare_zone_id, var.cloudflare_account_id, local.oci_compartment_id.
 # External tool: app code + deploy live in RTrentJones/BAMCP; this manages only its infra here.
 
 # OCI Container Instance (Always-Free Ampere A1) running the tool's GHCR image + a cloudflared
@@ -9,7 +9,7 @@
 # CI builds + pushes the image (provider-agnostic); deploy = restart the instance (re-pull).
 # beta would be a second instance + tunnel route — mind the free 2-OCPU / 12-GB A1 cap.
 module "bamcp_tunnel" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tunnel?ref=v0.2.4"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tunnel?ref=v0.2.5"
 
   account_id = var.cloudflare_account_id
   name       = "bamcp-tunnel"
@@ -18,15 +18,23 @@ module "bamcp_tunnel" {
   ]
 }
 
-module "bamcp_instance" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-container-instance?ref=v0.2.4"
+# Network is IaC too — VCN + public subnet (egress only). No hand-clicking in the OCI console.
+module "bamcp_network" {
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-network?ref=v0.2.5"
 
-  name                = "bamcp"
-  compartment_id      = var.oci_compartment_id
-  availability_domain = var.oci_availability_domain
-  subnet_id           = var.oci_subnet_id
-  image_url           = var.bamcp_image
-  tunnel_token        = module.bamcp_tunnel.token
+  name           = "bamcp"
+  compartment_id = local.oci_compartment_id
+}
+
+module "bamcp_instance" {
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-container-instance?ref=v0.2.5"
+
+  name           = "bamcp"
+  compartment_id = local.oci_compartment_id
+  subnet_id      = module.bamcp_network.subnet_id
+  image_url      = var.bamcp_image
+  tunnel_token   = module.bamcp_tunnel.token
+  # availability_domain is auto-picked (first AD in the compartment); set it to pin a specific AD.
 
   # BAMCP runtime env — the container listens on 8000 (the tunnel routes there). OAuth on in prod.
   environment = {
@@ -49,7 +57,7 @@ variable "bamcp_image" {
 
 # Subdomain DNS — CNAME bamcp/beta.bamcp → the tunnel.
 module "bamcp_dns" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.4"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.2.5"
 
   name         = "bamcp"
   domain       = "rtrentjones.dev"

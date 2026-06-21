@@ -43,8 +43,9 @@ provider "github" {
 }
 
 # OCI provider for BAMCP (API-key request signing). Values come from TF_VAR_oci_* (the OCI
-# creds gathered by `greenlight add`, synced as GitHub Actions secrets). PAYG the tenancy so
-# the Always-Free A1 container instance isn't idle-reclaimed (docs/oci-payg-runbook.md).
+# creds gathered by `greenlight secrets gather`, synced as GitHub Actions secrets). Stay on the
+# free tier — if the Always-Free A1 instance is ever idle-reclaimed, keepalive alerts and a
+# re-apply/redeploy restores it (no PAYG; docs/oci-payg-runbook.md).
 provider "oci" {
   tenancy_ocid = var.oci_tenancy_ocid
   user_ocid    = var.oci_user_ocid
@@ -57,7 +58,8 @@ variable "cloudflare_zone_id" {
   type = string
 }
 
-# OCI provider auth + container-instance placement (see bamcp.tf). TF_VAR_oci_*.
+# OCI provider auth (TF_VAR_oci_*). The VCN/subnet/AD are IaC (oci-network module + AD data
+# source in bamcp.tf), so the only manual OCI inputs are these auth values.
 variable "oci_tenancy_ocid" { type = string }
 variable "oci_user_ocid" { type = string }
 variable "oci_fingerprint" { type = string }
@@ -66,9 +68,15 @@ variable "oci_private_key" {
   sensitive = true
 }
 variable "oci_region" { type = string }
-variable "oci_compartment_id" { type = string }
-variable "oci_availability_domain" { type = string }
-variable "oci_subnet_id" { type = string }
+variable "oci_compartment_id" {
+  type    = string
+  default = "" # blank → tenancy (root) compartment, via local.oci_compartment_id
+}
+
+locals {
+  # Compartment for all OCI tools — blank var falls back to the tenancy (root) compartment.
+  oci_compartment_id = var.oci_compartment_id != "" ? var.oci_compartment_id : var.oci_tenancy_ocid
+}
 
 # NOTE: the blog (apex rtrentjones.dev) is deployed + DNS-managed by wrangler
 # (Workers custom_domain), NOT Terraform — a TF cloudflare_dns_record for the apex would

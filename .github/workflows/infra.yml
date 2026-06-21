@@ -27,15 +27,14 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
       TF_VAR_cloudflare_zone_id: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_ID }}
       TF_VAR_supabase_database_password: ${{ secrets.TF_VAR_SUPABASE_DATABASE_PASSWORD }}
-      # BAMCP — OCI provider auth (API-key signing) + container-instance placement (bamcp.tf).
+      # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
+      # module + AD data source), so only the auth values + optional compartment are secrets.
       TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
       TF_VAR_oci_user_ocid: ${{ secrets.TF_VAR_OCI_USER_OCID }}
       TF_VAR_oci_fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
       TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
       TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
       TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
-      TF_VAR_oci_availability_domain: ${{ secrets.TF_VAR_OCI_AVAILABILITY_DOMAIN }}
-      TF_VAR_oci_subnet_id: ${{ secrets.TF_VAR_OCI_SUBNET_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
