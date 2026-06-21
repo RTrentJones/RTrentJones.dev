@@ -47,11 +47,13 @@ provider "github" {
 # free tier — if the Always-Free A1 instance is ever idle-reclaimed, keepalive alerts and a
 # re-apply/redeploy restores it (no PAYG; docs/oci-payg-runbook.md).
 provider "oci" {
-  tenancy_ocid = var.oci_tenancy_ocid
-  user_ocid    = var.oci_user_ocid
-  fingerprint  = var.oci_fingerprint
+  # trimspace guards against a trailing newline/space pasted into a secret (a malformed region
+  # makes the identity endpoint hostname fail to resolve — "no such host" — at plan time).
+  tenancy_ocid = trimspace(var.oci_tenancy_ocid)
+  user_ocid    = trimspace(var.oci_user_ocid)
+  fingerprint  = trimspace(var.oci_fingerprint)
   private_key  = var.oci_private_key
-  region       = var.oci_region
+  region       = trimspace(var.oci_region)
 }
 
 variable "cloudflare_zone_id" {
