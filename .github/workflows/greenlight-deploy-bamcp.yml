@@ -53,7 +53,8 @@ jobs:
       - name: Report status back to RTrentJones/BAMCP
         if: ${{ always() && github.event.client_payload.sha != '' }}
         env:
-          GH_TOKEN: ${{ secrets.GREENLIGHT_STATUS_TOKEN }}
+          # Per-tool name: the status PAT lives on the shared wrapper, scoped to BAMCP's repo.
+          GH_TOKEN: ${{ secrets.GREENLIGHT_STATUS_TOKEN_BAMCP }}
         run: |
           [ -z "$GH_TOKEN" ] && exit 0
           gh api repos/RTrentJones/BAMCP/statuses/${{ github.event.client_payload.sha }} \
