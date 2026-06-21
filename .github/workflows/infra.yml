@@ -38,6 +38,9 @@ jobs:
       TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
       TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
       TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+      # BAMCP M2M service token for the CI verify — same secret the deploy/remediate verify step
+      # presents. Empty/unset → functional verify dormant (the 401 smoke still gates).
+      TF_VAR_bamcp_verify_token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

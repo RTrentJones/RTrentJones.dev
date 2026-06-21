@@ -46,6 +46,10 @@ module "bamcp_instance" {
     BAMCP_RESOURCE_SERVER_URL = "https://bamcp.rtrentjones.dev"
     BAMCP_ALLOW_REMOTE_FILES  = "true"
     BAMCP_RATE_LIMIT          = "60"
+    # M2M service token for the CI verify (stateless bearer → survives restarts). The SAME secret is
+    # presented by the verify step (greenlight-deploy/remediate). Empty → functional verify dormant;
+    # the 401 smoke still gates. Per-tool name (BAMCP_) so it never collides with another tool.
+    BAMCP_VERIFY_TOKEN = var.bamcp_verify_token
   }
 }
 
@@ -53,6 +57,13 @@ variable "bamcp_image" {
   type        = string
   default     = "ghcr.io/rtrentjones/bamcp:prod"
   description = "GHCR image for bamcp (built + pushed by RTrentJones/BAMCP's own CI)."
+}
+
+variable "bamcp_verify_token" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "M2M service token the CI verify presents to BAMCP (accepted statelessly with read scope). Empty = functional verify dormant; the 401 smoke still gates."
 }
 
 # Subdomain DNS — CNAME bamcp/beta.bamcp → the tunnel.
