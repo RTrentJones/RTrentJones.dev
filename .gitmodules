@@ -1,3 +1,6 @@
 [submodule "tools/bamcp"]
 	path = tools/bamcp
 	url = https://github.com/RTrentJones/BAMCP.git
+[submodule "tools/heistmind"]
+	path = tools/heistmind
+	url = https://github.com/RTrentJones/HeistMind
