@@ -77,7 +77,7 @@ module "bamcp_dns" {
   lane         = "mcp"
   target       = "oci"
   data         = "none"
-  envs         = ["beta", "prod"]
+  envs         = ["prod"] # oci is direct-to-prod (no beta instance on the free A1 cap)
   cname_target = module.bamcp_tunnel.cname_target
   # External repo managed elsewhere; no GitHub envs here so CI stays single-repo.
   manage_github_environments = false

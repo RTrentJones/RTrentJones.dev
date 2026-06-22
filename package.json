@@ -13,7 +13,7 @@
     "blog:preview": "pnpm --filter rtrentjones-blog preview"
   },
   "dependencies": {
-    "@rtrentjones/greenlight": "^0.2.14"
+    "@rtrentjones/greenlight": "^0.2.18"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild", "sharp", "workerd"]

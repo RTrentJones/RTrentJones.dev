@@ -1,31 +1,46 @@
 // Verify spec for BAMCP (external MCP server — code in RTrentJones/BAMCP, wrapped here as the
-// tools/bamcp submodule). `greenlight verify bamcp --env beta|prod` connects to bamcp.<domain>/mcp.
+// tools/bamcp submodule). The wrapper owns this spec; `greenlight verify bamcp --env prod` connects
+// to bamcp.<domain>/mcp, and `greenlight preview bamcp` runs it against a local container.
 //
-// An ARRAY (verifyAll / allPass) combines two signals:
-//  1. api — always runs. GET <base>/mcp must 401, proving the server is up (tunnel + container
-//     serving) AND OAuth is enforced (a public MCP would be a security regression). Base path is
-//     '' since the verify base URL is already the …/mcp connect URL ('/mcp' would hit …/mcp/mcp).
-//  2. mcp (functional / "eval") — runs ONLY when BAMCP_VERIFY_TOKEN is set: an authenticated
-//     initialize → tools/list asserting the real tools are registered + callable. Token is injected
-//     from the env (never committed); absent → this spec is omitted so the gate stays green on the
-//     401 alone until a CI token is provisioned (BAMCP OAuth client-credentials → wrapper secret).
+// ONE config, two contexts (the model's local-gate ↔ prod split):
+//  - preview (GREENLIGHT_PREVIEW=1): the `preview` compose profile serves streamable-http /mcp with
+//    auth OFF, so we run an unauthenticated tools/list — no 401, no token.
+//  - prod: api 401 (server up + OAuth enforced) + an authenticated tools/list (when the M2M token is
+//    set). Telemetry-into-verify attaches the live HTTP response on failure.
+//
+// exactTools is the DRIFT GUARD: tools/list must equal TOOLS exactly — a tool added in code but not
+// listed here (or removed) FAILS the gate, so a new capability is forced into the verify loop.
+const preview = process.env.GREENLIGHT_PREVIEW === '1';
 const token = process.env.BAMCP_VERIFY_TOKEN;
-
-// Telemetry-into-verify: on a FAILED check, capture the actual HTTP response (status + headers +
-// body head) from the exact verify URL. $GREENLIGHT_VERIFY_URL is injected by the harness (no
-// hard-coded URL). Best-effort — attaches to the report so a red gate carries its own "why"
-// (e.g. 502/523 vs the expected 401 → tunnel/container down vs auth working). Never fails the gate.
 const logsOnFailure = 'curl -sS -i "$GREENLIGHT_VERIFY_URL" 2>&1 | head -30 || true';
 
-export default [
-  { mode: 'api', checks: [{ path: '', status: 401 }], logsOnFailure },
-  ...(token
-    ? [
-        {
-          mode: 'mcp',
-          expectTools: ['get_variants', 'get_coverage', 'list_contigs', 'visualize_region'],
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      ]
-    : []),
+const TOOLS = [
+  'get_variants',
+  'get_coverage',
+  'list_contigs',
+  'jump_to',
+  'visualize_region',
+  'get_region_summary',
+  'lookup_clinvar',
+  'lookup_gnomad',
+  'get_variant_curation_summary',
+  'search_gene',
+  'scan_variants',
+  'cleanup_cache',
 ];
+
+export default preview
+  ? [{ mode: 'mcp', expectTools: TOOLS, exactTools: true, logsOnFailure }]
+  : [
+      { mode: 'api', checks: [{ path: '', status: 401 }], logsOnFailure },
+      ...(token
+        ? [
+            {
+              mode: 'mcp',
+              expectTools: TOOLS,
+              exactTools: true,
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          ]
+        : []),
+    ];
