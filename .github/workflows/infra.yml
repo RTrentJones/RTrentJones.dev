@@ -30,6 +30,9 @@ jobs:
       # keepalive Worker token: github-issue alerts (Issues:write) + auto-heal repository_dispatch
       # (Contents:write). Empty/unset → keepalive still pings, but alerts + self-heal no-op.
       TF_VAR_keepalive_github_token: ${{ secrets.TF_VAR_KEEPALIVE_GITHUB_TOKEN }}
+      # HeistMind prod ship-gate: admin token to manage RTrentJones/HeistMind branch protection
+      # (administration:write). Empty/unset → branch protection not managed (apply still succeeds).
+      TF_VAR_github_admin_token: ${{ secrets.TF_VAR_GITHUB_ADMIN_TOKEN }}
       # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
       # module + AD data source), so only the auth values + optional compartment are secrets.
       TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}

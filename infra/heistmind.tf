@@ -142,6 +142,40 @@ module "keepalive" {
   ])
 }
 
+# --- Ship-gate: gate the HeistMind PROD deploy on its own CI -------------------------------------
+# Vercel deploys `main` regardless of CI, so a broken commit could reach prod. Branch protection
+# requires the `Validate & Build` check on `main` — prod (Vercel `main`) only ever holds CI-green
+# commits. No required-PR, so the develop→main fast-forward still works (the target commit already
+# carries the passing check). This manages the EXTERNAL RTrentJones/HeistMind repo, so it needs an
+# admin token distinct from the wrapper's Actions GITHUB_TOKEN (aliased provider below).
+variable "github_admin_token" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "GitHub PAT with administration:write on RTrentJones/HeistMind — manages the prod ship-gate (branch protection). Empty = ship-gate not managed (so apply works before the token is wired)."
+}
+
+provider "github" {
+  alias = "heistmind_admin"
+  owner = "RTrentJones"
+  token = var.github_admin_token
+}
+
+resource "github_branch_protection" "heistmind_main" {
+  # Skip until the admin token is provided, so the rest of the apply isn't blocked.
+  count    = var.github_admin_token != "" ? 1 : 0
+  provider = github.heistmind_admin
+
+  repository_id  = "HeistMind"
+  pattern        = "main"
+  enforce_admins = true # a real gate: even an admin push to main must carry a green check
+
+  required_status_checks {
+    strict   = true
+    contexts = ["Validate & Build"] # the ci.yml job's check-run name
+  }
+}
+
 output "heistmind_prod_url" {
   value = module.heistmind_vercel.prod_url
 }
