@@ -26,9 +26,10 @@ variable "heistmind_supabase_database_password" {
   type      = string
   sensitive = true
   default   = ""
-  # heistmind-db already exists; this is ignored on import (ignore_changes) and only used if the
-  # project is ever recreated from scratch. default "" so the rename/apply can't fail on a missing
-  # value before TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD is set (set it for a real recreate).
+  # heistmind-db is imported and the module pins ignore_changes on the password, so this is NEVER
+  # written to the live DB — but the provider length-validates it at plan time. infra.yml feeds it
+  # from SUPABASE_ACCESS_TOKEN (already present, ≥4 chars) to satisfy that without a dedicated
+  # secret. For a real from-scratch recreate, supply a genuine TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD.
 }
 
 # Discord OAuth creds (scoped secrets, per the token-naming convention). The Discord app is
