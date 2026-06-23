@@ -11,7 +11,10 @@ export default {
     { path: '/bamcp/', status: 200 },
     // The custom 404 page serves (with a 404 status) for unmatched paths — confirms
     // wrangler's not_found_handling: "404-page" is wired and the silly page is reachable.
-    { path: '/this-route-does-not-exist', status: 404, contains: 'check failed' },
+    // A reserved sentinel path (never a real route) so adding a page can't break this check.
+    // Trailing slash to match the site's trailingSlash:'always' invariant (a no-slash path gets the
+    // dev server's built-in 404 locally; the custom page serves for the canonical slash form).
+    { path: '/__greenlight_404_probe__/', status: 404, contains: 'check failed' },
   ],
   rssValid: true,
   sitemapValid: true,

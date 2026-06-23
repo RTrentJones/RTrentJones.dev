@@ -22,6 +22,12 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
 
+      # Consistency gate (no creds): catches infra ?ref drift vs the installed version, manifest
+      # coherence, token scoping, submodule state. Fails the job only on a `fail` (e.g. a missing
+      # dir); warnings (submodules aren't checked out in this job) are informational, exit 0.
+      - name: Doctor (consistency)
+        run: pnpm exec greenlight doctor
+
       - name: Resolve target env
         id: env
         run: |

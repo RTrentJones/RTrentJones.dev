@@ -57,11 +57,11 @@ The blog runs on **Cloudflare Workers Static Assets** (`apps/blog/wrangler.jsonc
 
 - `greenlight.config.ts` — the manifest. The one file that defines this setup.
 - `apps/blog/` — the blog. Astro 5 → Cloudflare Workers. Content is `src/content/blog/*.{md,mdx}`; frontmatter schema (`title`, `date`, optional `description`) is in `src/content.config.ts`. New posts = new files in that collection.
-- `infra/*.tf` — Terraform instantiating Greenlight's modules (`tool`/`vercel`/`supabase`/`oci-*`/`keepalive`), **git-sourced by `?ref=v0.2.22`** (lockstep with the npm dep). One `.tf` per tool; `greenlight add`/`adopt` emit them. Apply runs in `infra.yml` against **HCP Terraform** state with scoped secrets.
+- `infra/*.tf` — Terraform instantiating Greenlight's modules (`tool`/`vercel`/`supabase`/`oci-*`/`keepalive`), **git-sourced by `?ref=v0.2.23`** (lockstep with the npm dep). One `.tf` per tool; `greenlight add`/`adopt` emit them. Apply runs in `infra.yml` against **HCP Terraform** state with scoped secrets.
 
 ## Framework consumption
 
-`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.22`); Terraform pins the matching module tag (`?ref=v0.2.22`). Update the mechanics with `pnpm update @rtrentjones/greenlight` (then bump the `?ref=` in `infra/*.tf`) — never by merging framework source into this repo.
+`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.23`); Terraform pins the matching module tag (`?ref=v0.2.23`). Update the mechanics with `pnpm update @rtrentjones/greenlight` (then bump the `?ref=` in `infra/*.tf`) — never by merging framework source into this repo.
 
 ## Greenlight loop (deploy → verify → promote)
 

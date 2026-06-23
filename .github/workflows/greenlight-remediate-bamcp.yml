@@ -83,8 +83,17 @@ jobs:
         if: ${{ failure() }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REASON: ${{ github.event.client_payload.reason || 'manual/unknown' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create --repo ${{ github.repository }} \
-            --title "remediate-bamcp: self-heal FAILED" \
-            --body "Automatic remediation for bamcp (reason: ${{ github.event.client_payload.reason }}) did not bring prod back. Manual attention needed." \
-            --label keepalive || true
+          TITLE="remediate-bamcp: self-heal FAILED"
+          BODY="Automatic remediation for bamcp (reason: $REASON) did not bring prod back. Manual attention needed. Run: $RUN_URL"
+          # De-dup: a sustained outage fires this every cron tick — comment on the existing open
+          # keepalive issue instead of stacking identical ones (alert fatigue).
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --label keepalive \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "Still failing — $BODY" || true
+          else
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" --body "$BODY" --label keepalive || true
+          fi

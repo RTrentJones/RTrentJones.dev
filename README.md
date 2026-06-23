@@ -23,6 +23,6 @@ Shipping a change is the deploy-verify-promote loop — install the Greenlight C
 
 ## Framework consumption
 
-`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.22`); Terraform pins the matching module tag (`?ref=v0.2.22`). Updates arrive via `pnpm update @rtrentjones/greenlight` (then bump the `?ref=`) — no merging framework code.
+`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.23`); Terraform pins the matching module tag (`?ref=v0.2.23`). Updates arrive via `pnpm update @rtrentjones/greenlight` (then bump the `?ref=`) — no merging framework code.
 
 Two tools run on it: **[BAMCP](https://github.com/RTrentJones/BAMCP)** (`mcp`/`oci`, [live](https://bamcp.rtrentjones.dev/mcp)) and **[HeistMind](https://github.com/RTrentJones/HeistMind)** (`next`/`vercel`/`supabase`, [live](https://heistmind.rtrentjones.dev)), each a `tools/<name>` submodule with a green verify gate.

@@ -5,11 +5,19 @@ import Base from '../layouts/Base.astro';
 // Top-level write-up pages (/heistmind, /bamcp). Astro's SSG emits ONLY the slugs returned
 // here, so this never shadows the static routes (/, /blog, /about).
 export async function getStaticPaths() {
+  // A local project whose slug equals one of these would generate a route shadowing a static page.
+  // (Defined inside getStaticPaths — Astro extracts this function and won't capture outer consts.)
+  const RESERVED = new Set(['about', 'blog', 'projects', 'rss', 'sitemap', '404']);
   const projects = await getCollection('projects');
   // External projects (e.g. Greenlight) link straight to GitHub — no local write-up page.
-  return projects
-    .filter((project) => !project.data.external)
-    .map((project) => ({ params: { project: project.id }, props: { project } }));
+  const local = projects.filter((project) => !project.data.external);
+  const collision = local.find((p) => RESERVED.has(p.id));
+  if (collision) {
+    throw new Error(
+      `project slug "${collision.id}" collides with a static route (${[...RESERVED].join(', ')}) — rename the file or set external: true`,
+    );
+  }
+  return local.map((project) => ({ params: { project: project.id }, props: { project } }));
 }
 
 const { project } = Astro.props;
