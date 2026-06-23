@@ -44,41 +44,17 @@ jobs:
           terraform -chdir=infra init -input=false
           # -target pulls in the instance's deps (the bamcp_network module) automatically.
           terraform -chdir=infra apply -input=false -auto-approve -target=module.bamcp_instance
-      - run: pip install --quiet oci-cli
-      - name: Deploy (resolve instance OCID by name -> restart -> re-pull GHCR image)
-        env:
-          # The OCI CLI reuses the SAME TF_VAR_OCI_* secrets the apply uses — one secret set.
-          OCI_CLI_TENANCY: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
-          OCI_CLI_USER: ${{ secrets.TF_VAR_OCI_USER_OCID }}
-          OCI_CLI_FINGERPRINT: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
-          OCI_CLI_KEY_CONTENT: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
-          OCI_CLI_REGION: ${{ secrets.TF_VAR_OCI_REGION }}
-          OCI_COMPARTMENT_ID: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
-        run: |
-          # The instance OCID is abstracted from the developer: resolve it from OCI by the
-          # instance's display name (= the tool name, set by the oci-container-instance module).
-          # No manually-fetched/stored OCID secret. Compartment falls back to the tenancy (root).
-          set -o pipefail
-          COMPARTMENT="${OCI_COMPARTMENT_ID:-$OCI_CLI_TENANCY}"
-          echo "Resolving 'bamcp' (region=$OCI_CLI_REGION)…"
-          oci container-instances container-instance list \
-            --compartment-id "$COMPARTMENT" --display-name bamcp --all > list.json \
-            || { echo "::error::oci list failed (auth/region/compartment) — see output above"; exit 1; }
-          # OCIDs are identifiers, not secrets (tenancy/compartment are masked by Actions).
-          echo "Matches:"; jq -r '(.data.items // .data // [])[]? | "  \(.["lifecycle-state"] // "?")  \(.id)"' list.json
-          OCID=$(jq -r '[(.data.items // .data // [])[]? | select((.["lifecycle-state"] // "")=="ACTIVE") | .id][0] // ""' list.json)
-          if [ -z "$OCID" ]; then
-            echo "::error::no ACTIVE container instance named 'bamcp' in compartment $COMPARTMENT"
-            exit 1
-          fi
-          echo "Resolved bamcp instance: $OCID"
-          OCI_CONTAINER_INSTANCE_OCID="$OCID" pnpm exec greenlight deploy bamcp --env prod
-      - name: Verify prod (gate the self-heal on real health, not just the restart)
-        # BAMCP_VERIFY_TOKEN (optional) enables the authenticated functional/eval mcp check; absent →
-        # the api 401 check alone confirms the server is back (see verify/bamcp.config.ts).
-        env:
-          BAMCP_VERIFY_TOKEN: ${{ secrets.BAMCP_VERIFY_TOKEN }}
-        run: pnpm exec greenlight verify bamcp --env prod
+      # Same resolve→restart→verify as greenlight-deploy-bamcp (shared composite). The terraform
+      # re-apply above recreates the box if it was reclaimed; this then restarts + re-pulls + gates.
+      - uses: ./.github/actions/oci-deploy-verify
+        with:
+          oci-tenancy: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
+          oci-user: ${{ secrets.TF_VAR_OCI_USER_OCID }}
+          oci-fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
+          oci-private-key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
+          oci-region: ${{ secrets.TF_VAR_OCI_REGION }}
+          oci-compartment: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+          verify-token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
       - name: Escalate if the self-heal failed
         if: ${{ failure() }}
         env:

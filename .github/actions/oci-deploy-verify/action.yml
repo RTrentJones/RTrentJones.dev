@@ -1,0 +1,72 @@
+name: 'BAMCP OCI deploy + verify'
+description: >
+  Resolve the bamcp container instance by display name, restart it (re-pull the GHCR image),
+  and verify prod. Shared by greenlight-deploy-bamcp and greenlight-remediate-bamcp so the
+  resolve→deploy→verify logic lives in ONE place. The caller must have already run
+  actions/checkout + mise + `pnpm install` (this composite calls `pnpm exec greenlight`).
+inputs:
+  oci-tenancy:
+    description: OCI tenancy OCID
+    required: true
+  oci-user:
+    description: OCI user OCID
+    required: true
+  oci-fingerprint:
+    description: OCI API key fingerprint
+    required: true
+  oci-private-key:
+    description: OCI API private key (PEM)
+    required: true
+  oci-region:
+    description: OCI region
+    required: true
+  oci-compartment:
+    description: OCI compartment OCID (falls back to the tenancy/root when empty)
+    required: false
+    default: ''
+  verify-token:
+    description: BAMCP_VERIFY_TOKEN — enables the authenticated mcp verify; empty → the 401 smoke alone gates
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - run: pip install --quiet oci-cli
+      shell: bash
+    - name: Deploy (resolve instance OCID by name -> restart -> re-pull GHCR image)
+      shell: bash
+      env:
+        # The OCI CLI reuses the SAME TF_VAR_OCI_* secrets the apply uses — one secret set.
+        OCI_CLI_TENANCY: ${{ inputs.oci-tenancy }}
+        OCI_CLI_USER: ${{ inputs.oci-user }}
+        OCI_CLI_FINGERPRINT: ${{ inputs.oci-fingerprint }}
+        OCI_CLI_KEY_CONTENT: ${{ inputs.oci-private-key }}
+        OCI_CLI_REGION: ${{ inputs.oci-region }}
+        OCI_COMPARTMENT_ID: ${{ inputs.oci-compartment }}
+      run: |
+        # The instance OCID is abstracted from the developer: resolve it from OCI by the
+        # instance's display name (= the tool name, set by the oci-container-instance module).
+        # No manually-fetched/stored OCID secret. Compartment falls back to the tenancy (root).
+        set -o pipefail
+        COMPARTMENT="${OCI_COMPARTMENT_ID:-$OCI_CLI_TENANCY}"
+        echo "Resolving 'bamcp' (region=$OCI_CLI_REGION)…"
+        oci container-instances container-instance list \
+          --compartment-id "$COMPARTMENT" --display-name bamcp --all > list.json \
+          || { echo "::error::oci list failed (auth/region/compartment) — see output above"; exit 1; }
+        # OCIDs are identifiers, not secrets (tenancy/compartment are masked by Actions).
+        echo "Matches:"; jq -r '(.data.items // .data // [])[]? | "  \(.["lifecycle-state"] // "?")  \(.id)"' list.json
+        OCID=$(jq -r '[(.data.items // .data // [])[]? | select((.["lifecycle-state"] // "")=="ACTIVE") | .id][0] // ""' list.json)
+        if [ -z "$OCID" ]; then
+          echo "::error::no ACTIVE container instance named 'bamcp' in compartment $COMPARTMENT"
+          exit 1
+        fi
+        echo "Resolved bamcp instance: $OCID"
+        OCI_CONTAINER_INSTANCE_OCID="$OCID" pnpm exec greenlight deploy bamcp --env prod
+    - name: Verify prod (gate the signal on real health, not just the restart)
+      shell: bash
+      env:
+        # BAMCP_VERIFY_TOKEN (optional) enables the authenticated functional/eval mcp check; absent →
+        # the api 401 check alone gates (see verify/bamcp.config.ts). verify has a built-in readiness
+        # wait, so this covers re-pull + container start before asserting.
+        BAMCP_VERIFY_TOKEN: ${{ inputs.verify-token }}
+      run: pnpm exec greenlight verify bamcp --env prod
