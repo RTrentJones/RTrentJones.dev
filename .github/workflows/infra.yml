@@ -27,10 +27,11 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
       TF_VAR_cloudflare_zone_id: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_ID }}
       # DB password is inert on the imported project (the module pins ignore_changes) — never
-      # written to the live DB — but the supabase provider length-validates it at plan time. A
-      # dummy (≥4 chars) is fine; the var also defaults to "import-placeholder", so an unset secret
-      # can't break the apply. A real from-scratch recreate is the only time it needs a genuine value.
-      TF_VAR_heistmind_supabase_database_password: ${{ secrets.TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD }}
+      # written to the live DB — but the supabase provider length-validates it at plan time. The
+      # `|| 'import-placeholder'` fallback means an UNSET secret yields a valid ≥4-char value (an
+      # unset secret is "" and would otherwise override the var default). Set a dummy (≥4 chars) to
+      # replace it; a real from-scratch recreate is the only time it needs a genuine value.
+      TF_VAR_heistmind_supabase_database_password: ${{ secrets.TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD || 'import-placeholder' }}
       # keepalive Worker token: github-issue alerts (Issues:write) + auto-heal repository_dispatch
       # (Contents:write). Empty/unset → keepalive still pings, but alerts + self-heal no-op.
       TF_VAR_keepalive_github_token: ${{ secrets.TF_VAR_KEEPALIVE_GITHUB_TOKEN }}
