@@ -6,7 +6,10 @@ import Base from '../layouts/Base.astro';
 // here, so this never shadows the static routes (/, /blog, /about).
 export async function getStaticPaths() {
   const projects = await getCollection('projects');
-  return projects.map((project) => ({ params: { project: project.id }, props: { project } }));
+  // External projects (e.g. Greenlight) link straight to GitHub — no local write-up page.
+  return projects
+    .filter((project) => !project.data.external)
+    .map((project) => ({ params: { project: project.id }, props: { project } }));
 }
 
 const { project } = Astro.props;

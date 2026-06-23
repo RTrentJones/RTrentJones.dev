@@ -10,8 +10,10 @@ const blog = defineCollection({
   }),
 });
 
-// Per-project write-ups, rendered at the top level (/heistmind, /bamcp) by [project].astro.
-// The slug = the filename, so it must not collide with a static route (about, blog, rss.xml).
+// Projects, listed on /projects. Ones with a local write-up render at the top level
+// (/heistmind, /bamcp) via [project].astro — the slug = the filename, so it must not collide
+// with a static route (about, blog, projects, rss.xml). `external: true` projects (e.g.
+// Greenlight) get no local page; their card links straight out to repoUrl.
 const projects = defineCollection({
   loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/projects' }),
   schema: z.object({
@@ -21,6 +23,7 @@ const projects = defineCollection({
     repoUrl: z.string().url().optional(),
     status: z.string().optional(),
     order: z.number().default(99),
+    external: z.boolean().default(false),
     date: z.coerce.date().optional(),
   }),
 });

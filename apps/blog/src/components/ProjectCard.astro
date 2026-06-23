@@ -1,23 +1,27 @@
 ---
+import type { CollectionEntry } from 'astro:content';
+
 interface Props {
-  href: string;
-  title: string;
-  summary: string;
-  liveUrl?: string;
-  status?: string;
+  project: CollectionEntry<'projects'>;
 }
-const { href, title, summary, liveUrl, status } = Astro.props;
+const { project } = Astro.props;
+const { title, summary, liveUrl, repoUrl, status, external } = project.data;
+
+// Local projects get a write-up page at /<slug>/; external ones (e.g. Greenlight) link straight out.
+const writeup = external ? undefined : `/${project.id}/`;
+const primary = writeup ?? repoUrl ?? liveUrl ?? '#';
 ---
 
 <article class="project-card">
   <h3>
-    <a href={href}>{title}</a>
+    <a href={primary}>{title}</a>
     {status && <span class="status">{status}</span>}
   </h3>
   <p>{summary}</p>
   <p class="links">
-    <a href={href}>Write-up →</a>
+    {writeup && <a href={writeup}>Write-up →</a>}
     {liveUrl && <a href={liveUrl}>Live ↗</a>}
+    {!writeup && repoUrl && <a href={repoUrl}>GitHub ↗</a>}
   </p>
 </article>
 

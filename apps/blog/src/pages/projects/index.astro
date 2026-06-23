@@ -1,0 +1,36 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+
+const projects = (await getCollection('projects')).sort(
+  (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
+);
+---
+
+<Base title="Projects" description="Things I've built — most run live, gated by the Greenlight loop.">
+  <h1>Projects</h1>
+  <p class="lede">Things I've built. Most run live; each ships through the Greenlight loop.</p>
+  <div class="grid">
+    {projects.map((project) => <ProjectCard project={project} />)}
+  </div>
+</Base>
+
+<style>
+  .lede {
+    color: var(--fg-muted);
+    font-size: var(--text-lg);
+    max-width: var(--measure);
+    margin-bottom: 2rem;
+  }
+  .grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>
