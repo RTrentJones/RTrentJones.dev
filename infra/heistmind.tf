@@ -6,7 +6,7 @@
 # own bundled worker.js), so no local build is needed. To re-apply from a fresh clone:
 # │  1. Creds (see infra/TOKENS.md / Greenlight docs/provider-tokens.md): SUPABASE_ACCESS_TOKEN,
 # │     VERCEL_API_TOKEN, a CLOUDFLARE_API_TOKEN with **Workers Scripts: Edit + Zone DNS: Edit**,
-# │     and TF_VAR_cloudflare_zone_id / TF_VAR_supabase_database_password.
+# │     and TF_VAR_cloudflare_zone_id / TF_VAR_heistmind_supabase_database_password.
 # │  2. The live Supabase project is imported (not recreated — name/region are replace-forcing
 # │     and the module sets ignore_changes). On a fresh state, re-import before apply:
 # │       terraform import module.heistmind_supabase.supabase_project.this kjcdddzyibwqahgiypdb
@@ -22,11 +22,13 @@ provider "supabase" {
   # access_token from the SUPABASE_ACCESS_TOKEN environment variable.
 }
 
-variable "supabase_database_password" {
+variable "heistmind_supabase_database_password" {
   type      = string
   sensitive = true
-  # heistmind-db already exists; this is ignored on import (ignore_changes) and only used
-  # if the project is ever recreated from scratch.
+  default   = ""
+  # heistmind-db already exists; this is ignored on import (ignore_changes) and only used if the
+  # project is ever recreated from scratch. default "" so the rename/apply can't fail on a missing
+  # value before TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD is set (set it for a real recreate).
 }
 
 # Discord OAuth creds (scoped secrets, per the token-naming convention). The Discord app is
@@ -68,7 +70,7 @@ module "heistmind_supabase" {
   name              = "heistmind"
   project_name      = "heistmind-db" # exact existing name (replace-forcing — must match)
   organization_id   = "kvscndbazripnyavwjkq"
-  database_password = var.supabase_database_password
+  database_password = var.heistmind_supabase_database_password
   region            = "us-east-1"
 
   # Discord OAuth — enabled only when BOTH scoped creds are present, so apply is a no-op until
@@ -177,7 +179,7 @@ module "keepalive" {
 # commits. No required-PR, so the develop→main fast-forward still works (the target commit already
 # carries the passing check). This manages the EXTERNAL RTrentJones/HeistMind repo, so it needs an
 # admin token distinct from the wrapper's Actions GITHUB_TOKEN (aliased provider below).
-variable "github_admin_token" {
+variable "heistmind_github_admin_token" {
   type        = string
   sensitive   = true
   default     = ""
@@ -187,12 +189,12 @@ variable "github_admin_token" {
 provider "github" {
   alias = "heistmind_admin"
   owner = "RTrentJones"
-  token = var.github_admin_token
+  token = var.heistmind_github_admin_token
 }
 
 resource "github_branch_protection" "heistmind_main" {
   # Skip until the admin token is provided, so the rest of the apply isn't blocked.
-  count    = var.github_admin_token != "" ? 1 : 0
+  count    = var.heistmind_github_admin_token != "" ? 1 : 0
   provider = github.heistmind_admin
 
   repository_id  = "HeistMind"
