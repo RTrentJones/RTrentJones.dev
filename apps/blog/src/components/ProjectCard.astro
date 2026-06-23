@@ -1,0 +1,62 @@
+---
+interface Props {
+  href: string;
+  title: string;
+  summary: string;
+  liveUrl?: string;
+  status?: string;
+}
+const { href, title, summary, liveUrl, status } = Astro.props;
+---
+
+<article class="project-card">
+  <h3>
+    <a href={href}>{title}</a>
+    {status && <span class="status">{status}</span>}
+  </h3>
+  <p>{summary}</p>
+  <p class="links">
+    <a href={href}>Write-up →</a>
+    {liveUrl && <a href={liveUrl}>Live ↗</a>}
+  </p>
+</article>
+
+<style>
+  .project-card {
+    padding: 1.2rem 1.3rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-subtle);
+  }
+  .project-card h3 {
+    margin: 0 0 0.3rem;
+    font-size: var(--text-lg);
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+  .project-card h3 a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .project-card h3 a:hover {
+    color: var(--accent);
+  }
+  .status {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .project-card p {
+    margin: 0 0 0.6rem;
+    color: var(--fg-muted);
+  }
+  .links {
+    display: flex;
+    gap: 1.1rem;
+    font-size: 0.95rem;
+    margin-bottom: 0 !important;
+  }
+</style>

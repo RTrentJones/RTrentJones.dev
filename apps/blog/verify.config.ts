@@ -2,7 +2,13 @@
 // the RSS feed and sitemap parse, and no internal links are broken.
 export default {
   mode: 'api',
-  checks: [{ path: '/', status: 200 }],
+  checks: [
+    { path: '/', status: 200 },
+    { path: '/blog/', status: 200 },
+    { path: '/about/', status: 200 },
+    { path: '/heistmind/', status: 200 },
+    { path: '/bamcp/', status: 200 },
+  ],
   rssValid: true,
   sitemapValid: true,
   noBrokenInternalLinks: true,

@@ -1,0 +1,61 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+
+// Top-level write-up pages (/heistmind, /bamcp). Astro's SSG emits ONLY the slugs returned
+// here, so this never shadows the static routes (/, /blog, /about).
+export async function getStaticPaths() {
+  const projects = await getCollection('projects');
+  return projects.map((project) => ({ params: { project: project.id }, props: { project } }));
+}
+
+const { project } = Astro.props;
+const { Content } = await render(project);
+const { title, summary, liveUrl, repoUrl, status } = project.data;
+---
+
+<Base title={title} description={summary} prose>
+  <article>
+    <p class="back"><a href="/#projects">← projects</a></p>
+    <h1>{title}</h1>
+    <p class="summary">{summary}</p>
+    <p class="links">
+      {liveUrl && <a class="cta" href={liveUrl}>Open the live tool ↗</a>}
+      {repoUrl && <a href={repoUrl}>Source ↗</a>}
+      {status && <span class="muted">{status}</span>}
+    </p>
+    <Content />
+  </article>
+</Base>
+
+<style>
+  .back {
+    margin-bottom: 1.5rem;
+  }
+  .summary {
+    font-size: var(--text-lg);
+    color: var(--fg-muted);
+    margin-bottom: 0.8rem;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  .cta {
+    display: inline-block;
+    padding: 0.4rem 0.9rem;
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-radius: 7px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .cta:hover {
+    text-decoration: none;
+    filter: brightness(1.05);
+  }
+</style>

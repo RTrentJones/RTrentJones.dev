@@ -1,13 +1,31 @@
 ---
-interface Props {
-  title: string;
-  description?: string;
-}
-const { title, description } = Astro.props;
+import '../styles/tokens.css';
+import SiteHeader from '../components/SiteHeader.astro';
+import Footer from '../components/Footer.astro';
 
-// Beta builds get SITE_URL=https://beta.rtrentjones.dev (set by the Greenlight
-// adapter); prod and local dev resolve to the apex domain. Surface that in the header.
+interface Props {
+  title?: string;
+  description?: string;
+  /** Narrow <main> to the reading measure (long-form: posts + project write-ups). */
+  prose?: boolean;
+}
+const { title, description, prose = false } = Astro.props;
+
+const SITE_NAME = 'Trent Jones';
+const SITE_DESC =
+  'Engineer building self-verifying tools. Projects, write-ups, and a blog at rtrentjones.dev.';
+const fullTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
+const desc = description ?? SITE_DESC;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.pathname;
+
+// Beta builds get SITE_URL=https://beta.rtrentjones.dev (set by the Greenlight adapter).
 const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
+
+// Cloudflare Web Analytics (free, privacy-friendly, cookieless). Enable it for rtrentjones.dev in
+// the Cloudflare dashboard → Web Analytics, then paste the beacon token below (it's public, not a
+// secret). The beacon loads ONLY on the prod apex — never on beta or local.
+const CF_BEACON_TOKEN = ''; // ← paste the token to turn analytics on
+const analyticsOn = Boolean(CF_BEACON_TOKEN) && Astro.site?.hostname === 'rtrentjones.dev';
 ---
 
 <!doctype html>
@@ -15,36 +33,33 @@ const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    {description && <meta name="description" content={description} />}
-    <link rel="alternate" type="application/rss+xml" title={title} href="/rss.xml" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} — blog`} href="/rss.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+
+    {
+      analyticsOn && (
+        <script
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={`{"token": "${CF_BEACON_TOKEN}"}`}
+        />
+      )
+    }
   </head>
   <body>
-    <header>
-      <a href="/">Greenlight Blog</a>
-      {isBeta && <span class="env-badge">BETA</span>}
-    </header>
-    <main>
+    <SiteHeader siteName={SITE_NAME} isBeta={isBeta} />
+    <main class={prose ? 'prose' : ''}>
       <slot />
     </main>
-    <footer>
-      <a href="/rss.xml">RSS</a>
-    </footer>
+    <Footer siteName={SITE_NAME} />
   </body>
 </html>
-
-<style>
-  .env-badge {
-    margin-left: 0.5rem;
-    padding: 0.1rem 0.4rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    vertical-align: middle;
-    color: #92400e;
-    background: #fde68a;
-    border: 1px solid #f59e0b;
-    border-radius: 0.25rem;
-  }
-</style>

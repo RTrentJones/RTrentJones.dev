@@ -1,0 +1,79 @@
+---
+interface Props {
+  siteName: string;
+  isBeta?: boolean;
+}
+const { siteName, isBeta = false } = Astro.props;
+
+const nav = [
+  { href: '/blog/', label: 'Blog' },
+  { href: '/#projects', label: 'Projects' },
+  { href: '/about/', label: 'About' },
+];
+const path = Astro.url.pathname;
+const isActive = (href: string) =>
+  href.startsWith('/') && !href.includes('#') && (path === href || path.startsWith(`${href}/`));
+---
+
+<header class="site-header">
+  <a href="/" class="brand">
+    {siteName}{isBeta && <span class="badge">beta</span>}
+  </a>
+  <nav>
+    {
+      nav.map((i) => (
+        <a href={i.href} aria-current={isActive(i.href) ? 'page' : undefined}>
+          {i.label}
+        </a>
+      ))
+    }
+  </nav>
+</header>
+
+<style>
+  .site-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem 1.25rem;
+    max-width: var(--measure-wide);
+    margin-inline: auto;
+    padding: 1.4rem var(--space) 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--fg);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .badge {
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    color: var(--accent-fg);
+    background: var(--accent);
+    border-radius: 4px;
+  }
+  nav {
+    display: flex;
+    gap: 1.1rem;
+    font-size: 0.98rem;
+  }
+  nav a {
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+  nav a:hover,
+  nav a[aria-current='page'] {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

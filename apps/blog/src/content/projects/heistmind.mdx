@@ -1,0 +1,33 @@
+---
+title: HeistMind
+summary: A Next.js + Supabase app with Discord auth, shipped through a self-verifying deploy gate.
+liveUrl: https://heistmind.rtrentjones.dev
+repoUrl: https://github.com/RTrentJones/HeistMind
+status: live
+order: 1
+date: 2026-06-23
+---
+
+> _One-paragraph product pitch goes here — what HeistMind is and who it's for._
+
+## The stack
+
+- **Next.js** on **Vercel** (git-integration deploys), **Supabase** for Postgres + auth.
+- **Discord OAuth** as the sign-in method — declared in Terraform, so the Supabase `/config/auth` is
+  managed as code, not clicked in a dashboard.
+- A shared `@heist-mind/ui` component library (Radix + Tailwind), kept in sync with a Claude Design
+  System project.
+
+## What I find interesting
+
+It rides the [Greenlight](https://github.com/RTrentJones/greenlight) deploy → verify → promote loop:
+
+- **A prod ship-gate** — branch protection requires the CI `Validate & Build` check, so prod only
+  ever holds CI-green commits.
+- **An authenticated deploy gate** — every preview deploy runs a Playwright suite that injects real
+  GM/Player sessions via the Supabase service-role key (no scripting Discord's consent screen), so
+  authenticated journeys are verified against the live deployment, not just unit-tested.
+- The whole thing is one manifest entry; the infra (domains, env, auth, keepalive) is Terraform the
+  CLI emits.
+
+_Write-up in progress — more on the design and the game itself soon._

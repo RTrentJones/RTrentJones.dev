@@ -1,0 +1,165 @@
+/* Design tokens + base element styles for rtrentjones.dev — content-first, typographic,
+   minimal (simonwillison / sham vibe). No framework: custom properties + a small base layer;
+   components add scoped CSS on top. Swap the look by editing the tokens here. */
+
+:root {
+  /* Type */
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+  --text-base: 1.125rem; /* 18px — comfortable long-form reading */
+  --text-sm: 0.875rem;
+  --text-lg: 1.3rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.4rem;
+  --leading: 1.65;
+
+  /* Layout */
+  --measure: 42rem; /* ~65ch content width */
+  --measure-wide: 56rem; /* homepage / list pages */
+  --space: 1.25rem;
+
+  /* Color — light */
+  --bg: #fcfcfc;
+  --bg-subtle: #f3f3f1;
+  --fg: #1a1a18;
+  --fg-muted: #5c5c57;
+  --border: #e3e3df;
+  --accent: #1f7a4d; /* a restrained green nod to "Greenlight" */
+  --accent-fg: #ffffff;
+  --code-bg: #f3f3f1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161a;
+    --bg-subtle: #1f1f24;
+    --fg: #e8e8e3;
+    --fg-muted: #a3a39c;
+    --border: #2e2e34;
+    --accent: #4ade80;
+    --accent-fg: #0b0b0d;
+    --code-bg: #1f1f24;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading);
+  color: var(--fg);
+  background: var(--bg);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: var(--measure-wide);
+  margin-inline: auto;
+  padding: 0 var(--space) 4rem;
+}
+
+/* Long-form prose narrows to a comfortable measure */
+article,
+.prose {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 2.2rem 0 0.6rem;
+  font-weight: 650;
+}
+h1 {
+  font-size: var(--text-2xl);
+  margin-top: 1rem;
+}
+h2 {
+  font-size: var(--text-xl);
+}
+h3 {
+  font-size: var(--text-lg);
+}
+
+p,
+ul,
+ol {
+  margin: 0 0 1.1rem;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+time,
+.muted {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
+pre code {
+  background: none;
+  padding: 0;
+}
+
+blockquote {
+  margin: 1.4rem 0;
+  padding-left: 1.1rem;
+  border-left: 3px solid var(--border);
+  color: var(--fg-muted);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2.5rem 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

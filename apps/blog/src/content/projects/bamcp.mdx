@@ -1,0 +1,28 @@
+---
+title: BAMCP
+summary: A stateful MCP server on a free-tier Oracle Cloud container — kept alive and auto-healed.
+liveUrl: https://bamcp.rtrentjones.dev/mcp
+repoUrl: https://github.com/RTrentJones/BAMCP
+status: live
+order: 2
+date: 2026-06-23
+---
+
+> _One-paragraph pitch — what BAMCP is and what the MCP server does._
+
+## The stack
+
+- A **Model Context Protocol** server (streamable HTTP), OAuth-gated.
+- Runs on an **Oracle Cloud Always-Free Ampere A1 Container Instance** — the whole network (VCN +
+  subnet) is Terraform, fronted by a Cloudflare tunnel; the only manual input is the API key.
+- Built + pushed as a container image by its own CI; "deploy" is a restart that re-pulls.
+
+## What I find interesting
+
+- **Liveness as a feature** — a Cloudflare Worker cron health-checks the box and, on an outage,
+  fires a `repository_dispatch` that re-applies + redeploys + verifies it. Recover-on-alert keeps it
+  on the free tier (no pay-as-you-go).
+- **Protocol-level verification** — the deploy gate speaks MCP: initialize → `tools/list` → call a
+  tool and assert the shape → assert auth rejection. A drift-guard pins the exact tool set.
+
+_Write-up in progress._

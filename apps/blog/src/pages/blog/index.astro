@@ -1,0 +1,33 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+
+const posts = (await getCollection('blog')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+---
+
+<Base title="Blog" description="Writing on building self-verifying tools.">
+  <h1>Blog</h1>
+  <div class="post-list">
+    {
+      posts.map((post) => (
+        <PostCard
+          href={`/blog/${post.id}/`}
+          title={post.data.title}
+          date={post.data.date}
+          description={post.data.description}
+        />
+      ))
+    }
+  </div>
+</Base>
+
+<style>
+  .post-list {
+    display: grid;
+    gap: 1.75rem;
+    margin-top: 1.5rem;
+  }
+</style>
