@@ -33,6 +33,10 @@ jobs:
       # HeistMind prod ship-gate: admin token to manage RTrentJones/HeistMind branch protection
       # (administration:write). Empty/unset → branch protection not managed (apply still succeeds).
       TF_VAR_github_admin_token: ${{ secrets.TF_VAR_GITHUB_ADMIN_TOKEN }}
+      # HeistMind Discord OAuth (Supabase auth provider). Discord app is created manually; these
+      # are its creds. Empty/unset → Discord auth stays disabled (apply unchanged).
+      TF_VAR_heistmind_discord_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_ID }}
+      TF_VAR_heistmind_discord_client_secret: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET }}
       # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
       # module + AD data source), so only the auth values + optional compartment are secrets.
       TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}

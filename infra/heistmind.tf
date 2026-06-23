@@ -29,6 +29,23 @@ variable "supabase_database_password" {
   # if the project is ever recreated from scratch.
 }
 
+# Discord OAuth creds (scoped secrets, per the token-naming convention). The Discord app is
+# created manually (Discord Developer Portal → OAuth2); redirect URI must be
+# https://kjcdddzyibwqahgiypdb.supabase.co/auth/v1/callback. Empty (default) => Discord auth
+# stays OFF and the supabase module does not manage the auth config at all (apply unchanged).
+variable "heistmind_discord_client_id" {
+  type        = string
+  default     = ""
+  description = "Discord OAuth Client ID for HeistMind (secret TF_VAR_HEISTMIND_DISCORD_CLIENT_ID). Empty = Discord auth disabled."
+}
+
+variable "heistmind_discord_client_secret" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Discord OAuth Client Secret for HeistMind (secret TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET). Empty = Discord auth disabled."
+}
+
 variable "cloudflare_account_id" {
   type    = string
   default = "47f5715fc54e2280476f65d03cce71f5"
@@ -46,13 +63,25 @@ locals {
 
 # One Supabase project (schema-per-env), imported + kept declarative + recreatable.
 module "heistmind_supabase" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.2.3"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.2.19"
 
   name              = "heistmind"
   project_name      = "heistmind-db" # exact existing name (replace-forcing — must match)
   organization_id   = "kvscndbazripnyavwjkq"
   database_password = var.supabase_database_password
   region            = "us-east-1"
+
+  # Discord OAuth — enabled only when BOTH scoped creds are present, so apply is a no-op until
+  # the Discord app exists + its secrets are set (then `plan` shows the /config/auth change).
+  discord_auth_enabled  = var.heistmind_discord_client_id != "" && var.heistmind_discord_client_secret != ""
+  discord_client_id     = var.heistmind_discord_client_id
+  discord_client_secret = var.heistmind_discord_client_secret
+  auth_site_url         = "https://heistmind.rtrentjones.dev"
+  auth_additional_redirect_urls = [
+    "https://heistmind.rtrentjones.dev/**",
+    "https://beta.heistmind.rtrentjones.dev/**",
+    "http://localhost:3000/**",
+  ]
 }
 
 # Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
