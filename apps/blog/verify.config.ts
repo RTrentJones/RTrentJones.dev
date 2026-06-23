@@ -9,6 +9,9 @@ export default {
     { path: '/about/', status: 200 },
     { path: '/heistmind/', status: 200 },
     { path: '/bamcp/', status: 200 },
+    // The custom 404 page serves (with a 404 status) for unmatched paths — confirms
+    // wrangler's not_found_handling: "404-page" is wired and the silly page is reachable.
+    { path: '/this-route-does-not-exist', status: 404, contains: 'check failed' },
   ],
   rssValid: true,
   sitemapValid: true,

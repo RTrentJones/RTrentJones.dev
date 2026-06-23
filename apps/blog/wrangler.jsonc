@@ -4,7 +4,8 @@
   // and a token with Workers + DNS + Workers Routes edit.
   "name": "rtrentjones-blog",
   "compatibility_date": "2025-06-01",
-  "assets": { "directory": "./dist" },
+  // not_found_handling: serve our custom dist/404.html (with a 404 status) for unmatched paths.
+  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
   "env": {
     "beta": {
       "name": "rtrentjones-blog-beta",

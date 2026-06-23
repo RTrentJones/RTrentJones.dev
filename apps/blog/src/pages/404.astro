@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="404 — check failed" prose>
+  <h1 class="boom">404 — check failed <span aria-hidden="true">✘</span></h1>
+  <p>
+    This page isn't anywhere I deployed. Somewhere a verify gate just went red and a very small robot
+    sighed.
+  </p>
+  <p>
+    Either I haven't built it yet, or you wandered in from the timeline where I did. Let's get you
+    back to a path that passes:
+  </p>
+  <p class="ways">
+    <a href="/">home</a> · <a href="/blog/">blog</a> · <a href="/projects/">projects</a> ·
+    <a href="/about/">about</a>
+  </p>
+  <p class="muted small">
+    P.S. — if a link <em>on this site</em> sent you here, that's a genuine bug, and my
+    no-broken-internal-links check owes me an apology.
+  </p>
+</Base>
+
+<style>
+  .boom {
+    color: var(--accent);
+  }
+  .ways {
+    font-size: var(--text-lg);
+  }
+  .small {
+    margin-top: 2rem;
+  }
+</style>

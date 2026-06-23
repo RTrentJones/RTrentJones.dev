@@ -6,39 +6,76 @@ import PostCard from '../components/PostCard.astro';
 const posts = (await getCollection('blog'))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 5);
+
+const projects = (await getCollection('projects')).sort(
+  (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
+);
+// External projects (e.g. Greenlight) link straight to their repo; local ones to their write-up.
+const projectHref = (p: (typeof projects)[number]) =>
+  p.data.external ? (p.data.repoUrl ?? '#') : `/${p.id}/`;
 ---
 
 <Base>
   <section class="intro">
-    {/* TODO: make this intro yours — a sentence or two about who you are + what you're into. */}
     <h1>Trent Jones</h1>
     <p class="lede">
-      Engineer building self-verifying tools — every change ships through an objective gate. I write
-      about building them here; the things I run live are under <a href="/projects/">projects</a>.
+      Senior software engineer at Amazon, with a background in neuroscience. I build small things
+      that run live and write about them here.
     </p>
   </section>
 
-  <section class="recent">
-    <h2>Writing</h2>
-    <div class="post-list">
-      {
-        posts.map((post) => (
-          <PostCard
-            href={`/blog/${post.id}/`}
-            title={post.data.title}
-            date={post.data.date}
-            description={post.data.description}
-          />
-        ))
-      }
+  <div class="home">
+    <div class="writing">
+      <h2>Writing</h2>
+      <div class="post-list">
+        {
+          posts.map((post) => (
+            <PostCard
+              href={`/blog/${post.id}/`}
+              title={post.data.title}
+              date={post.data.date}
+              description={post.data.description}
+            />
+          ))
+        }
+      </div>
+      <p class="more"><a href="/blog/">All posts →</a></p>
     </div>
-    <p class="more"><a href="/blog/">All posts →</a></p>
-  </section>
+
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>About</h2>
+        <p>
+          Full-stack engineer at Amazon (Alexa), 11 years in. Neuroscience + CS at USC, and still
+          partial to biology.
+        </p>
+        <p class="more"><a href="/about/">More about me →</a></p>
+      </section>
+
+      <section class="panel">
+        <h2>Projects</h2>
+        <ul class="project-links">
+          {
+            projects.map((p) => (
+              <li>
+                <a href={projectHref(p)}>
+                  {p.data.title}
+                  {p.data.external && <span class="ext">↗</span>}
+                </a>
+                <span class="blurb">{p.data.summary}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="more"><a href="/projects/">All projects →</a></p>
+      </section>
+    </aside>
+  </div>
 </Base>
 
 <style>
   .intro {
-    margin: 1.5rem 0 3rem;
+    margin: 1.5rem 0 2.75rem;
   }
   .intro h1 {
     margin-bottom: 0.6rem;
@@ -48,7 +85,23 @@ const posts = (await getCollection('blog'))
     color: var(--fg-muted);
     max-width: var(--measure);
   }
-  .recent h2 {
+
+  /* Single column by default (writing first, then the sidebar stacks below it). */
+  .home {
+    display: grid;
+    gap: 3rem;
+  }
+  /* Two columns when there's room: writing on the left, about + projects on the right. */
+  @media (min-width: 860px) {
+    .home {
+      grid-template-columns: minmax(0, 1fr) 15rem;
+      gap: 3.5rem;
+      align-items: start;
+    }
+  }
+
+  .writing > h2 {
+    margin-top: 0;
     padding-bottom: 0.4rem;
     border-bottom: 1px solid var(--border);
   }
@@ -57,6 +110,53 @@ const posts = (await getCollection('blog'))
     gap: 1.5rem;
   }
   .more {
-    margin-top: 1.5rem;
+    margin-top: 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .sidebar {
+    display: grid;
+    gap: 2.5rem;
+    align-content: start;
+  }
+  .panel h2 {
+    margin-top: 0;
+    font-size: var(--text-base);
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel p {
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+  }
+  .panel .more {
+    margin-top: 0.9rem;
+  }
+  .project-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1rem;
+  }
+  .project-links a {
+    font-weight: 600;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .project-links a:hover {
+    color: var(--accent);
+  }
+  .ext {
+    color: var(--fg-muted);
+    font-size: 0.8rem;
+    margin-left: 0.2rem;
+  }
+  .blurb {
+    display: block;
+    color: var(--fg-muted);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    margin-top: 0.15rem;
   }
 </style>

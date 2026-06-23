@@ -1,0 +1,25 @@
+---
+title: "Greenlight: keeping side projects alive"
+date: 2026-06-22
+description: Why I built a deploy + verification harness to keep my experiments from quietly dying.
+---
+
+The side effect of finally being able to explore side projects was a new problem: I needed somewhere
+to keep track of them — and, more urgently, to keep them _alive_.
+
+The free tiers these things run on are unforgiving. [HeistMind](/heistmind/)'s database pauses itself
+after about a week of inactivity. [BAMCP](/bamcp/) lives on a free-tier Oracle Cloud box that will
+happily reclaim an idle instance. A project I was proud of would quietly go dark a few days after I
+stopped looking at it.
+
+So I built **Greenlight**: a harness that centralizes my projects and keeps as much of their infra
+as code as possible. One manifest entry describes a tool — what it is, where it runs, how it's
+verified — and the CLI emits the Terraform, gathers the tokens, and wires up a deploy → verify →
+promote loop. Liveness is treated as a feature: a cron health-checks the things that can pause and
+nudges them back up.
+
+This site is the other half of that. It's where the projects get showcased — and it keeps me honest:
+if a "live" link here ever goes dead, the same verify gate that ships everything else is meant to
+catch it before I do.
+
+Greenlight is [open source on GitHub](https://github.com/RTrentJones/greenlight).
