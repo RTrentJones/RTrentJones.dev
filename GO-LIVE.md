@@ -1,5 +1,11 @@
 # Greenlight ecosystem — full go-live runbook (all projects)
 
+> **✅ COMPLETE (2026-06) — historical record.** Every phase below was executed: the framework is
+> **published** (`@rtrentjones/greenlight@0.2.20`, OIDC), the wrapper consumes it from npm, and both
+> **BAMCP** and **HeistMind** are **live** with green verify gates (HeistMind also has a prod
+> ship-gate + authenticated deploy-gate). Current state is in [README.md](README.md) +
+> [CLAUDE.md](CLAUDE.md); this runbook is kept as the go-live record of how it got there.
+
 Every config + action remaining to get the whole stack fully up and running. Ordered by
 dependency: **publish the framework → switch the wrapper to npm → BAMCP live → validation polish**.
 
@@ -10,8 +16,8 @@ dependency: **publish the framework → switch the wrapper to npm → BAMCP live
 |---|---|---|
 | Blog (`rtrentjones.dev`) | ✅ live (Workers/wrangler) | nothing (optional: fold into the verify loop) |
 | HeistMind (`heistmind.…`) | ✅ live (Vercel + Supabase, kept alive) | Phase D (agentic validation, optional) |
-| BAMCP (`bamcp.…`) | ⏳ onboarded, not live | Phase C |
-| Greenlight framework | ✅ `main` @ v0.2.4 (not on npm) | Phase A |
+| BAMCP (`bamcp.…`) | ✅ live (mcp/oci, free A1, auto-healed) | done |
+| Greenlight framework | ✅ published `@rtrentjones/greenlight@0.2.20` (OIDC) | done |
 
 ---
 

@@ -13,7 +13,7 @@ Personal site, orchestrated by [Greenlight](https://github.com/RTrentJones/green
 
 ```
 mise install                 # Node 24 + pnpm 10
-pnpm install                 # framework from vendored tarballs (bootstrap), blog deps
+pnpm install                 # the published @rtrentjones/greenlight + blog deps
 pnpm greenlight config       # validate the manifest
 pnpm greenlight doctor       # consistency checks
 pnpm greenlight preview blog # build + serve locally + verify, one command
@@ -23,4 +23,6 @@ Shipping a change is the deploy-verify-promote loop — install the Greenlight C
 
 ## Framework consumption
 
-`package.json` currently bootstraps the framework from **vendored tarballs** (`vendor/*.tgz`) because the packages aren't on npm yet. **After the first `npm publish`:** delete `vendor/`, switch the `@rtrentjones/greenlight*` deps to `^0.1.0`, and tag the framework so `infra/main.tf`'s `?ref=` resolves. Updates then arrive via `pnpm update` — no merging framework code.
+`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.20`); Terraform pins the matching module tag (`?ref=v0.2.20`). Updates arrive via `pnpm update @rtrentjones/greenlight` (then bump the `?ref=`) — no merging framework code.
+
+Two tools run on it: **[BAMCP](https://github.com/RTrentJones/BAMCP)** (`mcp`/`oci`, [live](https://bamcp.rtrentjones.dev/mcp)) and **[HeistMind](https://github.com/RTrentJones/HeistMind)** (`next`/`vercel`/`supabase`, [live](https://heistmind.rtrentjones.dev)), each a `tools/<name>` submodule with a green verify gate.

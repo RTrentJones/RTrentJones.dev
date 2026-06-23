@@ -12,7 +12,7 @@ Personal site (`rtrentjones.dev`), a **thin consumer** of the [Greenlight](https
 
 ```
 mise install                 # Node 24 + pnpm 10.12.1 (toolchain pinned in mise.toml)
-pnpm install                 # framework from vendored tarballs (see below), plus blog deps
+pnpm install                 # the published @rtrentjones/greenlight, plus blog deps
 
 pnpm greenlight config       # load + validate the manifest, print it
 pnpm greenlight doctor       # manifest + repo consistency checks
@@ -56,14 +56,11 @@ The blog runs on **Cloudflare Workers Static Assets** (`apps/blog/wrangler.jsonc
 
 - `greenlight.config.ts` — the manifest. The one file that defines this setup.
 - `apps/blog/` — the blog. Astro 5 → Cloudflare Workers. Content is `src/content/blog/*.{md,mdx}`; frontmatter schema (`title`, `date`, optional `description`) is in `src/content.config.ts`. New posts = new files in that collection.
-- `infra/main.tf` — Terraform that instantiates Greenlight's `module "tool"` / `module "repo"`, **git-sourced by `?ref=v0.1.0`**. `greenlight add` appends blocks. Real apply needs Cloudflare/GitHub creds + the R2 backend (gated).
-- `vendor/*.tgz` — vendored framework tarballs (see below).
+- `infra/*.tf` — Terraform instantiating Greenlight's modules (`tool`/`vercel`/`supabase`/`oci-*`/`keepalive`), **git-sourced by `?ref=v0.2.20`** (lockstep with the npm dep). One `.tf` per tool; `greenlight add`/`adopt` emit them. Apply runs in `infra.yml` against **HCP Terraform** state with scoped secrets.
 
-## Framework consumption — important
+## Framework consumption
 
-`package.json` currently **bootstraps the framework from vendored tarballs** (`vendor/*.tgz`, wired via both `dependencies` and `pnpm.overrides`) because the `@rtrentjones/greenlight*` packages aren't on npm yet. This is temporary.
-
-**After the framework's first `npm publish`:** delete `vendor/`, switch the `@rtrentjones/greenlight*` deps from `file:vendor/...` to `^0.1.0`, and ensure the framework is tagged so `infra/main.tf`'s `?ref=` resolves. Updates then arrive via `pnpm update` — never by merging framework source into this repo.
+`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.20`); Terraform pins the matching module tag (`?ref=v0.2.20`). Update the mechanics with `pnpm update @rtrentjones/greenlight` (then bump the `?ref=` in `infra/*.tf`) — never by merging framework source into this repo.
 
 ## Greenlight loop (deploy → verify → promote)
 
