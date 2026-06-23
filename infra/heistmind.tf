@@ -25,11 +25,10 @@ provider "supabase" {
 variable "heistmind_supabase_database_password" {
   type      = string
   sensitive = true
-  default   = ""
+  default   = "import-placeholder" # ≥4 chars, so an unset/dummy secret can't fail plan validation
   # heistmind-db is imported and the module pins ignore_changes on the password, so this is NEVER
-  # written to the live DB — but the provider length-validates it at plan time. infra.yml feeds it
-  # from SUPABASE_ACCESS_TOKEN (already present, ≥4 chars) to satisfy that without a dedicated
-  # secret. For a real from-scratch recreate, supply a genuine TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD.
+  # written to the live DB. Set TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD (any dummy ≥4 chars) to
+  # override the default; only a real from-scratch recreate needs the genuine password.
 }
 
 # Discord OAuth creds (scoped secrets, per the token-naming convention). The Discord app is
