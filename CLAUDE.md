@@ -49,6 +49,7 @@ Branch → environment, enforced by `.github/workflows/`:
 - **PR → preview**, **`develop` → beta**, **`main` → prod** (`deploy.yml`).
 - Promotion (`promote.yml`) is an explicit, manually-dispatched gated fast-forward: verify beta → fast-forward `develop` onto `main` → verify prod.
 - CI is **creds-guarded**: without the `CLOUDFLARE_API_TOKEN` secret, deploy/verify steps skip cleanly rather than fail.
+- **Clean up merged branches.** Once a `feat/*` branch has shipped (fast-forwarded into `develop`/`main`), delete it locally **and** on the remote so the repo stays at `main` + `develop` plus only in-flight feature branches: `git checkout develop && git branch -d <branch> && git push origin --delete <branch>`.
 
 The blog runs on **Cloudflare Workers Static Assets** (`apps/blog/wrangler.jsonc`), served at the apex (`prod`) and `beta.` subdomain via custom domains. Astro `site` is the real domain by default; `SITE_URL` overrides per-env (e.g. beta builds).
 
