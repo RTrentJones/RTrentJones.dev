@@ -1,0 +1,64 @@
+name: deploy-muse
+
+# Agent "muse" — a cron-triggered Cloudflare Worker (Gemini-backed). Deploys on a push to main that
+# touches tools/muse, or manually. Sets the Worker secrets from GitHub secrets, seeds the first run
+# (so /status reports ok:true), then verifies. Creds-guarded: skips cleanly if the secrets are absent.
+on:
+  push:
+    branches: [main]
+    paths: ['tools/muse/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-muse
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check creds
+        id: creds
+        env:
+          CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GK: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$CF" ] && [ -n "$GK" ]; then echo "have=1" >> "$GITHUB_OUTPUT"; else echo "have=0" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Deploy + Worker secrets + seed
+        if: steps.creds.outputs.have == '1'
+        env:
+          # Account-level Workers + KV scope. The custom_domain + KV binding + cron come from
+          # tools/muse/wrangler.toml (the KV namespace id is committed there).
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Worker SECRETS — set on the deployed worker (a provider store), never committed.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RUN_TOKEN: ${{ secrets.RUN_TOKEN }}
+        run: |
+          ( cd tools/muse
+            pnpm exec wrangler deploy --env prod
+            printf '%s' "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --env prod
+            printf '%s' "$RUN_TOKEN" | pnpm exec wrangler secret put RUN_TOKEN --env prod
+          )
+          # Seed the first run (the cron is daily). Retry while the custom domain propagates.
+          for i in $(seq 1 8); do
+            if curl -fsS -XPOST "https://muse.rtrentjones.dev/run" -H "Authorization: Bearer $RUN_TOKEN" >/dev/null; then
+              echo "seeded"; break
+            fi
+            echo "seed attempt $i: not ready, retrying in 10s"; sleep 10
+          done
+
+      - name: Verify
+        if: steps.creds.outputs.have == '1'
+        run: pnpm exec greenlight verify muse --env prod
+
+      - name: Skip notice
+        if: steps.creds.outputs.have != '1'
+        run: echo "Missing CLOUDFLARE_API_TOKEN or GEMINI_API_KEY — muse deploy skipped."

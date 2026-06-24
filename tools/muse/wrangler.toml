@@ -1,0 +1,47 @@
+# Agent Worker. `greenlight add` rewrites `name` (muse → your tool) + the route domain
+# (rtrentjones.dev → your domain). You still set the KV namespace id (create it once with
+# `wrangler kv namespace create STATE`) and the secrets:
+#   wrangler secret put GEMINI_API_KEY --env prod   (Google AI Studio key — free tier)
+#   wrangler secret put RUN_TOKEN --env prod         (any random string; bearer for POST /run)
+name = "muse"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+# Daily 13:00 UTC — far under the Gemini free-tier quota (~1500 req/day). Edit to taste.
+[triggers]
+crons = ["0 13 * * *"]
+
+[vars]
+MODEL = "gemini-2.5-flash"
+GREENLIGHT_ENV = "prod"
+
+# Output store. `wrangler kv namespace create STATE` → paste the id here (and per-env below).
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Named environments (the deploy uses `wrangler deploy --env prod|beta`). Wrangler envs do NOT
+# inherit top-level config, so vars + kv + routes are repeated per env.
+[env.prod]
+name = "muse"
+routes = [{ pattern = "muse.rtrentjones.dev", custom_domain = true }]
+
+[env.prod.vars]
+MODEL = "gemini-2.5-flash"
+GREENLIGHT_ENV = "prod"
+
+[[env.prod.kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[env.beta]
+name = "muse-beta"
+routes = [{ pattern = "beta.muse.rtrentjones.dev", custom_domain = true }]
+
+[env.beta.vars]
+MODEL = "gemini-2.5-flash"
+GREENLIGHT_ENV = "beta"
+
+[[env.beta.kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"

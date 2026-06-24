@@ -1,0 +1,5 @@
+# Shipped as `gitignore` (no dot) so it survives the npm tarball; `greenlight add` renames it to
+# `.gitignore` on scaffold.
+node_modules/
+.wrangler/
+dist/

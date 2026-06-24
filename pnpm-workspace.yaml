@@ -1,4 +1,5 @@
 packages:
+  - "tools/muse"
   - "apps/*"
   # tools/tracer is a LOCAL monorepo tool (next/vercel) — a workspace member so Vercel's
   # root-level pnpm install resolves its deps (pg, next, @neondatabase/serverless). bamcp and
