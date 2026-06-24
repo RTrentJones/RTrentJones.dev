@@ -1,2 +1,7 @@
 packages:
   - "apps/*"
+  # tools/tracer is a LOCAL monorepo tool (next/vercel) — a workspace member so Vercel's
+  # root-level pnpm install resolves its deps (pg, next, @neondatabase/serverless). bamcp and
+  # heistmind are git submodules with their own workspaces, so they're intentionally NOT listed
+  # (never use tools/* here — it would pull the submodules into this workspace).
+  - "tools/tracer"
