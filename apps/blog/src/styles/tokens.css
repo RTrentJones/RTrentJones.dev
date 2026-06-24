@@ -70,8 +70,9 @@ main {
   padding: 0 var(--space) 4rem;
 }
 
-/* Long-form prose narrows to a comfortable measure */
-article,
+/* Long-form prose narrows to a comfortable measure. Scoped to .prose (the <main> wrapper that
+   long-form pages set via <Base prose>) — NOT bare `article`, which would also catch list cards
+   (.post-card / .project-card are <article>s) and squeeze them to the measure + center them. */
 .prose {
   max-width: var(--measure);
   margin-inline: auto;
