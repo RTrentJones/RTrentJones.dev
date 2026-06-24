@@ -19,7 +19,7 @@ module "tracer_neon" {
 module "tracer_vercel" {
   source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.2.27"
 
-  project_id  = var.tracer_vercel_project_id
+  project_id  = "prj_ev1nRFj5gIzFHwVOigsXnLJzsm4d" # non-secret id; committed like heistmind's (no HCP var)
   name        = "tracer"
   domain      = "rtrentjones.dev"
   beta_branch = "develop"
@@ -42,11 +42,6 @@ module "tracer_vercel" {
     db_url_beta    = module.tracer_neon.database_url["beta"]
     db_direct_beta = module.tracer_neon.direct_url["beta"]
   }
-}
-
-variable "tracer_vercel_project_id" {
-  type        = string
-  description = "Vercel project id for tracer (prj_…); the project must already exist."
 }
 
 # Subdomain DNS — CNAME tracer/beta.tracer → cname.vercel-dns.com.
