@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
+import { registeredTools, stackLine } from '../../data/manifest';
 
 const projects = (await getCollection('projects')).sort(
   (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
@@ -14,6 +15,37 @@ const projects = (await getCollection('projects')).sort(
   <div class="grid">
     {projects.map((project) => <ProjectCard project={project} />)}
   </div>
+
+  <details class="registry">
+    <summary>Deployed tools registry · {registeredTools.length}</summary>
+    <p class="registry-note">
+      Every tool registered in the manifest, generated from <code>greenlight.config.ts</code> — the
+      inventory check so nothing deployed slips off the showcase above (e.g. <code>muse</code>, the
+      agent, and the blog itself have no card but run live).
+    </p>
+    <div class="registry-scroll">
+      <table class="registry-table">
+        <thead>
+          <tr><th>Tool</th><th>Stack</th><th>Providers</th><th>Envs</th><th>Access</th></tr>
+        </thead>
+        <tbody>
+          {
+            registeredTools.map((t) => (
+              <tr>
+                <td>
+                  <a href={t.url}>{t.name}</a>
+                </td>
+                <td class="mono">{stackLine(t.facets)}</td>
+                <td>{t.providers.join(' · ')}</td>
+                <td class="mono">{t.envs.join(', ') || '—'}</td>
+                <td class="mono">{t.access ?? '—'}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
 </Base>
 
 <style>
@@ -32,5 +64,53 @@ const projects = (await getCollection('projects')).sort(
     .grid {
       grid-template-columns: 1fr 1fr;
     }
+  }
+  .registry {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+  }
+  .registry summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    user-select: none;
+  }
+  .registry summary:hover {
+    color: var(--accent);
+  }
+  .registry-note {
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+    max-width: var(--measure);
+    margin: 0.9rem 0 1rem;
+  }
+  .registry-scroll {
+    overflow-x: auto;
+  }
+  .registry-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+  .registry-table th,
+  .registry-table td {
+    text-align: left;
+    padding: 0.45rem 0.9rem 0.45rem 0;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .registry-table th {
+    color: var(--fg-muted);
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .registry-table .mono {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    color: var(--fg-muted);
+    font-size: 0.78rem;
   }
 </style>

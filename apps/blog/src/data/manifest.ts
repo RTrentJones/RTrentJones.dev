@@ -48,3 +48,46 @@ export function stackLine(t: Facets): string {
   if (t.data && t.data !== 'none') parts.push(t.data);
   return parts.join(' · ');
 }
+
+export const domain = (config as unknown as { domain: string }).domain;
+
+export interface RegisteredTool {
+  name: string;
+  url: string;
+  facets: Facets;
+  providers: string[];
+  envs: string[];
+  access?: string;
+}
+
+/** A tool's live URL: subdomain per tool (apex for the blog); MCP servers serve at /mcp. */
+function urlFor(name: string, facets: Facets): string {
+  const base = name === 'blog' ? `https://${domain}/` : `https://${name}.${domain}/`;
+  return facets.lane === 'mcp' ? `${base}mcp` : base;
+}
+
+const blogFacets: Facets = { name: 'blog', ...(config as unknown as { blog: Facets }).blog };
+
+/** The FULL deployed inventory — the site itself plus every tool registered via `greenlight add`.
+ * Rendered collapsed on /projects as a verification: nothing deployed should slip off the curated
+ * showcase (e.g. muse, the agent, and the blog have no card but are deployed). */
+export const registeredTools: RegisteredTool[] = [
+  {
+    name: 'blog',
+    url: urlFor('blog', blogFacets),
+    facets: blogFacets,
+    providers: providersFor(blogFacets),
+    envs: ['prod'],
+    access: 'public',
+  },
+  ...(config as unknown as { tools: (Facets & { access?: string; envs?: string[] })[] }).tools.map(
+    (t) => ({
+      name: t.name,
+      url: urlFor(t.name, t),
+      facets: t,
+      providers: providersFor(t),
+      envs: t.envs ?? [],
+      access: t.access,
+    }),
+  ),
+];
