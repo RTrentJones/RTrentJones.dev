@@ -22,4 +22,14 @@ This site is the other half of that. It's where the projects get showcased — a
 if a "live" link here ever goes dead, the same verify gate that ships everything else is meant to
 catch it before I do.
 
+## The agent lane, by example
+
+The newest piece is an **agent** lane — autonomous tools that wake on a schedule, call an LLM, and do
+something small but useful. [**muse**](https://muse.rtrentjones.dev/) is the live example: a
+cron-triggered Cloudflare Worker that asks Gemini (free tier) for a daily deployment tip, stores it in
+KV, and serves it. It's the whole harness in miniature — `greenlight add muse --lane agent`, add two
+GitHub secrets, push, and the emitted workflow creates the KV namespace, deploys, sets the Worker
+secrets, seeds the first run, and verifies it. The same loop that keeps the heavier projects alive
+turns a throwaway daily-tip bot into a one-command, self-verifying deploy.
+
 Greenlight is [open source on GitHub](https://github.com/RTrentJones/greenlight).

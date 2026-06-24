@@ -1,0 +1,40 @@
+---
+title: Tracer
+summary: A Claude evals dashboard — the persistence + UI layer for Greenlight's eval & agent-web verify modes.
+liveUrl: https://tracer.rtrentjones.dev
+repoUrl: https://github.com/RTrentJones/RTrentJones.dev/tree/main/tools/tracer
+status: live
+order: 2
+date: 2026-06-24
+---
+
+> Tracer turns Greenlight's one-off eval runs into a durable, browsable record — the dashboard for
+> the `eval` and `agent-web` verify modes the harness already runs.
+
+## Why it exists
+
+Greenlight can already grade a deploy with an LLM: `eval` mode judges an MCP server's answers, and
+`agent-web` drives a real browser through a scenario and scores the result. But those runs are
+ephemeral — a pass/fail in CI logs, then gone. Tracer is the **persistence + UI layer**: an eval run
+lands in Postgres and shows up as a trend you can actually look at, instead of a green check that
+scrolled past.
+
+## The stack
+
+- **Next.js on Vercel**, backed by **Neon** Postgres — a branch per env (prod + beta), so beta evals
+  never touch the prod record. (It's the first live tool on Greenlight's Neon backend.)
+- **Schema as code** — migrations run on the build against Neon's direct connection; the pooled
+  connection serves the app. Prod and beta hit different branches by design.
+- Ships through the same loop as everything else here: local preview gate, `verify --env prod`,
+  gated promote.
+
+## What I find interesting
+
+- **It closes the loop on its own infra.** The eval / agent-web modes are how Greenlight decides a
+  deploy is good; Tracer is where that judgment accumulates into signal over time — regressions you
+  can _see_, not just a check that passed once.
+- **Branch-per-env evals.** Because each environment is its own Neon branch (instant copy-on-write,
+  scale-to-zero), you can run a noisy experiment on beta and diff it against the prod baseline without
+  polluting it.
+
+_Write-up in progress — the dashboard fills in as real eval runs land._
