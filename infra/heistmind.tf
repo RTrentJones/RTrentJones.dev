@@ -86,6 +86,21 @@ module "heistmind_supabase" {
   ]
 }
 
+# Expose the per-env schemas to the HOSTED PostgREST API. config.toml's `schemas` only governs
+# the LOCAL stack; without this the live API rejects the app's `client.schema('development'|
+# 'production')` with "Invalid schema". The API roles already have USAGE + table grants on both
+# schemas (migration 00003_schema_grants). Discord auth is off, so the module manages no
+# supabase_settings — this api-only resource doesn't collide.
+resource "supabase_settings" "heistmind_api" {
+  project_ref = module.heistmind_supabase.project_ref
+
+  api = jsonencode({
+    db_schema            = "public, graphql_public, development, production"
+    db_extra_search_path = "public, extensions"
+    max_rows             = 1000
+  })
+}
+
 # Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
 module "heistmind_vercel" {
   source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.2.27"
@@ -108,6 +123,10 @@ module "heistmind_vercel" {
     supa_anon_beta    = { key = "NEXT_PUBLIC_SUPABASE_ANON_KEY", target = ["preview"], sensitive = false }
     supa_service_beta = { key = "SUPABASE_SERVICE_ROLE_KEY", target = ["preview"], sensitive = true }
     supa_proj_beta    = { key = "SUPABASE_PROJECT_ID", target = ["preview"], sensitive = false }
+    # Per-env DB schema (schema-per-env in one project). Build-time NEXT_PUBLIC_ → a redeploy is
+    # required for a change to take effect. Without these, provider.ts defaults to 'development'.
+    schema_prod = { key = "NEXT_PUBLIC_HEISTMIND_SCHEMA", target = ["production"], sensitive = false }
+    schema_beta = { key = "NEXT_PUBLIC_HEISTMIND_SCHEMA", target = ["preview"], sensitive = false }
   }
   environment_values = {
     site_url_prod     = "https://heistmind.rtrentjones.dev"
@@ -120,6 +139,8 @@ module "heistmind_vercel" {
     supa_anon_beta    = module.heistmind_supabase.anon_key
     supa_service_beta = module.heistmind_supabase.service_role_key
     supa_proj_beta    = module.heistmind_supabase.project_ref
+    schema_prod       = "production"
+    schema_beta       = "development"
   }
 }
 
