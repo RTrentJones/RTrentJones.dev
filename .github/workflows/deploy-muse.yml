@@ -42,11 +42,22 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           RUN_TOKEN: ${{ secrets.RUN_TOKEN }}
         run: |
-          ( cd tools/muse
-            pnpm exec wrangler deploy --env prod
-            printf '%s' "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --env prod
-            printf '%s' "$RUN_TOKEN" | pnpm exec wrangler secret put RUN_TOKEN --env prod
-          )
+          cd tools/muse
+          # KV namespace as code: find-or-create the STATE namespace (idempotent), then inject its
+          # id into wrangler.toml for this deploy. The id is non-secret + derived, so the repo keeps
+          # the REPLACE_WITH_KV_NAMESPACE_ID placeholder — no manual create, no hardcoded id.
+          ID=$(pnpm exec wrangler kv namespace list 2>/dev/null | jq -r '.[] | select(.title | test("muse.*STATE")) | .id' | head -1)
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+            pnpm exec wrangler kv namespace create STATE || true
+            ID=$(pnpm exec wrangler kv namespace list 2>/dev/null | jq -r '.[] | select(.title | test("muse.*STATE")) | .id' | head -1)
+          fi
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then echo "::error::could not resolve the STATE KV namespace id (token needs Workers KV Storage:Edit?)"; exit 1; fi
+          echo "STATE KV namespace resolved"
+          sed -i "s/REPLACE_WITH_KV_NAMESPACE_ID/$ID/g" wrangler.toml
+          pnpm exec wrangler deploy --env prod
+          printf '%s' "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --env prod
+          printf '%s' "$RUN_TOKEN" | pnpm exec wrangler secret put RUN_TOKEN --env prod
+          cd ../..
           # Seed the first run (the cron is daily). Retry while the custom domain propagates.
           for i in $(seq 1 8); do
             if curl -fsS -XPOST "https://muse.rtrentjones.dev/run" -H "Authorization: Bearer $RUN_TOKEN" >/dev/null; then
