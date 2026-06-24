@@ -27,6 +27,11 @@ terraform {
       source  = "oracle/oci"
       version = ">= 5.0"
     }
+    # tracer (see tracer.tf) — serverless Postgres, a branch per env.
+    neon = {
+      source  = "kislerdm/neon"
+      version = "~> 0.13"
+    }
   }
   # Remote state on HCP Terraform (free tier, no credit card). Execution mode is "local":
   # HCP stores state + does locking; terraform runs here / in CI with our own creds. See
@@ -55,6 +60,10 @@ provider "oci" {
   private_key  = var.oci_private_key
   region       = trimspace(var.oci_region)
 }
+
+# Neon provider for tracer (data: neon). Configured from the NEON_API_KEY env var — the provider's
+# native default (same way supabase reads SUPABASE_ACCESS_TOKEN), so no TF variable/plumbing needed.
+provider "neon" {}
 
 variable "cloudflare_zone_id" {
   type = string

@@ -26,6 +26,9 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
       TF_VAR_cloudflare_zone_id: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_ID }}
+      # tracer (data: neon) — the neon provider reads NEON_API_KEY natively (like supabase reads
+      # SUPABASE_ACCESS_TOKEN above). The Vercel project id is a non-secret HCP workspace var.
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
       # DB password is inert on the imported project (the module pins ignore_changes) — never
       # written to the live DB — but the supabase provider length-validates it at plan time. The
       # `|| 'import-placeholder'` fallback means an UNSET secret yields a valid ≥4-char value (an
