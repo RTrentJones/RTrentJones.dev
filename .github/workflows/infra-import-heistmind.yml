@@ -1,0 +1,61 @@
+name: infra-import-heistmind
+
+# ONE-SHOT (delete after use). Adopts the two pre-existing NEXT_PUBLIC_HEISTMIND_SCHEMA Vercel env
+# vars into the HCP Terraform state via `terraform import`, so the normal `infra` apply stops hitting
+# ENV_CONFLICT. The Vercel provider has no upsert; import is Terraform's adopt-existing mechanism.
+# Same env block as infra.yml (terraform init/import configures every provider). Run via dispatch,
+# then re-run `infra`, then delete this file.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra # share infra's lock — never run alongside an apply
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      TF_VAR_cloudflare_zone_id: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_ID }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_heistmind_supabase_database_password: ${{ secrets.TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD || 'import-placeholder' }}
+      TF_VAR_keepalive_github_token: ${{ secrets.TF_VAR_KEEPALIVE_GITHUB_TOKEN }}
+      TF_VAR_heistmind_github_admin_token: ${{ secrets.TF_VAR_HEISTMIND_GITHUB_ADMIN_TOKEN }}
+      TF_VAR_heistmind_discord_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_ID }}
+      TF_VAR_heistmind_discord_client_secret: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET }}
+      TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
+      TF_VAR_oci_user_ocid: ${{ secrets.TF_VAR_OCI_USER_OCID }}
+      TF_VAR_oci_fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
+      TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
+      TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
+      TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+      TF_VAR_bamcp_verify_token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~1.10'
+          terraform_wrapper: false
+      - run: terraform -chdir=infra init -input=false
+      - name: Resolve env-var ids + import
+        run: |
+          T=team_43JnQTGSMAIlMIVyBuOjiS8W
+          P=prj_QF5mBjNr8sw0F8wckqWdfw1vCI2X
+          ENVS=$(curl -fsS "https://api.vercel.com/v9/projects/$P/env?teamId=$T" -H "Authorization: Bearer $VERCEL_API_TOKEN")
+          PROD_ID=$(jq -r '.envs[] | select(.key=="NEXT_PUBLIC_HEISTMIND_SCHEMA" and (.target|index("production"))) | .id' <<<"$ENVS" | head -1)
+          BETA_ID=$(jq -r '.envs[] | select(.key=="NEXT_PUBLIC_HEISTMIND_SCHEMA" and (.target|index("preview")))   | .id' <<<"$ENVS" | head -1)
+          echo "resolved: prod=$PROD_ID beta=$BETA_ID"
+          if [ -z "$PROD_ID" ] || [ -z "$BETA_ID" ] || [ "$PROD_ID" = "$BETA_ID" ]; then
+            echo "::error::could not resolve two distinct ids (prod=$PROD_ID beta=$BETA_ID) — check the var structure (one combined entry?)"; exit 1
+          fi
+          terraform -chdir=infra import 'module.heistmind_vercel.vercel_project_environment_variable.env["schema_prod"]' "$T/$P/$PROD_ID"
+          terraform -chdir=infra import 'module.heistmind_vercel.vercel_project_environment_variable.env["schema_beta"]' "$T/$P/$BETA_ID"
+          echo "imported both — now re-run the infra workflow, then delete this one-shot file."
