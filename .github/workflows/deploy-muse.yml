@@ -40,6 +40,12 @@ jobs:
           RUN_TOKEN: ${{ secrets.RUN_TOKEN }}
         run: |
           cd tools/muse
+          # Account id as code: resolve the (non-secret) account id from the domain's zone and inject
+          # it into wrangler.toml — wrangler can't call /memberships to auto-discover it with a scoped
+          # token. Derived, so the repo keeps the REPLACE_WITH_CLOUDFLARE_ACCOUNT_ID placeholder.
+          ACCT=$(curl -fsS "https://api.cloudflare.com/client/v4/zones?name=rtrentjones.dev" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].account.id // empty')
+          if [ -z "$ACCT" ]; then echo "::error::could not resolve the Cloudflare account id for rtrentjones.dev (token needs Zone:Read?)"; exit 1; fi
+          sed -i "s/REPLACE_WITH_CLOUDFLARE_ACCOUNT_ID/$ACCT/g" wrangler.toml
           # KV namespace as code: find-or-create the STATE namespace (idempotent), then inject its id
           # into wrangler.toml for this deploy. The id is non-secret + derived, so the repo keeps the
           # REPLACE_WITH_KV_NAMESPACE_ID placeholder — no manual create, no hardcoded id.

@@ -6,7 +6,7 @@
 name = "muse"
 # Non-secret account id (committed config, like a Vercel project id). Without it wrangler calls
 # /memberships to discover the account, which our scoped API token can't do.
-account_id = "47f5715fc54e2280476f65d03cce71f5"
+account_id = "REPLACE_WITH_CLOUDFLARE_ACCOUNT_ID"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
 
