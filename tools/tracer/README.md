@@ -36,11 +36,23 @@ and commit it. `0001_seed.sql` is a custom (idempotent) migration with demo data
   when the token is unset. Bodies are zod-validated; shape mismatch → 422.
 - The dashboard is `access: public` (a shareable portfolio link); only seeded/demo data lives here.
 
+## Troubleshooting
+
+Hit `/api/health` on any environment — it returns `{ ok, databaseUrlSet, directUrlSet, runs }` or the
+real error (Server Component errors are masked in production):
+
+- `relation "eval_run" does not exist` — migrations targeted a different branch than the app reads.
+  Migrations run against the **direct** form of `DATABASE_URL` (see `drizzle.config.ts`) precisely so
+  they hit the same branch the runtime reads, including the per-preview branch the native Neon↔Vercel
+  integration injects. If you see this, re-deploy so the build's `drizzle-kit migrate` runs against the
+  current `DATABASE_URL`.
+- `DATABASE_URL is not set` — wire the Neon pooled connection string for that env (Vercel env vars or
+  `infra/tracer.tf`).
+
 ## Local dev
 
 ```
-export DATABASE_URL=...   # pooled Neon branch URL
-export DIRECT_URL=...     # direct Neon branch URL
+export DATABASE_URL=...   # pooled Neon branch URL (migrations derive the direct endpoint from it)
 pnpm db:migrate           # apply schema + seed
 pnpm dev                  # http://localhost:3000
 pnpm test                 # vitest: regression / pass-rate / ingest shape
