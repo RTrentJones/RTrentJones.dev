@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/migrate.mjs && next build",
+    "build": "pnpm run migrate && next build",
     "start": "next start",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "greenlight migrations scan && node scripts/migrate.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",
@@ -16,6 +16,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@rtrentjones/greenlight": "^0.5.1",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "@types/react": "^19.0.0",
