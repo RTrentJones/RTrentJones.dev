@@ -25,7 +25,8 @@ jobs:
       VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
-      TF_VAR_cloudflare_zone_id: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_ID }}
+      # zone id is an enumerable identifier, not a secret — a repo variable (vars.*)
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
       # tracer (data: neon) — the neon provider reads NEON_API_KEY natively (like supabase reads
       # SUPABASE_ACCESS_TOKEN above). The Vercel project id is a non-secret HCP workspace var.
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
