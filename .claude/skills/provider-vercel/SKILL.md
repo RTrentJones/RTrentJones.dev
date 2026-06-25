@@ -13,7 +13,8 @@ build). The wrapper owns infra; the tool repo owns deploys.
 ## Token — `VERCEL_API_TOKEN`
 
 Account → Settings → Tokens. **Scope it to the team** that owns the project. The Terraform
-`vercel` provider also takes `team` (the `team_…` id). Store in `.greenlight/secrets.env`;
+`vercel` provider also takes `team` (the `team_…` id). Push it straight to GitHub Actions with
+`greenlight secrets gather` (or `gh secret set`) — Greenlight keeps no local secret file.
 `greenlight add` verifies it against `/v2/user` (HTTP 200) before commit.
 
 ## Terraform module — `infra/modules/vercel`

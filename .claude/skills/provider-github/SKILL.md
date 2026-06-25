@@ -1,6 +1,6 @@
 ---
 name: provider-github
-description: How GitHub works in a Greenlight setup — secrets sync target (Actions secrets/environments), the repo/branch/protection Terraform module, the develop→main flow, and OIDC-over-PAT preference. Use when syncing tokens, wiring branch protection/environments, or debugging gh/secrets/CI auth.
+description: How GitHub works in a Greenlight setup — the single secret store (Actions secrets/environments), the repo/branch/protection Terraform module, the develop→main flow, and OIDC-over-PAT preference. Use when setting tokens, wiring branch protection/environments, or debugging gh/secrets/CI auth.
 ---
 
 # provider-github
@@ -32,11 +32,12 @@ pushes each to the right repo; see docs/provider-tokens.md):
 Provider creds (OCI/Cloudflare/…) live **only in the wrapper**; the tool repo holds just the
 dispatch PAT (its build pushes to GHCR with the built-in `github.token`).
 
-## Secrets sync
+## Setting secrets
 
-`greenlight secrets sync [--repo o/r] [--env <env>]` pushes `.greenlight/secrets.env` to the
-repo's Actions secrets via `gh` (values piped on stdin — never in argv or logs). Run
-`gh auth login` first. This is the "init writes to provider stores" piece.
+GitHub Actions secrets are the **single** secret store — Greenlight keeps no local secret file.
+`greenlight secrets gather <tool> [--repo o/r] [--env <env>]` prompts the tool's tokens (and the
+always-on base tokens) with hidden input and pipes them straight to `gh secret set` (never on
+disk, never in argv or logs). Run `gh auth login` first. `gh secret set` is the manual alternative.
 
 ## Terraform module — `infra/modules/repo`
 

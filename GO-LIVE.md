@@ -58,8 +58,8 @@ Publishing** from CI — no `NPM_TOKEN`, no automation token.
 
 ### C2. Cloudflare (🔑)
 12. 🔑 Add **Account → Cloudflare Tunnel → Edit** to `CLOUDFLARE_API_TOKEN` (keep Zone:DNS:Edit);
-    update `.greenlight/secrets.env` + `greenlight secrets sync`. The current token can't create
-    the tunnel.
+    re-set it as a GitHub Actions secret (`gh secret set CLOUDFLARE_API_TOKEN`, or
+    `greenlight secrets gather bamcp`). The current token can't create the tunnel.
 
 ### C3. Wrapper config edits (⚙️)
 13. ⚙️ **Fill BAMCP's runtime env** in `infra/bamcp.tf` (`module "bamcp_instance"` → `environment`):
@@ -121,7 +121,7 @@ Publishing** from CI — no `NPM_TOKEN`, no automation token.
 | `BAMCP_OCI_CONTAINER_INSTANCE_OCID` | wrapper repo | C | which instance to restart (post-apply) |
 | `GREENLIGHT_STATUS_TOKEN` (PAT) | wrapper repo | C | deploy status → BAMCP commit |
 | `GREENLIGHT_DISPATCH_TOKEN` (PAT) | BAMCP repo | C | fire deploy dispatch → wrapper |
-| `CLOUDFLARE_API_TOKEN` (+ Tunnel:Edit) | wrapper repo + `.greenlight/secrets.env` | C | tunnel + DNS apply |
+| `CLOUDFLARE_API_TOKEN` (+ Tunnel:Edit) | wrapper repo | C | tunnel + DNS apply |
 | `ANTHROPIC_API_KEY` | wrapper / CI | D (optional) | agent-web / eval verify |
 | existing: `TF_API_TOKEN`, Supabase/Vercel tokens | wrapper repo | — | HCP backend + HeistMind |
 

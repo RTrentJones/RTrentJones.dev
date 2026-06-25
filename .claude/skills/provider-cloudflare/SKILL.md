@@ -19,9 +19,10 @@ One token, these scopes (a missing scope took down a live apply more than once):
 - **Account · Cloudflare Tunnel · Edit** — only if a tool uses `target: oci` (the cloudflared
   tunnel). Without it, the tunnel resource fails with **403 Forbidden** on `cfd_tunnel` at apply.
 
-Create at dash → My Profile → API Tokens → Custom Token. Store in `.greenlight/secrets.env`
-(gitignored) and push to GitHub Actions with `greenlight secrets sync`. `greenlight add`
-verifies it against `/user/tokens/verify` (status must be `active`) before you commit.
+Create at dash → My Profile → API Tokens → Custom Token. Push it straight to GitHub Actions
+with `greenlight secrets gather` (or `gh secret set CLOUDFLARE_API_TOKEN`) — Greenlight keeps
+no local secret file. `greenlight add` verifies it against `/user/tokens/verify` (status must
+be `active`) before you commit.
 
 ## Terraform modules
 

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.greenlight/**)",
+      "Read(**/.greenlight/**)",
+      "Read(**/*.env)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.dev.vars)",
+      "Read(**/.dev.vars.*)"
+    ]
+  }
+}

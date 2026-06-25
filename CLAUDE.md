@@ -39,7 +39,7 @@ Inside `apps/blog/`: `pnpm dev` / `pnpm build` / `pnpm preview` (Astro). No test
 - `deploy <name> --env <env>` — build + deploy via the target adapter (needs `CLOUDFLARE_API_TOKEN`).
 - `verify <name> [--env <env> | --url <url>]` — run the verify harness. Mode is per-lane (`api`/`playwright` for web, `mcp` for MCP servers); the blog's checks are in `apps/blog/verify.config.ts` (RSS + sitemap parse, no broken internal links).
 - `promote <name> [--perform] [--push]` — gated `develop → main` fast-forward.
-- `secrets sync` — push local `.greenlight/secrets.env` to the configured secret stores.
+- `secrets gather <name>` — guided, link-first token prompts pushed straight to GitHub Actions secrets (hidden input, never written to disk).
 - `agent sync` — (re)install the deploy-verify-promote skill + MCP recommendations into this repo.
 
 ## Deploy / promote model
