@@ -1,5 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm';
-import { db } from './db';
+import { getDb } from './db';
 import type {
   CompareCell,
   EvalCase,
@@ -14,7 +14,7 @@ import type {
 // queries are clearer as SQL than as the query builder, and regressions MUST be derived on read.
 
 async function rows<T>(query: SQL): Promise<T[]> {
-  const res = await db.execute(query);
+  const res = await getDb().execute(query);
   return res.rows as T[];
 }
 

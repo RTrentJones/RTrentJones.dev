@@ -11,6 +11,9 @@ export default [
   {
     mode: 'api',
     checks: [
+      // health proves the deployed app can actually reach its DB (DATABASE_URL wired + schema present).
+      // This catches the missing-env-var class of failure with a clear signal, not an opaque 500.
+      { path: '/api/health', status: 200, contains: '"ok":true' },
       { path: '/', status: 200, contains: 'claude-opus-4-8' },
       { path: '/runs', status: 200 },
       // POST-only route → GET is 405 (Method Not Allowed). Confirms ingest is mounted; the bearer/zod
