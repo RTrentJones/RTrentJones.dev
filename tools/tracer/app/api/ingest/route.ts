@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { evalCase, evalRun } from '../../../drizzle/schema';
-import { db } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { evalRunInput } from '../../../lib/schema';
 
 // The ingest seam: `greenlight verify --mode eval` POSTs one run + its cases here. Mutating endpoint,
@@ -31,6 +31,7 @@ export async function POST(req: Request) {
   const runId = crypto.randomUUID();
 
   try {
+    const db = getDb();
     const runRow = db.insert(evalRun).values({
       id: runId,
       tool: run.tool,
