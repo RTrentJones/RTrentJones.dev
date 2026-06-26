@@ -1,0 +1,31 @@
+name: dogfood-tracer
+
+# Dogfood: periodically run Tracer's own Greenlight verify and POST the standards-shaped result
+# (`greenlight verify tracer --env prod --json`, shipped in @rtrentjones/greenlight v0.6.0) to Tracer's
+# /api/ingest, so Tracer accumulates its own pass-rate-over-time. The script is GUARDED on
+# TRACER_INGEST_TOKEN — it skips cleanly when unset, so this is inert until that secret is set (both in
+# CI here and in the Vercel runtime, from the same TF_VAR_TRACER_INGEST_TOKEN). api+test only (no
+# ANTHROPIC_API_KEY → agent-web is omitted, so no chromium/Claude cost on the schedule).
+on:
+  schedule:
+    - cron: '0 12 * * *' # daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dogfood-tracer
+  cancel-in-progress: false
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Verify tracer + ingest its own result
+        env:
+          TRACER_INGEST_TOKEN: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
+        run: node tools/tracer/scripts/dogfood.mjs https://tracer.rtrentjones.dev prod

@@ -23,7 +23,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@rtrentjones/greenlight": "^0.5.1",
+    "@rtrentjones/greenlight": "^0.6.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "drizzle-kit": "^0.28.0",

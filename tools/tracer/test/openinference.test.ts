@@ -61,3 +61,59 @@ describe('fromOpenInference', () => {
     expect(r.cases[0].score).toBe(1);
   });
 });
+
+// Cross-repo parity: this is the EXACT object @rtrentjones/greenlight@0.6.0's `toExportResult` emits
+// for a combined [eval, api] run (the golden fixture asserted in Greenlight's
+// packages/verify/src/__tests__/export.test.ts). It proves the producer's real `verify --json` output
+// round-trips through our adapter — incl. the extra `schemaVersion` (ignored), the joined `mode`, and
+// per-check scores derived 1.0/0.0 from `passed` for non-eval checks.
+describe('Greenlight v0.6.0 --json export parity', () => {
+  const greenlightExport = {
+    schemaVersion: '1',
+    tool: 'tracer',
+    mode: 'eval+api',
+    env: 'beta',
+    git_sha: 'abc1234',
+    passed: false,
+    pass_rate: 2 / 3,
+    duration_ms: 4200,
+    attributes: {
+      'gen_ai.request.model': 'claude-opus-4-8',
+      'gen_ai.usage.input_tokens': 1500,
+      'gen_ai.usage.output_tokens': 800,
+    },
+    checks: [
+      {
+        name: 'eval: summarize',
+        passed: true,
+        input: null,
+        expected: null,
+        output: 'a summary',
+        'eval.score': 0.95,
+        'eval.explanation': 'faithful; names both changes',
+      },
+      { name: 'GET /', passed: true, input: null, expected: null, output: null, 'eval.score': 1, 'eval.explanation': null },
+      { name: 'GET /missing', passed: false, input: null, expected: null, output: null, 'eval.score': 0, 'eval.explanation': null },
+    ],
+  };
+
+  it('is recognized as the standard shape and maps to a faithful EvalRunInput', () => {
+    expect(isOpenInferenceResult(greenlightExport)).toBe(true);
+    const r = fromOpenInference(greenlightExport);
+    expect(r).toMatchObject({
+      tool: 'tracer',
+      model: 'claude-opus-4-8',
+      mode: 'eval+api',
+      env: 'beta',
+      git_sha: 'abc1234',
+      tokens_in: 1500,
+      tokens_out: 800,
+      passed: false,
+      pass_rate: 2 / 3,
+    });
+    expect(r.cases).toHaveLength(3);
+    expect(r.cases[0]).toMatchObject({ name: 'eval: summarize', score: 0.95, passed: true, judge_rationale: 'faithful; names both changes' });
+    expect(r.cases[1]).toMatchObject({ name: 'GET /', score: 1, passed: true });
+    expect(r.cases[2]).toMatchObject({ name: 'GET /missing', score: 0, passed: false });
+  });
+});
