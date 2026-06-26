@@ -78,8 +78,15 @@ module "heistmind_supabase" {
   discord_auth_enabled  = var.heistmind_discord_client_id != "" && var.heistmind_discord_client_secret != ""
   discord_client_id     = var.heistmind_discord_client_id
   discord_client_secret = var.heistmind_discord_client_secret
-  auth_site_url         = "https://heistmind.rtrentjones.dev"
+  # Canonical brand domain is heistmind.com (a custom apex pointed at the same Vercel project,
+  # attached outside this terraform). auth_site_url is the post-auth fallback + email base.
+  auth_site_url = "https://heistmind.com"
   auth_additional_redirect_urls = [
+    # Allow-list every served origin so Discord OAuth returns the user to the root they started on:
+    # the app passes window.location.origin as redirectTo, and Supabase only honors allow-listed
+    # URLs (else it falls back to auth_site_url). The rtrentjones.dev entries stay so the
+    # Greenlight-managed domain + beta verify keep working.
+    "https://heistmind.com/**",
     "https://heistmind.rtrentjones.dev/**",
     "https://beta.heistmind.rtrentjones.dev/**",
     "http://localhost:3000/**",
@@ -129,7 +136,7 @@ module "heistmind_vercel" {
     schema_beta = { key = "NEXT_PUBLIC_HEISTMIND_SCHEMA", target = ["preview"], sensitive = false }
   }
   environment_values = {
-    site_url_prod     = "https://heistmind.rtrentjones.dev"
+    site_url_prod     = "https://heistmind.com" # canonical brand domain (beta stays on the subdomain)
     site_url_beta     = "https://beta.heistmind.rtrentjones.dev"
     supa_url_prod     = local.heistmind_supabase_url
     supa_anon_prod    = module.heistmind_supabase.anon_key
