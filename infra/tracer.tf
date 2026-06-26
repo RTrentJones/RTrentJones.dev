@@ -31,6 +31,16 @@ module "tracer_vercel" {
     db_direct_prod = { key = "DIRECT_URL", target = ["production"], sensitive = true }
     db_url_beta    = { key = "DATABASE_URL", target = ["preview"], sensitive = true }
     db_direct_beta = { key = "DIRECT_URL", target = ["preview"], sensitive = true }
+    # Pass-two runtime secrets — same value on prod + preview. Ingest token guards POST /api/ingest +
+    # /api/run; the provider keys enable /api/run vendors (each optional → fail-soft when "").
+    ingest_token_prod  = { key = "TRACER_INGEST_TOKEN", target = ["production"], sensitive = true }
+    ingest_token_beta  = { key = "TRACER_INGEST_TOKEN", target = ["preview"], sensitive = true }
+    anthropic_key_prod = { key = "ANTHROPIC_API_KEY", target = ["production"], sensitive = true }
+    anthropic_key_beta = { key = "ANTHROPIC_API_KEY", target = ["preview"], sensitive = true }
+    gemini_key_prod    = { key = "GEMINI_API_KEY", target = ["production"], sensitive = true }
+    gemini_key_beta    = { key = "GEMINI_API_KEY", target = ["preview"], sensitive = true }
+    xai_key_prod       = { key = "XAI_API_KEY", target = ["production"], sensitive = true }
+    xai_key_beta       = { key = "XAI_API_KEY", target = ["preview"], sensitive = true }
   }
   # Pooled (DATABASE_URL) for the serverless app; direct (DIRECT_URL) for migrations. Prod hits the
   # project's default branch; beta hits the "beta" branch — separate data, instant copy-on-write.
@@ -41,6 +51,14 @@ module "tracer_vercel" {
     db_direct_prod = module.tracer_neon.direct_url["prod"]
     db_url_beta    = module.tracer_neon.database_url["beta"]
     db_direct_beta = module.tracer_neon.direct_url["beta"]
+    ingest_token_prod  = var.tracer_ingest_token
+    ingest_token_beta  = var.tracer_ingest_token
+    anthropic_key_prod = var.tracer_anthropic_api_key
+    anthropic_key_beta = var.tracer_anthropic_api_key
+    gemini_key_prod    = var.tracer_gemini_api_key
+    gemini_key_beta    = var.tracer_gemini_api_key
+    xai_key_prod       = var.tracer_xai_api_key
+    xai_key_beta       = var.tracer_xai_api_key
   }
 }
 

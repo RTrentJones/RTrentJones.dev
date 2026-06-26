@@ -84,6 +84,30 @@ variable "oci_compartment_id" {
   default = "" # blank → tenancy (root) compartment, via local.oci_compartment_id
 }
 
+# tracer (next/vercel/neon) runtime secrets, wired into the Vercel env by tracer.tf. All optional
+# (default "") so an unset key just disables that capability at runtime (fail-soft): no ingest token →
+# /api/ingest + /api/run fail closed (503); no provider key → that vendor is skipped by /api/run.
+variable "tracer_ingest_token" {
+  type      = string
+  sensitive = true
+  default   = "" # bearer for POST /api/ingest + /api/run (TF_VAR_TRACER_INGEST_TOKEN)
+}
+variable "tracer_anthropic_api_key" {
+  type      = string
+  sensitive = true
+  default   = "" # Anthropic provider for /api/run (TF_VAR_TRACER_ANTHROPIC_API_KEY)
+}
+variable "tracer_gemini_api_key" {
+  type      = string
+  sensitive = true
+  default   = "" # Google AI Studio key — free tier (TF_VAR_TRACER_GEMINI_API_KEY)
+}
+variable "tracer_xai_api_key" {
+  type      = string
+  sensitive = true
+  default   = "" # xAI / Grok provider for /api/run (TF_VAR_TRACER_XAI_API_KEY)
+}
+
 locals {
   # Compartment for all OCI tools — blank var falls back to the tenancy (root) compartment.
   oci_compartment_id = var.oci_compartment_id != "" ? var.oci_compartment_id : var.oci_tenancy_ocid

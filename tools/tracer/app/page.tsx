@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { latestRunPerTool, passRateOverTime, runsWithRegression } from '../lib/queries';
 import { LineChart } from './components/LineChart';
+import { RunEval } from './components/RunEval';
 import { Card, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from './components/ui';
 
 // Read fresh each request so the dashboard reflects the DB and the verify gate exercises a live query
@@ -34,12 +35,15 @@ export default async function Page() {
 
   return (
     <div style={{ display: 'grid', gap: '1.5rem' }}>
-      <div>
-        <h1 style={{ margin: '0 0 0.25rem' }}>Claude evals</h1>
-        <p style={{ margin: 0, color: '#64748b' }}>
-          Every <code>verify --mode eval</code> run, stored over time — pass rate, regressions, and per-model
-          comparisons.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div>
+          <h1 style={{ margin: '0 0 0.25rem' }}>Model evals</h1>
+          <p style={{ margin: 0, color: '#64748b' }}>
+            Every <code>verify --mode eval</code> run, stored over time — pass rate, regressions, and
+            cross-provider comparisons (Claude · Gemini · Grok).
+          </p>
+        </div>
+        <RunEval />
       </div>
 
       <Card>

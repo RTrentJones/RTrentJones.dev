@@ -1,24 +1,25 @@
 // verifyAll: an array so CI and the agent loop gate on the same harness (allPass).
-//  - api: the deployed dashboard renders AND reads Neon. `/` runs a live query, so a broken DB or
-//    missing table 500s instead of returning the seeded marker ('claude-opus-4-8'). The ingest route
-//    is POST-only, so a GET returns 405 — proving the endpoint is mounted without mutating anything.
-//  - test: the tool's Vitest suite (regression logic, pass-rate, ingest zod shape) — no DB needed.
-//  - agent-web: DEFERRED. An LLM driving the live UI is config-gated on ANTHROPIC_API_KEY; infra does
-//    not wire that key yet, so the entry is omitted (gate stays green on api + test). Pass two adds it.
+//  - api: the deployed dashboard renders AND reads Neon. `/api/health` proves DATABASE_URL is wired +
+//    schema present; `/` runs a live query (so a broken DB 500s instead of returning the marker). The
+//    ingest/run routes are POST-only, so a GET returns 405 — proving they're mounted without mutating.
+//  - test: the tool's Vitest suite (regression, pass-rate, judge parse, cost math, OI mapper) — no DB.
+//  - agent-web: an LLM drives the live UI. Gated on ANTHROPIC_API_KEY (the Greenlight agent-web driver
+//    uses Claude); now wired by infra, so it activates in CI/preview. Omitted when the key is unset.
 const anthropic = process.env.ANTHROPIC_API_KEY;
 
 export default [
   {
     mode: 'api',
     checks: [
-      // health proves the deployed app can actually reach its DB (DATABASE_URL wired + schema present).
-      // This catches the missing-env-var class of failure with a clear signal, not an opaque 500.
       { path: '/api/health', status: 200, contains: '"ok":true' },
       { path: '/', status: 200, contains: 'claude-opus-4-8' },
       { path: '/runs', status: 200 },
-      // POST-only route → GET is 405 (Method Not Allowed). Confirms ingest is mounted; the bearer/zod
-      // behaviour is covered by the `test` suite and a manual POST smoke (see README).
+      { path: '/compare', status: 200 },
+      // POST-only routes → GET is 405. Confirms they're mounted; bearer/zod behaviour is covered by the
+      // `test` suite + manual POST smoke (see README). (The `api` mode is GET-only, so it can't assert
+      // the authed POST path here.)
       { path: '/api/ingest', status: 405 },
+      { path: '/api/run', status: 405 },
     ],
     settleRetries: 6,
     settleMs: 5000,
@@ -31,8 +32,18 @@ export default [
           scenarios: [
             {
               name: 'dashboard renders',
-              task: 'Open the home page and confirm the evals dashboard loads with a pass-rate chart.',
-              asserts: [{ selector: 'body' }],
+              task: 'Open the home page and confirm the evals dashboard loads with a pass-rate-over-time chart and a recent-runs table.',
+              asserts: [{ textContains: 'Model evals' }],
+            },
+            {
+              name: 'run detail surfaces the judge rationale',
+              task: 'From the dashboard, open the most recent run by clicking a "detail" link, and confirm the per-case judge rationale is shown.',
+              asserts: [{ textContains: 'Judge rationale' }],
+            },
+            {
+              name: 'compare shows models',
+              task: 'Open the Compare page and confirm it shows a per-model comparison.',
+              asserts: [{ urlContains: '/compare' }],
             },
           ],
         },
