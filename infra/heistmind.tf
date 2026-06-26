@@ -136,7 +136,7 @@ module "heistmind_vercel" {
     schema_beta = { key = "NEXT_PUBLIC_HEISTMIND_SCHEMA", target = ["preview"], sensitive = false }
   }
   environment_values = {
-    site_url_prod     = "https://heistmind.rtrentjones.dev"
+    site_url_prod     = "https://heistmind.com" # canonical brand domain (beta stays on the subdomain)
     site_url_beta     = "https://beta.heistmind.rtrentjones.dev"
     supa_url_prod     = local.heistmind_supabase_url
     supa_anon_prod    = module.heistmind_supabase.anon_key
