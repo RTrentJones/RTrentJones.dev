@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-06-26T00:00:00Z",
+  "version": "seed",
+  "gitSha": "0000000",
+  "apis": [
+    { "key": 0, "name": "Produce" },
+    { "key": 1, "name": "Fetch" },
+    { "key": 2, "name": "ListOffsets" },
+    { "key": 3, "name": "Metadata" },
+    { "key": 8, "name": "OffsetCommit" },
+    { "key": 9, "name": "OffsetFetch" },
+    { "key": 10, "name": "FindCoordinator" },
+    { "key": 11, "name": "JoinGroup" },
+    { "key": 12, "name": "Heartbeat" },
+    { "key": 13, "name": "LeaveGroup" },
+    { "key": 14, "name": "SyncGroup" },
+    { "key": 15, "name": "DescribeGroups" },
+    { "key": 16, "name": "ListGroups" },
+    { "key": 18, "name": "ApiVersions" },
+    { "key": 19, "name": "CreateTopics" },
+    { "key": 20, "name": "DeleteTopics" },
+    { "key": 22, "name": "InitProducerId" },
+    { "key": 24, "name": "AddPartitionsToTxn" },
+    { "key": 25, "name": "AddOffsetsToTxn" },
+    { "key": 26, "name": "EndTxn" },
+    { "key": 28, "name": "TxnOffsetCommit" },
+    { "key": 37, "name": "CreatePartitions" },
+    { "key": 42, "name": "DeleteGroups" }
+  ],
+  "clients": [
+    {
+      "name": "kafkajs",
+      "lang": "Node",
+      "version": "2.2.x",
+      "results": {
+        "Produce": "pass", "Fetch": "pass", "ListOffsets": "pass", "Metadata": "pass",
+        "OffsetCommit": "pass", "OffsetFetch": "pass", "FindCoordinator": "pass", "JoinGroup": "pass",
+        "Heartbeat": "pass", "LeaveGroup": "pass", "SyncGroup": "pass", "DescribeGroups": "pass",
+        "ListGroups": "pass", "ApiVersions": "pass", "CreateTopics": "pass", "DeleteTopics": "pass",
+        "InitProducerId": "pass", "AddPartitionsToTxn": "pass", "AddOffsetsToTxn": "pass",
+        "EndTxn": "pass", "TxnOffsetCommit": "pass", "CreatePartitions": "pass", "DeleteGroups": "pass"
+      }
+    },
+    {
+      "name": "librdkafka",
+      "lang": "C / kcat",
+      "version": "2.3.x",
+      "results": {
+        "Produce": "pass", "Fetch": "pass", "ListOffsets": "pass", "Metadata": "pass",
+        "OffsetCommit": "pass", "OffsetFetch": "pass", "FindCoordinator": "pass", "JoinGroup": "pass",
+        "Heartbeat": "pass", "LeaveGroup": "pass", "SyncGroup": "pass", "DescribeGroups": "pass",
+        "ListGroups": "pass", "ApiVersions": "pass", "CreateTopics": "pass", "DeleteTopics": "pass",
+        "InitProducerId": "pass", "AddPartitionsToTxn": "pass", "AddOffsetsToTxn": "pass",
+        "EndTxn": "pass", "TxnOffsetCommit": "pass", "CreatePartitions": "pass", "DeleteGroups": "pass"
+      }
+    },
+    {
+      "name": "kafka-python",
+      "lang": "Python",
+      "version": "2.0.x",
+      "results": {
+        "Produce": "pass", "Fetch": "pass", "ListOffsets": "pass", "Metadata": "pass",
+        "OffsetCommit": "pass", "OffsetFetch": "pass", "FindCoordinator": "pass", "JoinGroup": "pass",
+        "Heartbeat": "pass", "LeaveGroup": "pass", "SyncGroup": "pass", "DescribeGroups": "pass",
+        "ListGroups": "pass", "ApiVersions": "pass", "CreateTopics": "pass", "DeleteTopics": "pass",
+        "InitProducerId": "na", "AddPartitionsToTxn": "na", "AddOffsetsToTxn": "na",
+        "EndTxn": "na", "TxnOffsetCommit": "na", "CreatePartitions": "pass", "DeleteGroups": "pass"
+      }
+    },
+    {
+      "name": "Sarama",
+      "lang": "Go",
+      "version": "1.43.x",
+      "results": {
+        "Produce": "pass", "Fetch": "pass", "ListOffsets": "pass", "Metadata": "pass",
+        "OffsetCommit": "pass", "OffsetFetch": "pass", "FindCoordinator": "pass", "JoinGroup": "pass",
+        "Heartbeat": "pass", "LeaveGroup": "pass", "SyncGroup": "pass", "DescribeGroups": "pass",
+        "ListGroups": "pass", "ApiVersions": "pass", "CreateTopics": "pass", "DeleteTopics": "pass",
+        "InitProducerId": "pass", "AddPartitionsToTxn": "pass", "AddOffsetsToTxn": "pass",
+        "EndTxn": "pass", "TxnOffsetCommit": "pass", "CreatePartitions": "pass", "DeleteGroups": "pass"
+      }
+    }
+  ]
+}
