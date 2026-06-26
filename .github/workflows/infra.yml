@@ -32,10 +32,13 @@ jobs:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
       # tracer pass-two runtime secrets, wired into the Vercel env by tracer.tf. All optional — an unset
       # secret is "" → that capability is disabled at runtime (ingest fails closed; provider skipped).
+      # The per-tool TF_VAR_TRACER_* names are the manifest DEFAULT (differentiable per project); this is
+      # where THIS project overrides the LLM keys to the SHARED account secrets (one GEMINI/ANTHROPIC/XAI
+      # key per account — the same GEMINI_API_KEY the agent lane uses), so there's no duplicate to set.
       TF_VAR_tracer_ingest_token: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
-      TF_VAR_tracer_anthropic_api_key: ${{ secrets.TF_VAR_TRACER_ANTHROPIC_API_KEY }}
-      TF_VAR_tracer_gemini_api_key: ${{ secrets.TF_VAR_TRACER_GEMINI_API_KEY }}
-      TF_VAR_tracer_xai_api_key: ${{ secrets.TF_VAR_TRACER_XAI_API_KEY }}
+      TF_VAR_tracer_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      TF_VAR_tracer_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      TF_VAR_tracer_xai_api_key: ${{ secrets.XAI_API_KEY }}
       # DB password is inert on the imported project (the module pins ignore_changes) — never
       # written to the live DB — but the supabase provider length-validates it at plan time. The
       # `|| 'import-placeholder'` fallback means an UNSET secret yields a valid ≥4-char value (an
