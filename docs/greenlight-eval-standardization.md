@@ -1,8 +1,13 @@
 # Design doc — Greenlight eval standardization + verify result export
 
-> **Status:** proposed. **Repo:** this is upstream work for `RTrentJones/greenlight` (the framework),
-> consumed by `RTrentJones.dev` (this repo) via a normal `@rtrentjones/greenlight` version bump + the
-> matching Terraform `?ref=`. **Motivating consumer:** the Tracer evals dashboard (`tools/tracer`).
+> **Status: SHIPPED in `@rtrentjones/greenlight` 0.6.0** — Change A (eval `1–5 → 0..1`) + Change B
+> (generic `verify --json` export), adopted in `RTrentJones.dev` via the v0.6.0 bump + `?ref=v0.6.0`;
+> the Tracer **dogfood is live** (`dogfood-tracer.yml` → `/api/ingest`). As-built deviations from this
+> doc: **core does NOT depend on `autoevals`** (§11 — kept the hand-rolled judge, rename-only); the
+> "breaking" eval rescale had **zero consumers** (no tool used `mode:'eval'`), so no migration was
+> needed. The `--json` split (JSON→stdout / human→stderr) and the per-check `1.0`/`0.0` derivation
+> shipped as proposed. **Motivating consumer:** the Tracer evals dashboard (`tools/tracer`). Retained
+> as the design record.
 
 ## 1. Context
 
@@ -169,6 +174,10 @@ schema (§6.1) is the stable contract a hook would pass through, so this stays f
   returns 201. Round-trip the golden fixture through Tracer's `fromOpenInference` to prove parity.
 
 ## 11. Open questions
+
+**Resolved as shipped (0.6.0):** core did **not** adopt `autoevals` (rename-only judge, keeps the
+framework lean); non-eval checks **derive `1.0`/`0.0` from `pass`**; `--json` → stdout, human → stderr.
+The original design-time questions follow for the record.
 
 - **Reuse `autoevals` in core, or just rename to 0..1?** Reuse is cleaner and removes bespoke judge code,
   but adds a dependency to the framework. Recommendation: reuse (it's small, MIT, free-tier-friendly).
