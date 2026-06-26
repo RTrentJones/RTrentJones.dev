@@ -1,0 +1,133 @@
+---
+// Latest absolute benchmark numbers (p50/p99 + msgs/sec) vs a raw-INSERT floor and a real-broker
+// ceiling. The regression-aware trend over releases lives in Tracer (normalized scores are POSTed
+// there by the evidence workflow) — linked below.
+import { loadBench, fmtVerified, TRACER_TREND_URL } from '../lib/evidence';
+
+const { data, source } = await loadBench();
+const { scenarios, baselines, generatedAt } = data;
+const n = (x: number) => x.toLocaleString('en-US');
+---
+
+<figure class="bench">
+  <figcaption>
+    <strong>Throughput &amp; latency</strong>
+    <span class="meta">
+      warm-up excluded · verified {fmtVerified(generatedAt)} UTC
+      {source === 'seed' && <span class="seed">seed</span>}
+    </span>
+  </figcaption>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th class="num">msgs/sec</th>
+          <th class="num">p50</th>
+          <th class="num">p99</th>
+        </tr>
+      </thead>
+      <tbody>
+        {scenarios.map((s) => (
+          <tr>
+            <td class="mono">{s.name}</td>
+            <td class="num">{n(s.msgsPerSec)}</td>
+            <td class="num">{s.p50Ms} ms</td>
+            <td class="num">{s.p99Ms} ms</td>
+          </tr>
+        ))}
+        <tr class="baseline">
+          <td class="mono">raw INSERT (psql) — floor</td>
+          <td class="num">{n(baselines.rawInsert.msgsPerSec)}</td>
+          <td class="num">{baselines.rawInsert.p50Ms} ms</td>
+          <td class="num">{baselines.rawInsert.p99Ms} ms</td>
+        </tr>
+        <tr class="baseline">
+          <td class="mono">Apache Kafka broker — ceiling</td>
+          <td class="num">{n(baselines.realBroker.msgsPerSec)}</td>
+          <td class="num">{baselines.realBroker.p50Ms} ms</td>
+          <td class="num">{baselines.realBroker.p99Ms} ms</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="trend">
+    Regression-aware trend across tagged releases → <a href={TRACER_TREND_URL}>Tracer ↗</a>
+  </p>
+</figure>
+
+<style>
+  .bench {
+    margin: 1.6rem 0 2.2rem;
+  }
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-bottom: 0.7rem;
+  }
+  figcaption strong {
+    font-size: var(--text-base);
+  }
+  .meta {
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  .seed {
+    margin-left: 0.5rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.66rem;
+  }
+  .scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: var(--text-sm);
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 0.5rem 0.95rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th {
+    color: var(--fg-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  .baseline td {
+    color: var(--fg-muted);
+    border-top: 1px solid var(--border);
+  }
+  .baseline:first-of-type td {
+    border-top: 2px solid var(--border);
+  }
+  .trend {
+    margin-top: 0.7rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+</style>

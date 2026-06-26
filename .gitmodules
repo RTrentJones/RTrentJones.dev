@@ -4,3 +4,6 @@
 [submodule "tools/heistmind"]
 	path = tools/heistmind
 	url = https://github.com/RTrentJones/HeistMind
+[submodule "tools/pg_kafka"]
+	path = tools/pg_kafka
+	url = https://github.com/RTrentJones/pg_kafka

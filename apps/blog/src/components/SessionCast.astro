@@ -1,0 +1,70 @@
+---
+// A recorded real session (kcat -P → kcat -C → SELECT over kafka.messages) rendered as an animated
+// SVG (zero client JS). The live recording is published to the evidence branch by CI; until then we
+// show a committed placeholder. Paired with a one-click "Open in Codespace" (the repo ships a
+// .devcontainer, so a visitor gets the actual thing, not a rendering of it).
+import { loadSessionSvg, CODESPACE_URL } from '../lib/evidence';
+
+const { url, source } = await loadSessionSvg();
+---
+
+<figure class="cast">
+  <div class="frame">
+    <img
+      src={url}
+      alt="Terminal: kcat -P produces a message, kcat -C consumes it back, then a SELECT over kafka.messages shows the same row stored in Postgres."
+      loading="lazy"
+    />
+  </div>
+  <figcaption>
+    A real session — produce with <code>kcat -P</code>, consume with <code>kcat -C</code>, then
+    <code>SELECT</code> over <code>kafka.messages</code>: the broker and the table are the same data.
+    {source === 'seed' && <span class="seed">placeholder — awaiting first CI recording</span>}
+  </figcaption>
+  <a class="codespace" href={CODESPACE_URL}>▶ Open in Codespace</a>
+</figure>
+
+<style>
+  .cast {
+    margin: 1.6rem 0 2.2rem;
+  }
+  .frame {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--code-bg);
+  }
+  .frame img {
+    display: block;
+    width: 100%;
+    border-radius: 0;
+  }
+  figcaption {
+    margin-top: 0.7rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  .seed {
+    margin-left: 0.4rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.66rem;
+  }
+  .codespace {
+    display: inline-block;
+    margin-top: 0.8rem;
+    padding: 0.4rem 0.9rem;
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-radius: 7px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .codespace:hover {
+    text-decoration: none;
+    filter: brightness(1.05);
+  }
+</style>
