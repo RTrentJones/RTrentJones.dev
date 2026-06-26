@@ -94,21 +94,17 @@ module "heistmind_supabase" {
     "https://beta.heistmind.rtrentjones.dev/**",
     "http://localhost:3000/**",
   ]
-}
 
-# Expose the per-env schemas to the HOSTED PostgREST API. config.toml's `schemas` only governs
-# the LOCAL stack; without this the live API rejects the app's `client.schema('development'|
-# 'production')` with "Invalid schema". The API roles already have USAGE + table grants on both
-# schemas (migration 00003_schema_grants). Discord auth is off, so the module manages no
-# supabase_settings — this api-only resource doesn't collide.
-resource "supabase_settings" "heistmind_api" {
-  project_ref = module.heistmind_supabase.project_ref
-
-  api = jsonencode({
-    db_schema            = "public, graphql_public, development, production"
-    db_extra_search_path = "public, extensions"
-    max_rows             = 1000
-  })
+  # Schema-per-env in ONE project: expose the per-env Postgres schemas to the HOSTED PostgREST
+  # API. config.toml's `schemas` only governs the LOCAL stack; without this the live API rejects
+  # the app's `client.schema('development'|'production')` with "Invalid schema" (PGRST106). This
+  # MUST be set on the module: the module's own `supabase_settings.this` owns the project's API
+  # config and rewrites db_schema to its default ("public,graphql_public") on every apply, so a
+  # separate root-level supabase_settings resource just collides and gets clobbered. (That was the
+  # prod outage of 2026-06: the v0.6.0 module bump made the module manage supabase_settings, which
+  # silently clobbered the standalone resource that used to expose these schemas.) Role grants on
+  # both schemas come from migration 00003_schema_grants.
+  api_db_schema = "public,graphql_public,development,production"
 }
 
 # Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
