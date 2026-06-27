@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@rtrentjones/greenlight':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.1
+        version: 0.6.1
 
   apps/blog:
     dependencies:
@@ -1832,6 +1832,10 @@ packages:
 
   '@rtrentjones/greenlight@0.6.0':
     resolution: {integrity: sha512-5o8yD1ymCvetXGSZjVDIiPwO9fQujOb7P2BtxnNJ18Hu6hoiCme+M0wB9ng8cTt+rMXIN27Eo8AhOP6j32j99g==}
+    hasBin: true
+
+  '@rtrentjones/greenlight@0.6.1':
+    resolution: {integrity: sha512-7Yxkfxf00a1K6xOsd6tgg7evHCcLSbeHQcQsZQJyBOwQJLmtKbmL/7Wcq0F5NxhlPVYcXbqdgmFTS9PTwLo6pg==}
     hasBin: true
 
   '@shikijs/core@3.23.0':
@@ -5483,6 +5487,18 @@ snapshots:
     optional: true
 
   '@rtrentjones/greenlight@0.6.0':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      jiti: 2.7.0
+      zod: 3.25.76
+    optionalDependencies:
+      '@anthropic-ai/sdk': 0.69.0(zod@3.25.76)
+      playwright: 1.61.1
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - supports-color
+
+  '@rtrentjones/greenlight@0.6.1':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       jiti: 2.7.0

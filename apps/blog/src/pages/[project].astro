@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Base from '../layouts/Base.astro';
+import { envFromSite, toolByName, toolUrl } from '../data/manifest';
 
 // Top-level write-up pages (/heistmind, /bamcp). Astro's SSG emits ONLY the slugs returned
 // here, so this never shadows the static routes (/, /blog, /about).
@@ -23,6 +24,10 @@ export async function getStaticPaths() {
 const { project } = Astro.props;
 const { Content } = await render(project);
 const { title, summary, liveUrl, repoUrl, status } = project.data;
+// Deployed tools get an env-aware live URL from the manifest (a beta write-up links to the beta
+// tool); non-tools fall back to the MDX liveUrl.
+const facets = toolByName[project.id];
+const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
 ---
 
 <Base title={title} description={summary} prose>
@@ -31,7 +36,7 @@ const { title, summary, liveUrl, repoUrl, status } = project.data;
     <h1>{title}</h1>
     <p class="summary">{summary}</p>
     <p class="links">
-      {liveUrl && <a class="cta" href={liveUrl}>Open the live tool ↗</a>}
+      {live && <a class="cta" href={live}>Open the live tool ↗</a>}
       {repoUrl && <a href={repoUrl}>Source ↗</a>}
       {status && <span class="muted">{status}</span>}
     </p>

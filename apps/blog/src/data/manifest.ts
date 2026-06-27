@@ -1,6 +1,9 @@
 // Live project + provider details, sourced from the wrapper's manifest (greenlight.config.ts — the
 // single source of truth) so the projects page reflects what's actually deployed. The content
-// collection owns each write-up; this owns the stack (lane × target × data) + the derived providers.
+// collection owns each write-up; this owns the stack (lane × target × data), the derived providers,
+// and env-aware tool URLs — derived via the framework's own `resolveUrl` so links match the
+// environment you're viewing (beta blog → beta tools), with no convention reimplemented here.
+import { resolveUrl } from '@rtrentjones/greenlight';
 import config from '../../../../greenlight.config.ts';
 
 export interface Facets {
@@ -51,30 +54,46 @@ export function stackLine(t: Facets): string {
 
 export const domain = (config as unknown as { domain: string }).domain;
 
+const blogFacets: Facets = { name: 'blog', ...(config as unknown as { blog: Facets }).blog };
+
+// --- env-aware URLs ------------------------------------------------------------------------------
+
+export type Env = 'beta' | 'prod';
+
+/** Which environment the current render targets, from the blog's own host (Astro.site). A beta build
+ * gets SITE_URL=https://beta.rtrentjones.dev (set by the Greenlight deploy adapter). */
+export const envFromSite = (site?: URL): Env =>
+  site?.hostname.startsWith('beta.') ? 'beta' : 'prod';
+
+/** A deployed tool's URL in the given env, via the framework's URL scheme (`resolveUrl`). Falls back
+ * to prod when the tool has no beta deployment (its `envs` excludes beta), so prod-only tools (bamcp,
+ * muse) never get a dead `beta.` link. The blog is the apex (no subdomain); MCP tools serve at /mcp. */
+export function toolUrl(name: string, env: Env): string {
+  const facets = name === 'blog' ? blogFacets : toolByName[name];
+  const hasBeta = name === 'blog' || Boolean(facets?.envs?.includes('beta'));
+  return resolveUrl({
+    domain,
+    name: name === 'blog' ? undefined : name,
+    env: env === 'beta' && hasBeta ? 'beta' : 'prod',
+    mcp: facets?.lane === 'mcp',
+  });
+}
+
 export interface RegisteredTool {
   name: string;
-  url: string;
   facets: Facets;
   providers: string[];
   envs: string[];
   access?: string;
 }
 
-/** A tool's live URL: subdomain per tool (apex for the blog); MCP servers serve at /mcp. */
-function urlFor(name: string, facets: Facets): string {
-  const base = name === 'blog' ? `https://${domain}/` : `https://${name}.${domain}/`;
-  return facets.lane === 'mcp' ? `${base}mcp` : base;
-}
-
-const blogFacets: Facets = { name: 'blog', ...(config as unknown as { blog: Facets }).blog };
-
 /** The FULL deployed inventory — the site itself plus every tool registered via `greenlight add`.
  * Rendered collapsed on /projects as a verification: nothing deployed should slip off the curated
- * showcase (e.g. muse, the agent, and the blog have no card but are deployed). */
+ * showcase (e.g. muse, the agent, and the blog have no card but are deployed). URLs are derived per
+ * render with `toolUrl(name, env)` so they're env-aware. */
 export const registeredTools: RegisteredTool[] = [
   {
     name: 'blog',
-    url: urlFor('blog', blogFacets),
     facets: blogFacets,
     providers: providersFor(blogFacets),
     envs: ['prod'],
@@ -83,7 +102,6 @@ export const registeredTools: RegisteredTool[] = [
   ...(config as unknown as { tools: (Facets & { access?: string; envs?: string[] })[] }).tools.map(
     (t) => ({
       name: t.name,
-      url: urlFor(t.name, t),
       facets: t,
       providers: providersFor(t),
       envs: t.envs ?? [],

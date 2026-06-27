@@ -2,11 +2,13 @@
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
-import { registeredTools, stackLine } from '../../data/manifest';
+import { envFromSite, registeredTools, stackLine, toolUrl } from '../../data/manifest';
 
 const projects = (await getCollection('projects')).sort(
   (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
 );
+// Link tools in the same environment the registry is being viewed in (beta blog → beta tools).
+const env = envFromSite(Astro.site);
 ---
 
 <Base title="Projects" description="Things I've built — most run live, gated by the Greenlight loop.">
@@ -33,7 +35,7 @@ const projects = (await getCollection('projects')).sort(
             registeredTools.map((t) => (
               <tr>
                 <td>
-                  <a href={t.url}>{t.name}</a>
+                  <a href={toolUrl(t.name, env)}>{t.name}</a>
                 </td>
                 <td class="mono">{stackLine(t.facets)}</td>
                 <td>{t.providers.join(' · ')}</td>
