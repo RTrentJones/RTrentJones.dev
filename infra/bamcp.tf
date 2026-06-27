@@ -9,7 +9,7 @@
 # CI builds + pushes the image (provider-agnostic); deploy = restart the instance (re-pull).
 # beta would be a second instance + tunnel route — mind the free 2-OCPU / 12-GB A1 cap.
 module "bamcp_tunnel" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tunnel?ref=v0.6.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tunnel?ref=v0.6.1"
 
   account_id = var.cloudflare_account_id
   name       = "bamcp-tunnel"
@@ -20,14 +20,14 @@ module "bamcp_tunnel" {
 
 # Network is IaC too — VCN + public subnet (egress only). No hand-clicking in the OCI console.
 module "bamcp_network" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-network?ref=v0.6.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-network?ref=v0.6.1"
 
   name           = "bamcp"
   compartment_id = local.oci_compartment_id
 }
 
 module "bamcp_instance" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-container-instance?ref=v0.6.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-container-instance?ref=v0.6.1"
 
   name           = "bamcp"
   compartment_id = local.oci_compartment_id
@@ -68,7 +68,7 @@ variable "bamcp_verify_token" {
 
 # Subdomain DNS — CNAME bamcp/beta.bamcp → the tunnel.
 module "bamcp_dns" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.6.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.6.1"
 
   name         = "bamcp"
   domain       = "rtrentjones.dev"

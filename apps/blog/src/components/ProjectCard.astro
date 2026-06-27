@@ -1,6 +1,6 @@
 ---
 import type { CollectionEntry } from 'astro:content';
-import { providersFor, stackLine, toolByName } from '../data/manifest';
+import { envFromSite, providersFor, stackLine, toolByName, toolUrl } from '../data/manifest';
 
 interface Props {
   project: CollectionEntry<'projects'>;
@@ -8,15 +8,16 @@ interface Props {
 const { project } = Astro.props;
 const { title, summary, liveUrl, repoUrl, status, external } = project.data;
 
-// Local projects get a write-up page at /<slug>/; external ones (e.g. Greenlight) link straight out.
-const writeup = external ? undefined : `/${project.id}/`;
-const primary = writeup ?? repoUrl ?? liveUrl ?? '#';
-
-// Live details from the manifest (the single source of truth) when this project is a deployed tool —
-// its stack + the providers it leans on. Projects that aren't tools (e.g. the framework) just show
-// the write-up.
+// Live details from the manifest (single source of truth) when this project is a deployed tool — its
+// stack, providers, and an env-aware live URL (a beta card links to the beta tool). Non-tools (e.g.
+// the framework) fall back to the MDX liveUrl.
 const facets = toolByName[project.id];
 const providers = facets ? providersFor(facets) : [];
+const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
+
+// Local projects get a write-up page at /<slug>/; external ones (e.g. Greenlight) link straight out.
+const writeup = external ? undefined : `/${project.id}/`;
+const primary = writeup ?? repoUrl ?? live ?? '#';
 ---
 
 <article class="project-card">
@@ -37,7 +38,7 @@ const providers = facets ? providersFor(facets) : [];
   }
   <p class="links">
     {writeup && <a href={writeup}>Write-up →</a>}
-    {liveUrl && <a href={liveUrl}>Live ↗</a>}
+    {live && <a href={live}>Live ↗</a>}
     {!writeup && repoUrl && <a href={repoUrl}>GitHub ↗</a>}
   </p>
 </article>
