@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@rtrentjones/greenlight':
-        specifier: ^0.6.1
-        version: 0.6.1
+        specifier: ^0.7.0
+        version: 0.7.0
 
   apps/blog:
     dependencies:
@@ -80,8 +80,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@rtrentjones/greenlight':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.7.0
+        version: 0.7.0
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.0
@@ -1830,12 +1830,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rtrentjones/greenlight@0.6.0':
-    resolution: {integrity: sha512-5o8yD1ymCvetXGSZjVDIiPwO9fQujOb7P2BtxnNJ18Hu6hoiCme+M0wB9ng8cTt+rMXIN27Eo8AhOP6j32j99g==}
-    hasBin: true
-
-  '@rtrentjones/greenlight@0.6.1':
-    resolution: {integrity: sha512-7Yxkfxf00a1K6xOsd6tgg7evHCcLSbeHQcQsZQJyBOwQJLmtKbmL/7Wcq0F5NxhlPVYcXbqdgmFTS9PTwLo6pg==}
+  '@rtrentjones/greenlight@0.7.0':
+    resolution: {integrity: sha512-NBBLNcDCdnuOiN5QgWuBNZeMXGJr1hmQLFvXvwOJecDpIh3eXx+FIIerKqseeK6ANbke1eaQlap9RafFBsgcNw==}
     hasBin: true
 
   '@shikijs/core@3.23.0':
@@ -5486,19 +5482,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.0':
     optional: true
 
-  '@rtrentjones/greenlight@0.6.0':
-    dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
-      jiti: 2.7.0
-      zod: 3.25.76
-    optionalDependencies:
-      '@anthropic-ai/sdk': 0.69.0(zod@3.25.76)
-      playwright: 1.61.1
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - supports-color
-
-  '@rtrentjones/greenlight@0.6.1':
+  '@rtrentjones/greenlight@0.7.0':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       jiti: 2.7.0

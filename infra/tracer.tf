@@ -8,7 +8,7 @@
 # so a Neon tool needs NO keepalive (the reason Neon is the default Postgres). NEON_API_KEY configures
 # the provider in main.tf; the connection strings are module OUTPUTS — no per-tool secret to gather.
 module "tracer_neon" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/neon?ref=v0.6.1"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/neon?ref=v0.7.0"
 
   name   = "tracer"
   region = "aws-us-east-1" # Neon region id, e.g. aws-us-east-1 / aws-us-west-2
@@ -17,7 +17,7 @@ module "tracer_neon" {
 
 # Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
 module "tracer_vercel" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.6.1"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.7.0"
 
   project_id  = "prj_ev1nRFj5gIzFHwVOigsXnLJzsm4d" # non-secret id; committed like heistmind's (no HCP var)
   name        = "tracer"
@@ -64,7 +64,7 @@ module "tracer_vercel" {
 
 # Subdomain DNS — CNAME tracer/beta.tracer → cname.vercel-dns.com.
 module "tracer_dns" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.6.1"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.7.0"
 
   name        = "tracer"
   domain      = "rtrentjones.dev"
