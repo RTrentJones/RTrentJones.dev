@@ -1,25 +1,30 @@
 ---
 // A recorded real session (kcat -P → kcat -C → SELECT over kafka.messages) rendered as an animated
-// SVG (zero client JS). The live recording is published to the evidence branch by CI; until then we
-// show a committed placeholder. Paired with a one-click "Open in Codespace" (the repo ships a
-// .devcontainer, so a visitor gets the actual thing, not a rendering of it).
+// SVG (zero client JS). The live recording is published to the evidence branch by CI; no fabricated
+// placeholder — if it's unavailable we say so. Paired with a one-click "Open in Codespace" (the repo
+// ships a .devcontainer, so a visitor gets the actual thing, not a rendering of it).
 import { loadSessionSvg, CODESPACE_URL } from '../lib/evidence';
 
-const { url, source } = await loadSessionSvg();
+const { url } = await loadSessionSvg();
 ---
 
 <figure class="cast">
-  <div class="frame">
-    <img
-      src={url}
-      alt="Terminal: kcat -P produces a message, kcat -C consumes it back, then a SELECT over kafka.messages shows the same row stored in Postgres."
-      loading="lazy"
-    />
-  </div>
+  {
+    url ? (
+      <div class="frame">
+        <img
+          src={url}
+          alt="Terminal: kcat -P produces a message, kcat -C consumes it back, then a SELECT over kafka.messages shows the same row stored in Postgres."
+          loading="lazy"
+        />
+      </div>
+    ) : (
+      <p class="evidence-pending">The recorded session is regenerating in CI.</p>
+    )
+  }
   <figcaption>
     A real session — produce with <code>kcat -P</code>, consume with <code>kcat -C</code>, then
     <code>SELECT</code> over <code>kafka.messages</code>: the broker and the table are the same data.
-    {source === 'seed' && <span class="seed">placeholder — awaiting first CI recording</span>}
   </figcaption>
   <a class="codespace" href={CODESPACE_URL}>▶ Open in Codespace</a>
 </figure>
@@ -39,18 +44,15 @@ const { url, source } = await loadSessionSvg();
     width: 100%;
     border-radius: 0;
   }
+  .evidence-pending {
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+    padding: 1rem 0;
+  }
   figcaption {
     margin-top: 0.7rem;
     font-size: var(--text-sm);
     color: var(--fg-muted);
-  }
-  .seed {
-    margin-left: 0.4rem;
-    font-weight: 600;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.66rem;
   }
   .codespace {
     display: inline-block;
