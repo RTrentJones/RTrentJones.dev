@@ -1,0 +1,32 @@
+name: pg-kafka-tracer
+
+# Ingest pg_kafka's published benchmark (from its evidence branch) into Tracer so the trend shows at
+# /runs?tool=pg_kafka. The Tracer token lives here (this repo owns the Tracer relationship), not in
+# the pg_kafka repo — so pg_kafka's own evidence CI doesn't need a copy. Inert without the secret.
+# Runs daily (after pg_kafka's weekly evidence refresh), on push to develop/main (so it fires the
+# moment this lands, before reaching the default branch), and on demand.
+on:
+  push:
+    branches: [develop, main]
+    paths: ['.github/workflows/pg-kafka-tracer.yml', '.github/scripts/pg-kafka-ingest-tracer.mjs']
+  schedule:
+    - cron: '30 13 * * *' # daily, shortly after the blog's evidence refresh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pg-kafka-tracer
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Ingest pg_kafka benchmark into Tracer
+        env:
+          TRACER_INGEST_TOKEN: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
+        run: node .github/scripts/pg-kafka-ingest-tracer.mjs
