@@ -2,71 +2,81 @@
 // Latest absolute benchmark numbers (p50/p99 + msgs/sec), with a raw-INSERT and a real-broker
 // figure measured by the SAME single-client synchronous harness — like-for-like reference points,
 // not tuned-throughput ceilings. The regression-aware trend over releases lives in Tracer
-// (normalized scores are POSTed there by the evidence workflow) — linked below.
-import { loadBench, fmtVerified, TRACER_TREND_URL } from '../lib/evidence';
+// (normalized scores are POSTed there by the wrapper's ingest) — linked below. Single source of
+// truth is the evidence branch; no fabricated fallback.
+import { loadBench, fmtVerified, REPO_URL, TRACER_TREND_URL } from '../lib/evidence';
 
-const { data, source } = await loadBench();
-const { scenarios, baselines, generatedAt } = data;
+const { data } = await loadBench();
 const n = (x: number) => x.toLocaleString('en-US');
 ---
 
-<figure class="bench">
-  <figcaption>
-    <strong>Throughput &amp; latency</strong>
-    <span class="meta">
-      warm-up excluded · verified {fmtVerified(generatedAt)} UTC
-      {source === 'seed' && <span class="seed">seed</span>}
-    </span>
-  </figcaption>
+{
+  !data ? (
+    <p class="evidence-pending">
+      Benchmark evidence is regenerating in CI — <a href={`${REPO_URL}/actions`}>see the runs</a>.
+    </p>
+  ) : (
+    <figure class="bench">
+      <figcaption>
+        <strong>Throughput &amp; latency</strong>
+        <span class="meta">warm-up excluded · verified {fmtVerified(data.generatedAt)} UTC</span>
+      </figcaption>
 
-  <div class="scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Scenario</th>
-          <th class="num">msgs/sec</th>
-          <th class="num">p50</th>
-          <th class="num">p99</th>
-        </tr>
-      </thead>
-      <tbody>
-        {scenarios.map((s) => (
-          <tr>
-            <td class="mono">{s.name}</td>
-            <td class="num">{n(s.msgsPerSec)}</td>
-            <td class="num">{s.p50Ms} ms</td>
-            <td class="num">{s.p99Ms} ms</td>
-          </tr>
-        ))}
-        <tr class="baseline">
-          <td class="mono">raw INSERT (psql, single-row) — baseline</td>
-          <td class="num">{n(baselines.rawInsert.msgsPerSec)}</td>
-          <td class="num">{baselines.rawInsert.p50Ms} ms</td>
-          <td class="num">{baselines.rawInsert.p99Ms} ms</td>
-        </tr>
-        <tr class="baseline">
-          <td class="mono">Apache Kafka (same harness) — baseline</td>
-          <td class="num">{n(baselines.realBroker.msgsPerSec)}</td>
-          <td class="num">{baselines.realBroker.p50Ms} ms</td>
-          <td class="num">{baselines.realBroker.p99Ms} ms</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th class="num">msgs/sec</th>
+              <th class="num">p50</th>
+              <th class="num">p99</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.scenarios.map((s) => (
+              <tr>
+                <td class="mono">{s.name}</td>
+                <td class="num">{n(s.msgsPerSec)}</td>
+                <td class="num">{s.p50Ms} ms</td>
+                <td class="num">{s.p99Ms} ms</td>
+              </tr>
+            ))}
+            <tr class="baseline">
+              <td class="mono">raw INSERT (psql, single-row) — baseline</td>
+              <td class="num">{n(data.baselines.rawInsert.msgsPerSec)}</td>
+              <td class="num">{data.baselines.rawInsert.p50Ms} ms</td>
+              <td class="num">{data.baselines.rawInsert.p99Ms} ms</td>
+            </tr>
+            <tr class="baseline">
+              <td class="mono">Apache Kafka (same harness) — baseline</td>
+              <td class="num">{n(data.baselines.realBroker.msgsPerSec)}</td>
+              <td class="num">{data.baselines.realBroker.p50Ms} ms</td>
+              <td class="num">{data.baselines.realBroker.p99Ms} ms</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-  <p class="note">
-    Baselines run the <em>same</em> single-client, synchronous harness (warm-up excluded) — a
-    like-for-like reference, not each system's tuned throughput. Batched figures write {100} messages
-    per round-trip, so cross-row comparisons are methodology-bound.
-  </p>
-  <p class="trend">
-    Regression-aware trend across tagged releases → <a href={TRACER_TREND_URL}>Tracer ↗</a>
-  </p>
-</figure>
+      <p class="note">
+        Baselines run the <em>same</em> single-client, synchronous harness (warm-up excluded) — a
+        like-for-like reference, not each system's tuned throughput. Batched figures write {100}{' '}
+        messages per round-trip, so cross-row comparisons are methodology-bound.
+      </p>
+      <p class="trend">
+        Regression-aware trend across tagged releases → <a href={TRACER_TREND_URL}>Tracer ↗</a>
+      </p>
+    </figure>
+  )
+}
 
 <style>
   .bench {
     margin: 1.6rem 0 2.2rem;
+  }
+  .evidence-pending {
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+    padding: 1rem 0;
   }
   figcaption {
     display: flex;
@@ -80,14 +90,6 @@ const n = (x: number) => x.toLocaleString('en-US');
   .meta {
     font-size: var(--text-sm);
     color: var(--fg-muted);
-  }
-  .seed {
-    margin-left: 0.5rem;
-    font-weight: 600;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.66rem;
   }
   .scroll {
     overflow-x: auto;
