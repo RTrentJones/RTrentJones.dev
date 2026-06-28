@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm';
 import { getDb } from './db';
+import { deriveRegressions } from './regression';
 import type {
   CompareCell,
   EvalCase,
@@ -10,8 +11,13 @@ import type {
 } from './types';
 
 // All reads are raw parameterised SQL via Drizzle's `sql` template (auto-parameterised — no
-// injection) executed with db.execute(), which returns { rows }. The window-function and DISTINCT ON
-// queries are clearer as SQL than as the query builder, and regressions MUST be derived on read.
+// injection) executed with db.execute(), which returns { rows }. The DISTINCT ON queries are clearer
+// as SQL than as the query builder; regressions MUST be derived on read (in TS, see runsWithRegression).
+
+// A v4 UUID is the only valid run id (gen_randomUUID / crypto.randomUUID). Validate before binding it
+// into `WHERE id = …`: Postgres would otherwise raise `invalid input syntax for type uuid` on a
+// malformed value, surfacing as a misleading "DATABASE_URL misconfigured" boundary instead of a 404.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function rows<T>(query: SQL): Promise<T[]> {
   const res = await getDb().execute(query);
@@ -53,32 +59,28 @@ export function passRateOverTime(days = 30): Promise<PassRatePoint[]> {
 }
 
 /**
- * Runs (optionally filtered) annotated with regression flags. The lag() window partitions over the
- * FULL history per (tool, model, env) BEFORE the outer filter, so narrowing the displayed list never
- * corrupts the "previous run" baseline. is_regression is derived here, never stored.
+ * Runs (optionally filtered) annotated with regression flags, derived on read by the unit-tested
+ * `deriveRegressions` (lib/regression) — the single regression implementation; there is no SQL mirror.
+ *
+ * The filters (tool/model/env) are exactly the series-key dimensions, so a filter can only drop ENTIRE
+ * (tool, model, env) series, never truncate one — every remaining series is complete and its baseline
+ * stays correct. We fetch the matching rows oldest-first (with `id` as the equal-timestamp tiebreaker
+ * for deterministic ordering), derive, then sort newest-first and take `limit`.
  */
-export function runsWithRegression(f: RunFilters = {}, limit = 100): Promise<RunWithRegression[]> {
-  return rows<RunWithRegression>(sql`
-    WITH ranked AS (
-      SELECT r.*,
-             lag(r.pass_rate) OVER (
-               PARTITION BY r.tool, r.model, r.env
-               ORDER BY r.started_at
-             ) AS prev_pass_rate
-      FROM eval_run r
-    )
-    SELECT ranked.*,
-           (prev_pass_rate IS NOT NULL AND pass_rate IS NOT NULL AND pass_rate < prev_pass_rate)
-             AS is_regression
-    FROM ranked
+export async function runsWithRegression(f: RunFilters = {}, limit = 100): Promise<RunWithRegression[]> {
+  const ordered = await rows<EvalRun>(sql`
+    SELECT * FROM eval_run
     ${whereFilters(f)}
-    ORDER BY started_at DESC
-    LIMIT ${limit}
+    ORDER BY started_at ASC, id ASC
   `);
+  return deriveRegressions(ordered)
+    .sort((a, b) => b.started_at.localeCompare(a.started_at) || b.id.localeCompare(a.id))
+    .slice(0, limit);
 }
 
-/** A single run by id (or null). */
+/** A single run by id (or null); a non-UUID id returns null (→ notFound) instead of a DB cast error. */
 export async function getRun(id: string): Promise<EvalRun | null> {
+  if (!UUID_RE.test(id)) return null;
   const r = await rows<EvalRun>(sql`SELECT * FROM eval_run WHERE id = ${id} LIMIT 1`);
   return r[0] ?? null;
 }

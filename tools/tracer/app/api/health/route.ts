@@ -2,9 +2,10 @@ import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/db';
 
-// Diagnostic endpoint: reports whether the DB env is wired and whether a live query works, returning
-// the real error as JSON (Server Component errors are masked in production, so this is how you see the
-// actual cause from a browser). Reads only; safe to leave public. Hit it on any env, e.g.
+// Diagnostic endpoint: reports whether the DB env is wired (the two booleans) and whether a live query
+// works. Public + reads-only, so it returns a GENERIC failure to the caller and logs the real cause to
+// the function logs — the raw Neon/Postgres error text (host, role, schema) must not leak to anonymous
+// visitors. The booleans + server logs are enough to diagnose. Hit it on any env, e.g.
 // https://beta.tracer.rtrentjones.dev/api/health
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,8 +22,10 @@ export async function GET() {
     const runs = (res.rows[0] as { runs: number } | undefined)?.runs ?? 0;
     return NextResponse.json({ ok: true, databaseUrlSet, directUrlSet, runs });
   } catch (e) {
+    // Real cause to the logs (where the operator can see it); generic message to the public response.
+    console.error('health: db check failed', e);
     return NextResponse.json(
-      { ok: false, databaseUrlSet, directUrlSet, error: e instanceof Error ? e.message : String(e) },
+      { ok: false, databaseUrlSet, directUrlSet, error: 'db unreachable' },
       { status: 503 },
     );
   }

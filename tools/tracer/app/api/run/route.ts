@@ -40,7 +40,13 @@ export async function POST(req: Request) {
 
   const ran = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
   const errors = results
-    .map((r, i) => (r.status === 'rejected' ? { provider: providers[i].id, error: String(r.reason) } : null))
+    .map((r, i) => {
+      if (r.status !== 'rejected') return null;
+      // Log the full SDK error server-side; return only a generic per-provider marker so vendor error
+      // text (which can carry key fragments / internal detail) never reaches the public response.
+      console.error(`run: provider ${providers[i].id} failed`, r.reason);
+      return { provider: providers[i].id, error: 'run failed' };
+    })
     .filter(Boolean);
 
   if (ran.length === 0) {

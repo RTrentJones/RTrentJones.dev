@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { aggregatePassRate, clamp01, parseJudge } from '../lib/eval';
+import { parseJudge } from '../lib/eval';
+import { clamp01 } from '../lib/score';
 
 describe('clamp01', () => {
   it('clamps into [0,1] and maps non-finite to 0', () => {
@@ -7,6 +8,8 @@ describe('clamp01', () => {
     expect(clamp01(2)).toBe(1); // a 1–5-scale slip is defensively clamped, not trusted
     expect(clamp01(0.5)).toBe(0.5);
     expect(clamp01(Number.NaN)).toBe(0);
+    expect(clamp01(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(clamp01('0.25')).toBe(0.25); // string-coerced (judge replies can arrive stringified)
   });
 });
 
@@ -32,15 +35,5 @@ describe('parseJudge', () => {
 
   it('returns a 0 score for an unparseable reply', () => {
     expect(parseJudge('no json here')).toEqual({ score: 0, rationale: 'unparseable judge reply' });
-  });
-});
-
-describe('aggregatePassRate', () => {
-  it('is 0 for no cases', () => {
-    expect(aggregatePassRate([])).toBe(0);
-  });
-  it('is the passing fraction', () => {
-    expect(aggregatePassRate([{ passed: true }, { passed: false }])).toBe(0.5);
-    expect(aggregatePassRate([{ passed: true }, { passed: true }])).toBe(1);
   });
 });

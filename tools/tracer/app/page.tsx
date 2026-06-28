@@ -19,7 +19,9 @@ function pivot(points: { bucket: string; model: string; pass_rate: number }[]) {
     row[p.model] = p.pass_rate;
     byBucket.set(p.bucket, row);
   }
-  return { data: [...byBucket.values()], models: [...models] };
+  // Sort the model list so each model maps to a stable chart-line color across requests (the order the
+  // Set yields is insertion order — nondeterministic across runs, which would shuffle the colors).
+  return { data: [...byBucket.values()], models: [...models].sort() };
 }
 
 const th = { textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#64748b' } as const;
@@ -69,20 +71,28 @@ export default async function Page() {
             </tr>
           </thead>
           <tbody>
-            {latest.map((r) => (
-              <tr key={r.id}>
-                <td style={td}>
-                  <strong>{r.tool}</strong>
+            {latest.length === 0 ? (
+              <tr>
+                <td style={{ ...td, color: '#94a3b8' }} colSpan={6}>
+                  No runs yet.
                 </td>
-                <td style={td}>{r.model}</td>
-                <td style={td}>{r.env}</td>
-                <td style={td}>{pct(r.pass_rate)}</td>
-                <td style={td}>
-                  <PassBadge passed={r.passed} />
-                </td>
-                <td style={{ ...td, color: '#64748b' }}>{fmtDate(r.started_at)}</td>
               </tr>
-            ))}
+            ) : (
+              latest.map((r) => (
+                <tr key={r.id}>
+                  <td style={td}>
+                    <strong>{r.tool}</strong>
+                  </td>
+                  <td style={td}>{r.model}</td>
+                  <td style={td}>{r.env}</td>
+                  <td style={td}>{pct(r.pass_rate)}</td>
+                  <td style={td}>
+                    <PassBadge passed={r.passed} />
+                  </td>
+                  <td style={{ ...td, color: '#64748b' }}>{fmtDate(r.started_at)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </Card>
@@ -102,26 +112,34 @@ export default async function Page() {
             </tr>
           </thead>
           <tbody>
-            {recent.map((r) => (
-              <tr key={r.id}>
-                <td style={{ ...td, color: '#64748b' }}>{fmtDate(r.started_at)}</td>
-                <td style={td}>{r.tool}</td>
-                <td style={td}>{r.model}</td>
-                <td style={td}>{r.env}</td>
-                <td style={td}>
-                  <Link href={`/runs/${r.id}`} style={{ color: '#4338ca' }}>
-                    {pct(r.pass_rate)}
-                  </Link>{' '}
-                  <RegressionBadge run={r} />
-                </td>
-                <td style={{ ...td, color: '#64748b' }}>{fmtCost(r.cost_usd)}</td>
-                <td style={td}>
-                  <Link href={`/runs/${r.id}`} style={{ color: '#4338ca', fontSize: '0.85rem' }}>
-                    detail →
-                  </Link>
+            {recent.length === 0 ? (
+              <tr>
+                <td style={{ ...td, color: '#94a3b8' }} colSpan={7}>
+                  No runs yet.
                 </td>
               </tr>
-            ))}
+            ) : (
+              recent.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ ...td, color: '#64748b' }}>{fmtDate(r.started_at)}</td>
+                  <td style={td}>{r.tool}</td>
+                  <td style={td}>{r.model}</td>
+                  <td style={td}>{r.env}</td>
+                  <td style={td}>
+                    <Link href={`/runs/${r.id}`} style={{ color: '#4338ca' }}>
+                      {pct(r.pass_rate)}
+                    </Link>{' '}
+                    <RegressionBadge run={r} />
+                  </td>
+                  <td style={{ ...td, color: '#64748b' }}>{fmtCost(r.cost_usd)}</td>
+                  <td style={td}>
+                    <Link href={`/runs/${r.id}`} style={{ color: '#4338ca', fontSize: '0.85rem' }}>
+                      detail →
+                    </Link>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </Card>

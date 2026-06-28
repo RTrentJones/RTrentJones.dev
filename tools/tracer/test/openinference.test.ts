@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { fromOpenInference, isOpenInferenceResult } from '../lib/openinference';
 
@@ -60,14 +62,49 @@ describe('fromOpenInference', () => {
     expect(r.model).toBe('unknown');
     expect(r.cases[0].score).toBe(1);
   });
+
+  it('never throws on a malformed/null checks element (producer bug → safe empty case)', () => {
+    // `checks` is external input: a null/non-object/nameless element must coerce, not crash ingest.
+    const r = fromOpenInference({
+      tool: 'x',
+      passed: false,
+      // biome-ignore lint/suspicious/noExplicitAny: deliberately malformed payload for the guard test
+      checks: [null, 'junk', { 'eval.score': 0.8, passed: true }, { name: 'real', 'eval.score': 0.9 }] as any,
+    });
+    expect(r.cases).toHaveLength(4);
+    expect(r.cases[0]).toMatchObject({ name: 'unknown', score: null, passed: false });
+    expect(r.cases[1]).toMatchObject({ name: 'unknown', score: null, passed: false });
+    expect(r.cases[2]).toMatchObject({ name: 'unknown', score: 0.8, passed: true }); // nameless but valid
+    expect(r.cases[3]).toMatchObject({ name: 'real', score: 0.9, passed: true });
+    expect(r.pass_rate).toBeCloseTo(0.5, 6); // 2 of 4
+  });
 });
 
-// Cross-repo parity: this is the EXACT object @rtrentjones/greenlight@0.6.0's `toExportResult` emits
-// for a combined [eval, api] run (the golden fixture asserted in Greenlight's
+// Cross-repo parity: this is the EXACT object @rtrentjones/greenlight's `toExportResult` emits for a
+// combined [eval, api] run (the golden fixture asserted in Greenlight's
 // packages/verify/src/__tests__/export.test.ts). It proves the producer's real `verify --json` output
 // round-trips through our adapter — incl. the extra `schemaVersion` (ignored), the joined `mode`, and
 // per-check scores derived 1.0/0.0 from `passed` for non-eval checks.
-describe('Greenlight v0.6.0 --json export parity', () => {
+//
+// The fixture is a hand-copied golden, so it can silently drift from the producer. FIXTURE_VERIFIED
+// records the greenlight minor series this fixture was last verified against (re-read against
+// packages/verify/src/export.ts at v0.7.0 — shape unchanged since the v0.6.0 introduction). The guard
+// below fails loudly when the installed dep moves to a new minor/major, forcing a re-verify + bump.
+const FIXTURE_VERIFIED = '0.7';
+// Read the installed version straight off disk (the package doesn't export ./package.json). The pnpm
+// symlink for a tool-declared dep always lands in the tool's local node_modules.
+const installedGreenlight = JSON.parse(
+  readFileSync(
+    fileURLToPath(new URL('../node_modules/@rtrentjones/greenlight/package.json', import.meta.url)),
+    'utf8',
+  ),
+).version as string;
+
+describe('Greenlight --json export parity', () => {
+  it(`golden fixture is pinned to the installed greenlight minor series (${FIXTURE_VERIFIED}.x)`, () => {
+    expect(installedGreenlight.split('.').slice(0, 2).join('.')).toBe(FIXTURE_VERIFIED);
+  });
+
   const greenlightExport = {
     schemaVersion: '1',
     tool: 'tracer',

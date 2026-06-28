@@ -1,16 +1,11 @@
 import type { EvalRunInput } from './schema';
+import { PASS_THRESHOLD, clamp01, passRate } from './score';
 
 // Standards-shaped ingest: accept an OTel-GenAI / OpenInference-flavored verify result and map it to
 // the native EvalRunInput. This is the seam a future `greenlight verify --json` (or any OTel-aware
 // producer) targets — and, because the contract is the *standard* shape rather than Tracer-bespoke,
 // the same payload can be sent to Langfuse/Phoenix instead. Pure + dependency-free so the ingest route
 // stays lean and the mapping is unit-testable.
-
-const PASS_THRESHOLD = 0.6;
-const clamp01 = (n: unknown): number => {
-  const v = typeof n === 'number' ? n : Number(n);
-  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
-};
 
 interface OICheck {
   name: string;
@@ -51,13 +46,16 @@ export function isOpenInferenceResult(body: unknown): body is OpenInferenceResul
   );
 }
 
-/** Map an OpenInference-shaped verify result to the native EvalRunInput. */
+/** Map an OpenInference-shaped verify result to the native EvalRunInput. Never throws: a malformed or
+ * null `checks` element (a producer bug) is coerced to a safe empty case rather than crashing ingest. */
 export function fromOpenInference(r: OpenInferenceResult): EvalRunInput {
   const attrs = r.attributes ?? {};
-  const cases = r.checks.map((c) => {
+  const cases = r.checks.map((raw) => {
+    // Defensive: `checks` is external input — guard a non-object/null element before reading fields.
+    const c: OICheck = raw && typeof raw === 'object' ? raw : ({ name: 'unknown' } as OICheck);
     const score = c['eval.score'] == null ? null : clamp01(c['eval.score']);
     return {
-      name: c.name,
+      name: typeof c.name === 'string' && c.name ? c.name : 'unknown',
       input: c.input ?? null,
       expected: c.expected ?? null,
       output: c.output ?? null,
@@ -66,12 +64,7 @@ export function fromOpenInference(r: OpenInferenceResult): EvalRunInput {
       judge_rationale: c['eval.explanation'] ?? null,
     };
   });
-  const passRate =
-    r.pass_rate != null
-      ? clamp01(r.pass_rate)
-      : cases.length === 0
-        ? 0
-        : cases.filter((c) => c.passed).length / cases.length;
+  const runPassRate = r.pass_rate != null ? clamp01(r.pass_rate) : passRate(cases);
 
   return {
     tool: r.tool,
@@ -84,7 +77,7 @@ export function fromOpenInference(r: OpenInferenceResult): EvalRunInput {
     tokens_in: attrs['gen_ai.usage.input_tokens'] ?? null,
     tokens_out: attrs['gen_ai.usage.output_tokens'] ?? null,
     passed: r.passed,
-    pass_rate: passRate,
+    pass_rate: runPassRate,
     cases,
   };
 }

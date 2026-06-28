@@ -1,13 +1,12 @@
 import { ExactMatch, JSONDiff } from 'autoevals';
-import type { EvalCaseInput, EvalRunInput } from './schema';
 import { type Provider, costUsd, generate, pickJudge } from './providers';
+import type { EvalCaseInput, EvalRunInput } from './schema';
+import { PASS_THRESHOLD, clamp01, passRate } from './score';
 
 // A tiny, fixed eval suite run by /api/run. Standards-aligned vocabulary: each case names an
 // `autoevals` scorer. Deterministic scorers (ExactMatch / JSONDiff) need no LLM and run locally; the
 // open-ended cases use a portable LLM judge (a single "reply ONLY with JSON {score,pass,rationale}"
 // call, parsed defensively — works on any provider, including ones autoevals can't drive directly).
-
-export const PASS_THRESHOLD = 0.6;
 
 type Scorer = 'ExactMatch' | 'JSONDiff' | 'LLMJudge';
 
@@ -48,8 +47,6 @@ export const CASES: Case[] = [
   },
 ];
 
-export const clamp01 = (n: number): number => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
-
 /** Parse a portable judge reply: find the first JSON object, read score (0..1) + rationale. Defensive. */
 export function parseJudge(text: string): { score: number; rationale: string } {
   const match = text.match(/\{[\s\S]*\}/);
@@ -65,12 +62,6 @@ export function parseJudge(text: string): { score: number; rationale: string } {
   } catch {
     return { score: 0, rationale: 'unparseable judge reply' };
   }
-}
-
-/** Fraction of cases that passed (0..1); 0 for an empty suite. */
-export function aggregatePassRate(cases: { passed: boolean }[]): number {
-  if (cases.length === 0) return 0;
-  return cases.filter((c) => c.passed).length / cases.length;
 }
 
 /** Map the Vercel deploy env to Tracer's env label. */
@@ -94,7 +85,9 @@ const judgePrompt = (input: string, output: string, rubric: string) =>
 
 /** Run the suite against one provider's default model; returns an ingest-ready EvalRunInput. */
 export async function runEval(p: Provider): Promise<EvalRunInput> {
-  const judge = pickJudge();
+  // Exclude the provider under test so it doesn't grade its own output (self-grading bias) when
+  // another provider is available; falls back to the subject only when it's the sole enabled provider.
+  const judge = pickJudge(p.id);
   const started = Date.now();
   let tokensIn = 0;
   let tokensOut = 0;
@@ -135,7 +128,6 @@ export async function runEval(p: Provider): Promise<EvalRunInput> {
     });
   }
 
-  const passRate = aggregatePassRate(cases);
   return {
     tool: 'tracer',
     model: p.defaultModel,
@@ -147,7 +139,7 @@ export async function runEval(p: Provider): Promise<EvalRunInput> {
     tokens_in: tokensIn,
     tokens_out: tokensOut,
     passed: cases.every((c) => c.passed),
-    pass_rate: passRate,
+    pass_rate: passRate(cases),
     cases,
   };
 }

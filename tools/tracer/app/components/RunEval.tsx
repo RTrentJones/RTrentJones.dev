@@ -56,7 +56,11 @@ export function RunEval() {
       >
         {busy ? 'Running…' : 'Run eval'}
       </button>
-      {status && <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{status}</span>}
+      {status && (
+        <span role="status" aria-live="polite" style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          {status}
+        </span>
+      )}
     </span>
   );
 }

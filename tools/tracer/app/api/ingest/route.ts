@@ -22,8 +22,16 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  // Standards-shaped payload (OTel-GenAI/OpenInference) is mapped to the native shape first.
-  const candidate = isOpenInferenceResult(body) ? fromOpenInference(body) : body;
+  // Standards-shaped payload (OTel-GenAI/OpenInference) is mapped to the native shape first. The mapper
+  // is null-safe, but a deeply malformed payload could still throw — keep it inside the validation
+  // boundary so a bad body 422s (client error) instead of escaping to an opaque 500.
+  let candidate: unknown;
+  try {
+    candidate = isOpenInferenceResult(body) ? fromOpenInference(body) : body;
+  } catch (e) {
+    console.warn('ingest: mapping failed', e);
+    return NextResponse.json({ error: 'invalid body' }, { status: 422 });
+  }
 
   const parsed = evalRunInput.safeParse(candidate);
   if (!parsed.success) {
