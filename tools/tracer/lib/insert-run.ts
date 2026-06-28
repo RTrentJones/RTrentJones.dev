@@ -7,6 +7,12 @@ import type { EvalRunInput } from './schema';
 // it without a round-trip — lets us send the run insert + all case inserts as ONE neon-http batch (a
 // single transaction; the neon HTTP driver can't do interactive multi-statement transactions, but
 // batch() is atomic). Returns the new run id.
+// Cap stored case output: it's the raw LLM response, ingested verbatim from any provider/producer.
+// Unbounded text would bloat rows on free-tier Neon over time; the dashboard only renders a preview.
+const MAX_OUTPUT = 16_384;
+const cap = (s: string | null | undefined): string | null =>
+  s == null ? null : s.length > MAX_OUTPUT ? `${s.slice(0, MAX_OUTPUT)}… [truncated]` : s;
+
 export async function insertRun(run: EvalRunInput): Promise<string> {
   const db = getDb();
   const runId = crypto.randomUUID();
@@ -30,9 +36,9 @@ export async function insertRun(run: EvalRunInput): Promise<string> {
     db.insert(evalCase).values({
       runId,
       name: c.name,
-      input: c.input ?? null,
-      expected: c.expected ?? null,
-      output: c.output ?? null,
+      input: cap(c.input),
+      expected: cap(c.expected),
+      output: cap(c.output),
       score: c.score ?? null,
       passed: c.passed,
       judgeRationale: c.judge_rationale ?? null,

@@ -40,9 +40,15 @@ Add a vendor by appending a row to `PROVIDERS`. Each run is one `eval_run` per p
 ## Auth / security
 
 - `/api/ingest` + `/api/run` require `Authorization: Bearer ${TRACER_INGEST_TOKEN}` and **fail closed**
-  (503) when the token is unset (and `/api/run` also 503s when no provider key is present). zod on every
-  ingest body. The "Run eval" button on `/` is operator-only — it prompts for the token (kept in
-  `sessionStorage`), so a public visitor can't trigger provider spend.
+  (503) when the token is unset (and `/api/run` also 503s when no provider key is present). The bearer
+  check is **constant-time** ([lib/auth.ts](lib/auth.ts)); zod validates every ingest body. The "Run
+  eval" button on `/` is operator-only — it prompts for the token (kept in `sessionStorage`), so a
+  public visitor can't trigger provider spend.
+- **Cost / blast radius:** one token gates both the (free) write path and the (spending) `/api/run`, so
+  a leaked `TRACER_INGEST_TOKEN` can burn LLM budget. Mitigations: fixed small suite, `maxDuration`,
+  and **free-by-default** — set only `GEMINI_API_KEY` and a full run costs **$0**; a paid key
+  (`ANTHROPIC_API_KEY`) makes *every* `/api/run` spend, so set it deliberately. There's no per-IP
+  rate-limit — keep the token secret and rotate it if exposed.
 - The dashboard is `access: public` (a shareable portfolio link); only seeded/demo data lives here.
 
 ## Standards & interop (the hybrid)

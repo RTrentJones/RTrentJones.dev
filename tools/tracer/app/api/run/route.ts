@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { timingSafeBearer } from '../../../lib/auth';
 import { runEval } from '../../../lib/eval';
 import { insertRun } from '../../../lib/insert-run';
 import { enabledProviders } from '../../../lib/providers';
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   if (!token) {
     return NextResponse.json({ error: 'run disabled (TRACER_INGEST_TOKEN unset)' }, { status: 503 });
   }
-  if (req.headers.get('authorization') !== `Bearer ${token}`) {
+  if (!timingSafeBearer(req.headers.get('authorization'), token)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

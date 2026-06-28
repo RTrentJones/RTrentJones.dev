@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { timingSafeBearer } from '../../../lib/auth';
 import { insertRun } from '../../../lib/insert-run';
 import { fromOpenInference, isOpenInferenceResult } from '../../../lib/openinference';
 import { evalRunInput } from '../../../lib/schema';
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   if (!token) {
     return NextResponse.json({ error: 'ingest disabled (TRACER_INGEST_TOKEN unset)' }, { status: 503 });
   }
-  if (req.headers.get('authorization') !== `Bearer ${token}`) {
+  if (!timingSafeBearer(req.headers.get('authorization'), token)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -26,13 +27,18 @@ export async function POST(req: Request) {
 
   const parsed = evalRunInput.safeParse(candidate);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid body', issues: parsed.error.issues }, { status: 422 });
+    // Keep the zod detail server-side (debuggable) but don't echo schema internals to the caller.
+    console.warn('ingest: invalid body', parsed.error.issues);
+    return NextResponse.json({ error: 'invalid body' }, { status: 422 });
   }
 
   try {
     const id = await insertRun(parsed.data);
     return NextResponse.json({ id, cases: parsed.data.cases.length }, { status: 201 });
-  } catch {
+  } catch (e) {
+    // Don't swallow: a telemetry ingest that fails silently is the worst failure mode. Log the root
+    // cause (schema drift / timeout / constraint) to the function logs before the opaque 500.
+    console.error('ingest: insert failed', e);
     return NextResponse.json({ error: 'insert failed' }, { status: 500 });
   }
 }
