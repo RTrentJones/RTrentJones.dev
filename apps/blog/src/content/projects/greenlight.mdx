@@ -1,11 +1,83 @@
 ---
 title: Greenlight
-summary: A reproducible deploy + verification harness for AI-built tools — the framework that runs this whole site.
+summary: A verification engine and deployment framework. It emits provider-agnostic Terraform and enforces a deploy-verify-promote loop, so production only ever holds verified commits.
 repoUrl: https://github.com/RTrentJones/greenlight
 status: live
 order: 1
-external: true
 date: 2026-06-23
 ---
 
-External project — the card links straight to GitHub; this file has no local write-up page.
+> Greenlight is a verification engine and deployment framework. From one manifest entry per tool it
+> emits provider-agnostic Terraform — Cloudflare Workers, Vercel, Oracle Cloud, Neon — and runs a
+> strict **deploy → verify → promote** loop. Six verification modes, combinable per tool, decide
+> whether a deploy is good; the promote gate guarantees production only ever holds commits that
+> passed. It's the framework that runs this whole site — the blog you're reading ships through it.
+
+Most personal infrastructure rots the moment you look away. Free-tier databases pause, a dependency
+drifts, a "live" link quietly 404s, and you find out months later. Greenlight treats "deployed and
+working" as a property the platform _asserts on every push_, not a thing you remember to check. The
+same harness that deploys a tool is the one that proves it, and the same code runs locally and in CI
+— so green on my laptop means green in prod.
+
+## Six verify modes — what each one proves
+
+A tool declares how it must be verified; the harness runs one `verify(baseUrl, spec)` with the modes
+that fit its lane, combinable as an array. Each mode answers a different question:
+
+- **`api`** — does the deployed surface respond correctly? HTTP status and body checks (for the blog:
+  every route is 200, the RSS and sitemap parse, no internal link is broken).
+- **`playwright`** — do the real UI flows work in a browser, not just in unit tests?
+- **`test`** — does the tool's own suite still pass against what's about to ship? (It's also the
+  ship-gate: CI won't deploy a tool whose tests are red.)
+- **`mcp`** — does an MCP server speak the protocol? `initialize` → `tools/list` → call a tool and
+  assert the response shape → assert that an unauthenticated call is rejected. A drift-guard pins the
+  exact tool set, so a dropped or renamed tool fails the deploy.
+- **`eval`** — are the answers actually good? An LLM-as-judge grades an MCP server's responses, so
+  quality regressions are caught, not just crashes.
+- **`agent-web`** — can an agent accomplish a real goal? An LLM drives a live browser through a
+  scenario end-to-end and scores the result.
+
+The point isn't the count. It's that "verified" means something specific and appropriate to each kind
+of tool — an HTTP probe for a static site, a protocol handshake for an MCP server, an LLM judge for
+something whose output is a judgment call.
+
+## The promote gate — why prod only holds verified commits
+
+Branch maps to environment, enforced in CI: **PR → preview**, **`develop` → beta**, **`main` →
+prod**. Promotion is never a merge button. `greenlight promote` is an explicit, gated fast-forward:
+
+1. Verify **beta** — the candidate must be passing where it already runs.
+2. Fast-forward `develop` onto `main` (never a force-push, never a divergent merge).
+3. Deploy **prod**, then **verify prod** as the closing gate.
+
+Because the only path onto `main` is a fast-forward of an already-verified `develop`, production can
+never hold a commit that didn't pass the gate. CI is creds-guarded: without the deploy token, the
+deploy/verify steps skip cleanly instead of failing, so the gate degrades safely.
+
+## Infrastructure as emitted code
+
+The manifest is the single source of truth. `greenlight add <name> --lane <l> --target <t>` scaffolds
+a tool and appends one entry describing what it is, where it runs, and how it's verified. From that,
+the CLI emits the Terraform — one module per tool, git-pinned in lockstep with the npm release — and
+gathers the tokens. Adding Workers, Vercel, OCI, or Neon to a tool is a manifest change, not a new
+pile of bespoke YAML; the providers are pluggable behind the same lifecycle.
+
+## Liveness as a feature
+
+For the things that can pause — a free-tier database, an idle OCI container — a Cloudflare Worker
+cron health-checks them and, on an outage, fires a `repository_dispatch` that re-applies, redeploys,
+and re-verifies. Recover-on-alert keeps them on the free tier without a pay-as-you-go fallback. If a
+"live" link on this site ever goes dead, the same gate that ships everything else is meant to catch it
+before I do.
+
+## What I find interesting
+
+- **Correctness is enforced, not remembered.** Every push re-asserts that the thing still works, in
+  the modality that actually proves it. That's the whole thesis of this site, made mechanical.
+- **One harness, many providers.** The same loop ships an Astro site to Workers, a Next app to
+  Vercel, and a Python MCP server to an OCI container. The lane and target are manifest cells; the
+  discipline doesn't change.
+- **It's published and consumed at arm's length.** Greenlight ships to npm as
+  [`@rtrentjones/greenlight`](https://www.npmjs.com/package/@rtrentjones/greenlight); this site is a
+  thin consumer pinned to a release, so the framework evolves upstream and arrives as a version bump
+  rather than copied-in source.

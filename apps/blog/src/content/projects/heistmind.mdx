@@ -1,17 +1,26 @@
 ---
 title: HeistMind
-summary: A Next.js + Supabase app with Discord auth, shipped through a self-verifying deploy gate.
+summary: A rules-driven crew manager for Forged-in-the-Dark tabletop RPGs — and a proof that authenticated journeys are verified against the live deploy.
 repoUrl: https://github.com/RTrentJones/HeistMind
 status: live
 order: 3
 date: 2026-06-23
 ---
 
-> _One-paragraph product pitch goes here — what HeistMind is and who it's for._
+> HeistMind is a character and crew manager for **Forged-in-the-Dark** tabletop RPGs — the
+> mechanical backbone for asynchronous, play-by-post campaigns on Discord. Game masters run custom
+> rulesets, crews, factions, and progress clocks; players build characters and track stress, harm,
+> and XP. The app enforces the rules, so every action it offers is legal for your ruleset.
+
+The game is the front; the engineering signal is the deploy gate. HeistMind has two roles (GM and
+Player) whose journeys only matter once you're authenticated — exactly the part a unit test skips and
+a smoke test fakes. So the gate verifies them against the live deployment.
 
 ## The stack
 
-- **Next.js** on **Vercel** (git-integration deploys), **Supabase** for Postgres + auth.
+- **Next.js 15 / React 19 / TypeScript / Tailwind** on **Vercel** (git-integration deploys),
+  **Zustand** for domain state.
+- **Supabase** for Postgres (with row-level security) + auth.
 - **Discord OAuth** as the sign-in method — declared in Terraform, so the Supabase `/config/auth` is
   managed as code, not clicked in a dashboard.
 - A shared `@heist-mind/ui` component library (Radix + Tailwind), kept in sync with a Claude Design
@@ -28,5 +37,3 @@ It rides the [Greenlight](https://github.com/RTrentJones/greenlight) deploy → 
   authenticated journeys are verified against the live deployment, not just unit-tested.
 - The whole thing is one manifest entry; the infra (domains, env, auth, keepalive) is Terraform the
   CLI emits.
-
-_Write-up in progress — more on the design and the game itself soon._

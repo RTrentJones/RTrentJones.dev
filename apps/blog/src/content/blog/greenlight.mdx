@@ -1,35 +1,67 @@
 ---
-title: "Greenlight: keeping side projects alive"
+title: "Greenlight: making correctness an enforced property"
 date: 2026-06-22
-description: Why I built a deploy + verification harness to keep my experiments from quietly dying.
+description: A deploy + verification harness that treats "deployed and working" as something the platform asserts on every push.
 ---
 
-The side effect of finally being able to explore side projects was a new problem: I needed somewhere
-to keep track of them — and, more urgently, to keep them _alive_.
+Infrastructure decays the moment you look away. Free-tier databases pause, dependencies drift, a
+"live" link quietly starts returning a 404, and silent failures pile up until you notice months
+later. [Greenlight](https://github.com/RTrentJones/greenlight) treats "deployed and working" as an
+enforced property of the system, not a point-in-time memory.
 
-The free tiers these things run on are unforgiving. [HeistMind](/heistmind/)'s database pauses itself
-after about a week of inactivity. [BAMCP](/bamcp/) lives on a free-tier Oracle Cloud box that will
-happily reclaim an idle instance. A project I was proud of would quietly go dark a few days after I
-stopped looking at it.
+The architecture starts from a single manifest entry that describes a tool and how it must be
+verified. The CLI emits the infrastructure as Terraform across whatever providers the tool needs,
+then runs a deploy-verify-promote loop. A cron handles liveness, but the load-bearing mechanism is
+the verification gate: beta is verified, fast-forwarded onto main, deployed to prod, and re-verified.
+Production only ever accepts commits that passed the gate.
 
-So I built **Greenlight**: a harness that centralizes my projects and keeps as much of their infra
-as code as possible. One manifest entry describes a tool — what it is, where it runs, how it's
-verified — and the CLI emits the Terraform, gathers the tokens, and wires up a deploy → verify →
-promote loop. Liveness is treated as a feature: a cron health-checks the things that can pause and
-nudges them back up.
+## Verification, sized to the tool
 
-This site is the other half of that. It's where the projects get showcased — and it keeps me honest:
-if a "live" link here ever goes dead, the same verify gate that ships everything else is meant to
-catch it before I do.
+A static site and an MCP server fail in different ways, so "verified" has to mean different things.
+Greenlight runs one `verify(baseUrl, spec)` harness with six modes, combinable per tool. Each answers
+a distinct question:
 
-## The agent lane, by example
+- **`api`** — does the deployed surface respond correctly? Status and body checks; for this blog,
+  every route is 200, the RSS feed and sitemap parse, and no internal link is broken.
+- **`playwright`** — do the real UI flows work in a browser?
+- **`test`** — does the tool's own suite pass against what's about to ship? It doubles as the
+  ship-gate; CI won't deploy a tool whose tests are red.
+- **`mcp`** — does an MCP server speak the protocol? `initialize` → `tools/list` → call a tool and
+  assert the shape → assert an unauthenticated call is rejected, with a drift-guard pinning the exact
+  tool set.
+- **`eval`** — are the answers good? An LLM-as-judge grades responses, so quality regressions surface,
+  not just crashes.
+- **`agent-web`** — can an agent accomplish a real goal? An LLM drives a live browser through a
+  scenario and scores the outcome.
 
-The newest piece is an **agent** lane — autonomous tools that wake on a schedule, call an LLM, and do
-something small but useful. [**muse**](https://muse.rtrentjones.dev/) is the live example: a
-cron-triggered Cloudflare Worker that asks Gemini (free tier) for a daily deployment tip, stores it in
-KV, and serves it. It's the whole harness in miniature — `greenlight add muse --lane agent`, add two
-GitHub secrets, push, and the emitted workflow creates the KV namespace, deploys, sets the Worker
-secrets, seeds the first run, and verifies it. The same loop that keeps the heavier projects alive
-turns a throwaway daily-tip bot into a one-command, self-verifying deploy.
+The number isn't the point. The point is that each tool is judged in the modality that actually proves
+it works.
 
-Greenlight is [open source on GitHub](https://github.com/RTrentJones/greenlight).
+## The promote gate
+
+Branch maps to environment: pull request to preview, `develop` to beta, `main` to prod. Promotion is
+never a merge button. `greenlight promote` verifies beta, fast-forwards `develop` onto `main` (never a
+force-push, never a divergent merge), deploys prod, and verifies prod as the closing step. Because the
+only path onto `main` is a fast-forward of an already-verified `develop`, prod cannot hold a commit
+that skipped the gate. The whole thing is creds-guarded: with no deploy token, the deploy and verify
+steps skip cleanly instead of failing.
+
+## Infrastructure the manifest emits
+
+Adding a provider to a tool is a manifest change, not a new pile of YAML. `greenlight add` scaffolds a
+tool and appends one entry; from that, the CLI emits one Terraform module per tool — Cloudflare
+Workers, Vercel, Oracle Cloud, Neon — git-pinned in lockstep with the npm release, and gathers the
+tokens. The providers are pluggable behind the same lifecycle.
+
+## Liveness as a feature
+
+For anything that can pause — a free-tier database, an idle OCI container — a Cloudflare Worker cron
+health-checks it and, on an outage, fires a `repository_dispatch` that re-applies, redeploys, and
+re-verifies. Recover-on-alert keeps it on the free tier without a paid fallback.
+
+## The point
+
+The result is that correctness is something the platform asserts on every push, in the modality that
+proves it, rather than something I have to remember to check. This site is the smallest possible proof
+of that: a thin Greenlight consumer, deployed to Cloudflare Workers, gated by the same harness as
+everything else. Greenlight is [open source on GitHub](https://github.com/RTrentJones/greenlight).
