@@ -11,9 +11,9 @@ const projects = (await getCollection('projects')).sort(
 const env = envFromSite(Astro.site);
 ---
 
-<Base title="Projects" description="Things I've built — most run live, gated by the Greenlight loop.">
+<Base title="Projects" description="Self-verifying systems — each ships through the Greenlight loop and proves it works in production.">
   <h1>Projects</h1>
-  <p class="lede">Things I've built. Most run live; each ships through the Greenlight loop.</p>
+  <p class="lede">Self-verifying systems. Each one ships through the Greenlight loop and proves it works in production.</p>
   <div class="grid">
     {projects.map((project) => <ProjectCard project={project} />)}
   </div>

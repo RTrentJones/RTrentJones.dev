@@ -7,6 +7,7 @@ export default {
     { path: '/blog/', status: 200 },
     { path: '/projects/', status: 200 },
     { path: '/about/', status: 200 },
+    { path: '/greenlight/', status: 200 },
     { path: '/heistmind/', status: 200 },
     { path: '/bamcp/', status: 200 },
     { path: '/pg_kafka/', status: 200 },
