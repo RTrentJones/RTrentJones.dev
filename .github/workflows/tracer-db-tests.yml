@@ -1,0 +1,67 @@
+name: tracer-db-tests
+
+# DB-backed coverage of tracer's raw SQL (test/db/**), which the pure unit suite can't reach. Each run
+# spins a THROWAWAY Neon branch, migrates it, runs the TEST_DATABASE_URL-gated tests against it, and
+# deletes it. Safe to merge before the Neon CI creds exist: the guard below skips (warns, green) until
+# NEON_API_KEY (secret) + NEON_PROJECT_ID / NEON_ROLE (repo vars) are set.
+on:
+  push:
+    paths: ['tools/tracer/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tracer-db-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db-tests:
+    runs-on: ubuntu-latest
+    env:
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+
+      - name: Preflight — do we have Neon CI creds?
+        id: pre
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          if [ -n "$NEON_API_KEY" ] && [ -n "$NEON_PROJECT_ID" ]; then
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::NEON_API_KEY (secret) / NEON_PROJECT_ID (var) not set — skipping DB tests"
+            echo "run=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create ephemeral Neon branch
+        id: branch
+        if: steps.pre.outputs.run == '1'
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ci-tracer-${{ github.run_id }}-${{ github.run_attempt }}
+          username: ${{ vars.NEON_ROLE }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Migrate + run DB-backed tests
+        if: steps.pre.outputs.run == '1'
+        env:
+          # Pooled branch URL; drizzle.config derives the direct endpoint by stripping `-pooler`.
+          DATABASE_URL: ${{ steps.branch.outputs.db_url_pooled }}
+          TEST_DATABASE_URL: '1' # gate that flips on the test/db/** suite
+        run: |
+          pnpm --filter tracer exec drizzle-kit migrate
+          pnpm --filter tracer test
+
+      - name: Delete the ephemeral Neon branch
+        if: always() && steps.branch.outputs.branch_id != ''
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.branch.outputs.branch_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}
