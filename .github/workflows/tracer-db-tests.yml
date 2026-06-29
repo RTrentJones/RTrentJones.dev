@@ -48,11 +48,19 @@ jobs:
       - name: Provision a throwaway Neon branch (resolve project by name → branch → pooled URL)
         id: neon
         if: steps.pre.outputs.run == '1'
+        env:
+          # The committed Neon project id — a NON-SECRET identifier, exactly like the Vercel project id
+          # in infra/tracer.tf. Used as the fallback because the current NEON_API_KEY is PROJECT-scoped
+          # (can't list all projects). Greenlight's neon module owns this id (output `project_id`); this
+          # is the tracer project it created. Not a GitHub var anyone hand-sets.
+          TRACER_NEON_PROJECT_ID: raspy-cherry-85033179
         run: |
           set -euo pipefail
-          # The project id is NOT hand-set: resolve it from the account by the tool name the module used.
-          PID=$(neonctl projects list --output json | jq -r --arg n "$TOOL" '.projects[] | select(.name==$n) | .id' | head -n1)
-          if [ -z "$PID" ]; then echo "::error::no Neon project named '$TOOL'"; exit 1; fi
+          # Prefer resolving by the tool name (works with an account-scoped key, incl. once multiple Neon
+          # projects exist); fall back to the committed project id when the key is project-scoped.
+          PID=$(neonctl projects list --output json 2>/dev/null | jq -r --arg n "$TOOL" '.projects[] | select(.name==$n) | .id' | head -n1 || true)
+          PID="${PID:-$TRACER_NEON_PROJECT_ID}"
+          echo "Using Neon project: $PID"
           BRANCH="ci-${TOOL}-${{ github.run_id }}-${{ github.run_attempt }}"
           neonctl branches create --project-id "$PID" --name "$BRANCH" --output json > /dev/null
           # Pooled URL; drizzle.config derives the direct endpoint by stripping `-pooler`. neonctl picks
