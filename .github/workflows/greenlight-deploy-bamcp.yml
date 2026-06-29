@@ -38,9 +38,19 @@ jobs:
         env:
           # Per-tool name: the status PAT lives on the shared wrapper, scoped to BAMCP's repo.
           GH_TOKEN: ${{ secrets.GREENLIGHT_STATUS_TOKEN_BAMCP }}
+          # env-indirect the UNTRUSTED repository_dispatch payload (mirrors greenlight-remediate-bamcp's
+          # REASON pattern) so a crafted `sha` can't break out of the gh-api command line.
+          SHA: ${{ github.event.client_payload.sha }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          JOB_STATUS: ${{ job.status }}
         run: |
           [ -z "$GH_TOKEN" ] && exit 0
-          gh api repos/RTrentJones/BAMCP/statuses/${{ github.event.client_payload.sha }} \
-            -f state="${{ job.status == 'success' && 'success' || 'failure' }}" \
+          # Validate the caller-supplied commit SHA (40 hex) before binding it into the API path.
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::warning::client_payload.sha is not a 40-char hex commit SHA — skipping status post"
+            exit 0
+          fi
+          gh api "repos/RTrentJones/BAMCP/statuses/$SHA" \
+            -f state="$STATE" \
             -f context="greenlight/deploy-bamcp" \
-            -f description="${{ job.status }}"
+            -f description="$JOB_STATUS"
