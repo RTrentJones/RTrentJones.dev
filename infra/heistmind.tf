@@ -221,6 +221,12 @@ provider "github" {
 
 resource "github_branch_protection" "heistmind_main" {
   # Skip until the admin token is provided, so the rest of the apply isn't blocked.
+  # FOOTGUN: this `count` makes the gate token-driven — if TF_VAR_HEISTMIND_GITHUB_ADMIN_TOKEN is
+  # rotated to empty, the next apply DESTROYS this branch protection (count 1→0), silently dropping the
+  # prod ship-gate. Treat an emptied admin token as drift, not a config change: keep the secret set, or
+  # decommission the gate deliberately. (A stronger guard — lifecycle prevent_destroy — would make an
+  # emptied token fail the apply loudly instead; deferred to keep the bootstrap "apply succeeds when
+  # unset" contract.)
   count    = var.heistmind_github_admin_token != "" ? 1 : 0
   provider = github.heistmind_admin
 
