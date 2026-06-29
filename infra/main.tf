@@ -23,9 +23,11 @@ terraform {
       version = "~> 1.0"
     }
     # BAMCP (see bamcp.tf) — OCI Container Instance on the Always-Free A1 tier.
+    # Bounded major (like the other providers): a fresh `init` without the lockfile can't jump to a
+    # breaking 9.x. ~> 8.0 → >= 8.0, < 9.0 — matches the locked 8.19.0, so it's a no-op for the apply.
     oci = {
       source  = "oracle/oci"
-      version = ">= 5.0"
+      version = "~> 8.0"
     }
     # tracer (see tracer.tf) — serverless Postgres, a branch per env.
     neon = {

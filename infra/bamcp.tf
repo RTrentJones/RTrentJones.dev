@@ -54,9 +54,12 @@ module "bamcp_instance" {
 }
 
 variable "bamcp_image" {
-  type        = string
-  default     = "ghcr.io/rtrentjones/bamcp:prod"
-  description = "GHCR image for bamcp (built + pushed by RTrentJones/BAMCP's own CI)."
+  type    = string
+  default = "ghcr.io/rtrentjones/bamcp:prod"
+  # The mutable :prod tag is INTENTIONAL (not an oversight): the OCI self-heal/restart re-pulls the
+  # latest :prod image, which is exactly how a redeploy/remediation picks up BAMCP's newest build. A
+  # digest pin would defeat that — a restart would re-pull the same old layer — so this stays a tag.
+  description = "GHCR image for bamcp (built + pushed by RTrentJones/BAMCP's own CI). Mutable :prod tag is intentional — the OCI restart re-pulls latest; a digest pin would break the self-heal re-pull."
 }
 
 variable "bamcp_verify_token" {
