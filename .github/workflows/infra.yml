@@ -1,8 +1,13 @@
 name: infra
 
-# Apply the wrapper's Terraform (HeistMind: Supabase + Vercel + DNS + keepalive) on push.
-# State + locking live in HCP Terraform (workspace rtrentjones-dev, Local execution); the
-# run happens here with the provider creds from GitHub Actions secrets. Plan -> apply.
+# Apply the wrapper's Terraform (HeistMind: Supabase + Vercel + DNS + keepalive; tracer: Neon + Vercel;
+# bamcp: OCI) on push. State + locking live in HCP Terraform (workspace rtrentjones-dev, Local
+# execution); the run happens here with the provider creds from GitHub Actions secrets.
+#
+# Two-job gate: `plan` runs free and FAILS FAST if the plan would destroy a stateful prod store
+# (the prevent_destroy substitute — the stores live inside Greenlight modules, so a consumer-side
+# CI guard is how we enforce it). `apply` then waits on the `prod` environment's manual approval, so a
+# human reviews the (visible) plan before anything touches the irreplaceable Supabase + Neon prod data.
 on:
   push:
     branches: [main]
@@ -16,56 +21,58 @@ concurrency:
   group: infra
   cancel-in-progress: false # never interrupt an in-flight apply
 
+# Workflow-level so BOTH jobs (plan + apply) inherit the provider creds without duplication.
+env:
+  TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }} # HCP state backend auth
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
+  # zone id is an enumerable identifier, not a secret — a repo variable (vars.*)
+  TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+  # tracer (data: neon) — the neon provider reads NEON_API_KEY natively (like supabase reads
+  # SUPABASE_ACCESS_TOKEN above). The Vercel project id is a non-secret HCP workspace var.
+  NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+  # tracer pass-two runtime secrets, wired into the Vercel env by tracer.tf. All optional — an unset
+  # secret is "" → that capability is disabled at runtime (ingest fails closed; provider skipped).
+  # The per-tool TF_VAR_TRACER_* names are the manifest DEFAULT (differentiable per project); this is
+  # where THIS project overrides the LLM keys to the SHARED account secrets (one GEMINI/ANTHROPIC/XAI
+  # key per account — the same GEMINI_API_KEY the agent lane uses), so there's no duplicate to set.
+  TF_VAR_tracer_ingest_token: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
+  TF_VAR_tracer_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+  TF_VAR_tracer_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+  TF_VAR_tracer_xai_api_key: ${{ secrets.XAI_API_KEY }}
+  # DB password is inert on the imported project (the module pins ignore_changes) — never
+  # written to the live DB — but the supabase provider length-validates it at plan time. The
+  # `|| 'import-placeholder'` fallback means an UNSET secret yields a valid ≥4-char value (an
+  # unset secret is "" and would otherwise override the var default). Set a dummy (≥4 chars) to
+  # replace it; a real from-scratch recreate is the only time it needs a genuine value.
+  TF_VAR_heistmind_supabase_database_password: ${{ secrets.TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD || 'import-placeholder' }}
+  # keepalive Worker token: github-issue alerts (Issues:write) + auto-heal repository_dispatch
+  # (Contents:write). Empty/unset → keepalive still pings, but alerts + self-heal no-op.
+  TF_VAR_keepalive_github_token: ${{ secrets.TF_VAR_KEEPALIVE_GITHUB_TOKEN }}
+  # HeistMind prod ship-gate: admin token to manage RTrentJones/HeistMind branch protection
+  # (administration:write). Empty/unset → branch protection not managed (apply still succeeds).
+  TF_VAR_heistmind_github_admin_token: ${{ secrets.TF_VAR_HEISTMIND_GITHUB_ADMIN_TOKEN }}
+  # HeistMind Discord OAuth (Supabase auth provider). Discord app is created manually; these
+  # are its creds. Empty/unset → Discord auth stays disabled (apply unchanged).
+  TF_VAR_heistmind_discord_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_ID }}
+  TF_VAR_heistmind_discord_client_secret: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET }}
+  # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
+  # module + AD data source), so only the auth values + optional compartment are secrets.
+  TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
+  TF_VAR_oci_user_ocid: ${{ secrets.TF_VAR_OCI_USER_OCID }}
+  TF_VAR_oci_fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
+  TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
+  TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
+  TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+  # BAMCP M2M service token for the CI verify — same secret the deploy/remediate verify step
+  # presents. Empty/unset → functional verify dormant (the 401 smoke still gates).
+  TF_VAR_bamcp_verify_token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
+
 jobs:
-  apply:
+  plan:
     runs-on: ubuntu-latest
-    env:
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }} # HCP state backend auth
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      GITHUB_TOKEN: ${{ github.token }} # github provider is required by a module but creates nothing
-      # zone id is an enumerable identifier, not a secret — a repo variable (vars.*)
-      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
-      # tracer (data: neon) — the neon provider reads NEON_API_KEY natively (like supabase reads
-      # SUPABASE_ACCESS_TOKEN above). The Vercel project id is a non-secret HCP workspace var.
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      # tracer pass-two runtime secrets, wired into the Vercel env by tracer.tf. All optional — an unset
-      # secret is "" → that capability is disabled at runtime (ingest fails closed; provider skipped).
-      # The per-tool TF_VAR_TRACER_* names are the manifest DEFAULT (differentiable per project); this is
-      # where THIS project overrides the LLM keys to the SHARED account secrets (one GEMINI/ANTHROPIC/XAI
-      # key per account — the same GEMINI_API_KEY the agent lane uses), so there's no duplicate to set.
-      TF_VAR_tracer_ingest_token: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
-      TF_VAR_tracer_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-      TF_VAR_tracer_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-      TF_VAR_tracer_xai_api_key: ${{ secrets.XAI_API_KEY }}
-      # DB password is inert on the imported project (the module pins ignore_changes) — never
-      # written to the live DB — but the supabase provider length-validates it at plan time. The
-      # `|| 'import-placeholder'` fallback means an UNSET secret yields a valid ≥4-char value (an
-      # unset secret is "" and would otherwise override the var default). Set a dummy (≥4 chars) to
-      # replace it; a real from-scratch recreate is the only time it needs a genuine value.
-      TF_VAR_heistmind_supabase_database_password: ${{ secrets.TF_VAR_HEISTMIND_SUPABASE_DATABASE_PASSWORD || 'import-placeholder' }}
-      # keepalive Worker token: github-issue alerts (Issues:write) + auto-heal repository_dispatch
-      # (Contents:write). Empty/unset → keepalive still pings, but alerts + self-heal no-op.
-      TF_VAR_keepalive_github_token: ${{ secrets.TF_VAR_KEEPALIVE_GITHUB_TOKEN }}
-      # HeistMind prod ship-gate: admin token to manage RTrentJones/HeistMind branch protection
-      # (administration:write). Empty/unset → branch protection not managed (apply still succeeds).
-      TF_VAR_heistmind_github_admin_token: ${{ secrets.TF_VAR_HEISTMIND_GITHUB_ADMIN_TOKEN }}
-      # HeistMind Discord OAuth (Supabase auth provider). Discord app is created manually; these
-      # are its creds. Empty/unset → Discord auth stays disabled (apply unchanged).
-      TF_VAR_heistmind_discord_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_ID }}
-      TF_VAR_heistmind_discord_client_secret: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET }}
-      # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
-      # module + AD data source), so only the auth values + optional compartment are secrets.
-      TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
-      TF_VAR_oci_user_ocid: ${{ secrets.TF_VAR_OCI_USER_OCID }}
-      TF_VAR_oci_fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
-      TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
-      TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
-      TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
-      # BAMCP M2M service token for the CI verify — same secret the deploy/remediate verify step
-      # presents. Empty/unset → functional verify dormant (the 401 smoke still gates).
-      TF_VAR_bamcp_verify_token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -74,4 +81,50 @@ jobs:
           terraform_wrapper: false
       - run: terraform -chdir=infra init -input=false
       - run: terraform -chdir=infra plan -input=false -out=tf.plan
+      # Data-loss backstop (the prevent_destroy substitute): FAIL — before any approval is even
+      # requested — if the plan would delete/replace a stateful prod store. Matches by resource TYPE
+      # (robust to address renames). To intentionally tear a store down, remove this guard or apply
+      # locally — the same friction prevent_destroy imposes on purpose.
+      - name: Guard — no destroy of a stateful prod store
+        run: |
+          terraform -chdir=infra show -json tf.plan > tf.plan.json
+          DESTROYS=$(jq -r '
+            [ .resource_changes[]
+              | select(.change.actions | index("delete"))
+              | select(.type | test("^(supabase_project|neon_project|neon_branch)$"))
+              | "\(.address) [\(.change.actions | join(","))]" ] | .[]' tf.plan.json)
+          if [ -n "$DESTROYS" ]; then
+            echo "::error::plan would destroy/replace a stateful prod store — blocking apply:"
+            echo "$DESTROYS"
+            exit 1
+          fi
+          echo "plan-guard: OK (no destroy/replace of a stateful prod store)"
+      - name: Upload the verified plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-plan
+          path: infra/tf.plan
+          retention-days: 1
+          if-no-files-found: error
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    # Manual approval: the `prod` environment's required-reviewer rule (repo Settings → Environments →
+    # prod) gates this job. The reviewer sees the completed `plan` job (incl. the guard result) before
+    # approving — no prod apply happens unattended.
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~1.10'
+          terraform_wrapper: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: tf-plan
+          path: infra
+      # Re-init providers in this job (from the committed lock), then apply the SAVED plan — Terraform
+      # rejects it if state drifted since plan, and `concurrency: infra` keeps runs serial.
+      - run: terraform -chdir=infra init -input=false
       - run: terraform -chdir=infra apply -input=false tf.plan
