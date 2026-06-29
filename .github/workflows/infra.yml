@@ -6,8 +6,8 @@ name: infra
 #
 # Two-job gate: `plan` runs free and FAILS FAST if the plan would destroy a stateful prod store
 # (the prevent_destroy substitute — the stores live inside Greenlight modules, so a consumer-side
-# CI guard is how we enforce it). `apply` then waits on the `prod` environment's manual approval, so a
-# human reviews the (visible) plan before anything touches the irreplaceable Supabase + Neon prod data.
+# CI guard is how we enforce it). `apply` then waits on the `Production` environment's manual approval,
+# so a human reviews the (visible) plan before anything touches the irreplaceable Supabase + Neon data.
 on:
   push:
     branches: [main]
@@ -110,10 +110,10 @@ jobs:
   apply:
     needs: plan
     runs-on: ubuntu-latest
-    # Manual approval: the `prod` environment's required-reviewer rule (repo Settings → Environments →
-    # prod) gates this job. The reviewer sees the completed `plan` job (incl. the guard result) before
-    # approving — no prod apply happens unattended.
-    environment: prod
+    # Manual approval: the `Production` environment's required-reviewer rule (repo Settings →
+    # Environments → Production) gates this job. The reviewer sees the completed `plan` job (incl. the
+    # guard result) before approving — no prod apply happens unattended.
+    environment: Production
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
