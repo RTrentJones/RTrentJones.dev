@@ -24,12 +24,14 @@ async function rows<T>(query: SQL): Promise<T[]> {
   return res.rows as T[];
 }
 
-// Build a WHERE fragment from optional (tool, model, env) filters. Empty → no clause.
-function whereFilters(f: RunFilters): SQL {
+// Build a WHERE fragment from optional (tool, model, env) filters + an optional recency bound.
+// Empty → no clause.
+function whereFilters(f: RunFilters, sinceDays?: number): SQL {
   const conds: SQL[] = [];
   if (f.tool) conds.push(sql`tool = ${f.tool}`);
   if (f.model) conds.push(sql`model = ${f.model}`);
   if (f.env) conds.push(sql`env = ${f.env}`);
+  if (sinceDays != null) conds.push(sql`started_at >= now() - (${sinceDays}::int * interval '1 day')`);
   return conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
 }
 
@@ -66,11 +68,19 @@ export function passRateOverTime(days = 30): Promise<PassRatePoint[]> {
  * (tool, model, env) series, never truncate one — every remaining series is complete and its baseline
  * stays correct. We fetch the matching rows oldest-first (with `id` as the equal-timestamp tiebreaker
  * for deterministic ordering), derive, then sort newest-first and take `limit`.
+ *
+ * `sinceDays` bounds the inner scan to recent history (default 90d) so it doesn't materialize the full
+ * table on free-tier Neon. Trade-off: the earliest run in the window has no in-window predecessor, so
+ * its regression flag is computed against null (a >90d-old baseline is stale for a CI dashboard anyway).
  */
-export async function runsWithRegression(f: RunFilters = {}, limit = 100): Promise<RunWithRegression[]> {
+export async function runsWithRegression(
+  f: RunFilters = {},
+  limit = 100,
+  sinceDays = 90,
+): Promise<RunWithRegression[]> {
   const ordered = await rows<EvalRun>(sql`
     SELECT * FROM eval_run
-    ${whereFilters(f)}
+    ${whereFilters(f, sinceDays)}
     ORDER BY started_at ASC, id ASC
   `);
   return deriveRegressions(ordered)
@@ -122,12 +132,15 @@ export interface FilterOptions {
   envs: string[];
 }
 
-/** Distinct values for the filter dropdowns (/runs, /compare). */
+/** Distinct values for the filter dropdowns (/runs, /compare). One round-trip (a UNION of the three
+ * dimensions tagged by `k`) instead of three separate scans; grouped back into the three lists in TS. */
 export async function filterOptions(): Promise<FilterOptions> {
-  const [tools, models, envs] = await Promise.all([
-    rows<{ v: string }>(sql`SELECT DISTINCT tool AS v FROM eval_run ORDER BY 1`),
-    rows<{ v: string }>(sql`SELECT DISTINCT model AS v FROM eval_run ORDER BY 1`),
-    rows<{ v: string }>(sql`SELECT DISTINCT env AS v FROM eval_run ORDER BY 1`),
-  ]);
-  return { tools: tools.map((r) => r.v), models: models.map((r) => r.v), envs: envs.map((r) => r.v) };
+  const all = await rows<{ k: 'tool' | 'model' | 'env'; v: string }>(sql`
+    SELECT DISTINCT 'tool'  AS k, tool  AS v FROM eval_run
+    UNION ALL SELECT DISTINCT 'model', model FROM eval_run
+    UNION ALL SELECT DISTINCT 'env',   env   FROM eval_run
+    ORDER BY k, v
+  `);
+  const pick = (k: 'tool' | 'model' | 'env') => all.filter((r) => r.k === k).map((r) => r.v);
+  return { tools: pick('tool'), models: pick('model'), envs: pick('env') };
 }
