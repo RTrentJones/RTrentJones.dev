@@ -1,0 +1,76 @@
+name: tracer-db-tests
+
+# DB-backed coverage of tracer's raw SQL (test/db/**), which the pure unit suite can't reach. Each run
+# spins a THROWAWAY Neon branch, migrates it, runs the TEST_DATABASE_URL-gated tests against it, and
+# deletes it.
+#
+# ZERO manual wiring: Greenlight's neon module names the project after the tool (name = "tracer"), so we
+# resolve the project id from the account by name — the only input is the SHARED, account-level
+# NEON_API_KEY that infra.yml already uses (one key covers every Neon project). Nothing to hand-set per
+# tool. Safe to merge before that secret exists: the preflight skips (warns, green) until it does.
+on:
+  push:
+    paths: ['tools/tracer/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tracer-db-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db-tests:
+    runs-on: ubuntu-latest
+    env:
+      TOOL: tracer # = the Neon project name (Greenlight's neon module sets project name = tool name)
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }} # account-level; neonctl reads it natively
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+
+      - name: Preflight — Neon API key present?
+        id: pre
+        run: |
+          if [ -n "$NEON_API_KEY" ]; then
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::NEON_API_KEY not set — skipping DB tests"
+            echo "run=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install neonctl
+        if: steps.pre.outputs.run == '1'
+        run: npm i -g neonctl@2 # pin the major (supply-chain), like the oci-cli pin
+
+      - name: Provision a throwaway Neon branch (resolve project by name → branch → pooled URL)
+        id: neon
+        if: steps.pre.outputs.run == '1'
+        run: |
+          set -euo pipefail
+          # The project id is NOT hand-set: resolve it from the account by the tool name the module used.
+          PID=$(neonctl projects list --output json | jq -r --arg n "$TOOL" '.projects[] | select(.name==$n) | .id' | head -n1)
+          if [ -z "$PID" ]; then echo "::error::no Neon project named '$TOOL'"; exit 1; fi
+          BRANCH="ci-${TOOL}-${{ github.run_id }}-${{ github.run_attempt }}"
+          neonctl branches create --project-id "$PID" --name "$BRANCH" --output json > /dev/null
+          # Pooled URL; drizzle.config derives the direct endpoint by stripping `-pooler`. neonctl picks
+          # the project's default role + database, so there's no role/db to configure either.
+          URL=$(neonctl connection-string "$BRANCH" --project-id "$PID" --pooled)
+          echo "::add-mask::$URL"
+          echo "DATABASE_URL=$URL" >> "$GITHUB_ENV" # masked; inherited by the test step (not an output)
+          echo "pid=$PID" >> "$GITHUB_OUTPUT" # ids are not secrets; needed by the cleanup step
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Migrate + run DB-backed tests
+        if: steps.pre.outputs.run == '1'
+        env:
+          TEST_DATABASE_URL: '1' # gate that flips on the test/db/** suite (DATABASE_URL came from $GITHUB_ENV)
+        run: |
+          pnpm --filter tracer exec drizzle-kit migrate
+          pnpm --filter tracer test
+
+      - name: Delete the throwaway branch
+        if: always() && steps.neon.outputs.branch != ''
+        run: neonctl branches delete "${{ steps.neon.outputs.branch }}" --project-id "${{ steps.neon.outputs.pid }}" || true
