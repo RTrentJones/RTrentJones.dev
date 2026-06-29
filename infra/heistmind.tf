@@ -11,7 +11,9 @@
 # │     and the module sets ignore_changes). On a fresh state, re-import before apply:
 # │       terraform import module.heistmind_supabase.supabase_project.this kjcdddzyibwqahgiypdb
 # │     (The Vercel module manages only domains + env on the EXISTING project by id — nothing to import.)
-# │  3. Apply is currently run manually (state is local). CI apply-on-push needs R2 remote state.
+# │  3. Apply runs in CI (.github/workflows/infra.yml) against HCP remote state: a `plan` job
+# │     (with a destroy plan-guard) → manual approval on the `Production` environment → `apply`.
+# │     Re-import only on a fresh/empty state.
 
 provider "vercel" {
   # api_token from VERCEL_API_TOKEN; scope all resources to the team.

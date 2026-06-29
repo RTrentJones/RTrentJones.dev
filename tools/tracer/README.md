@@ -65,16 +65,20 @@ Nothing here is bespoke, so production can swap Tracer for a maintained backend:
 ## Data (Neon)
 
 Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)).
-**Regressions are derived on read** (a `lag()` window per `(tool, model, env)`); the pure mirror lives
-in [lib/regression.ts](lib/regression.ts) and is unit-tested without a DB. Runtime reads use the pooled
+**Regressions are derived on read in TypeScript** — `deriveRegressions` ([lib/regression.ts](lib/regression.ts)),
+applied by [lib/queries.ts](lib/queries.ts) `runsWithRegression`; it's the single implementation
+(unit-tested without a DB, there is no SQL mirror) and the read scan is bounded to ~90 days. Runtime
+reads use the pooled
 `DATABASE_URL` (neon-http); migrations use the **direct** form of `DATABASE_URL` (`drizzle.config.ts`)
 so they hit the same branch the runtime reads. The build runs `drizzle-kit migrate`; Greenlight's only
 DB role is `migrations scan`.
 
 ## Troubleshooting
 
-Hit `/api/health` on any env — it returns `{ ok, databaseUrlSet, directUrlSet, runs }` or the real error
-(Server Component errors are masked in production):
+Hit `/api/health` on any env — it returns `{ ok, databaseUrlSet, directUrlSet, runs }`, or on failure a
+**503** with a generic `{ ok:false, …, error:"db unreachable" }`. The raw DB error is never returned to
+the (public) caller — the real cause is in the **function logs** (`health: db check failed`). The two
+booleans + the logs are enough to diagnose; in the logs you'll see e.g.:
 - `relation "eval_run" does not exist` — migrations hit a different branch than the runtime reads;
   re-deploy so the build's `drizzle-kit migrate` runs against the current `DATABASE_URL`.
 - `DATABASE_URL is not set` — wire the Neon pooled connection string (Vercel env / `infra/tracer.tf`).

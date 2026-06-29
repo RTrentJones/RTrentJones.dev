@@ -38,8 +38,11 @@ Migrate local → HCP with a plain `terraform init` (answer `yes` to copy state)
 ## CI apply-on-push
 
 `infra.yml` (on push to `main`, paths `infra/**`): map GH secrets → `TF_TOKEN_app_terraform_io`
-+ the provider tokens + `TF_VAR_*`, then setup-terraform (`terraform_wrapper: false`) → init →
-plan -out → apply. This is the deploy half — the CLI only edits the `.tf`; CI applies.
++ the provider tokens + `TF_VAR_*`, then two gated jobs — a `plan` job (setup-terraform with
+`terraform_wrapper: false` → init → plan -out → a destroy plan-guard that fails fast on any delete of a
+stateful prod store → upload the plan artifact) and an `apply` job gated on the `Production`
+environment's manual reviewer approval, which applies the saved plan. The CLI only edits the `.tf`; CI
+plans, a human approves, CI applies.
 
 ## Alternatives
 See `docs/terraform-state.md` for the full backend chooser (HCP no-CC · OCI S3-compat ·
