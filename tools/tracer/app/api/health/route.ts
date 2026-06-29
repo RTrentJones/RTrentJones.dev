@@ -16,8 +16,8 @@ export async function GET() {
 
   try {
     const db = getDb();
-    // SELECT 1 proves connectivity; the run count proves the schema + migrations are present.
-    await db.execute(sql`SELECT 1`);
+    // One query proves both: a successful count over eval_run means the connection works AND the
+    // schema + migrations are present (a missing table throws here, caught below).
     const res = await db.execute(sql`SELECT count(*)::int AS runs FROM eval_run`);
     const runs = (res.rows[0] as { runs: number } | undefined)?.runs ?? 0;
     return NextResponse.json({ ok: true, databaseUrlSet, directUrlSet, runs });
