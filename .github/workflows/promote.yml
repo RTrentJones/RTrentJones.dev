@@ -16,6 +16,9 @@ permissions:
 jobs:
   promote:
     runs-on: ubuntu-latest
+    env:
+      # env-indirect the dispatch input so it's never interpolated into a shell `run:` line.
+      NAME: ${{ inputs.name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,6 +26,15 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
       - run: git fetch --no-tags origin main develop
+
+      - name: Validate tool name (allow-list ↔ manifest)
+        run: |
+          # Allow-list mirrors greenlight.config.ts (blog + the tools[] array). The CLI also validates,
+          # but reject an unknown/metachar name here before it reaches any `pnpm exec` command line.
+          case "$NAME" in
+            blog | heistmind | bamcp | tracer | muse) ;;
+            *) echo "::error::unknown tool '$NAME' (allowed: blog heistmind bamcp tracer muse)"; exit 1 ;;
+          esac
 
       - name: Check Cloudflare creds
         id: creds
@@ -35,18 +47,18 @@ jobs:
         if: steps.creds.outputs.have == '1'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec greenlight verify "${{ inputs.name }}" --env beta
+        run: pnpm exec greenlight verify "$NAME" --env beta
 
       - name: Promote (gated fast-forward)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          pnpm exec greenlight promote "${{ inputs.name }}" --perform --push
+          pnpm exec greenlight promote "$NAME" --perform --push
 
       - name: Deploy + verify prod
         if: steps.creds.outputs.have == '1'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          pnpm exec greenlight deploy "${{ inputs.name }}" --env prod
-          pnpm exec greenlight verify "${{ inputs.name }}" --env prod
+          pnpm exec greenlight deploy "$NAME" --env prod
+          pnpm exec greenlight verify "$NAME" --env prod

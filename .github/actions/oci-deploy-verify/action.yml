@@ -31,7 +31,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - run: pip install --quiet oci-cli
+    # Bound the major so an unattended self-heal/deploy can't pull a breaking oci-cli release (same
+    # philosophy as the Terraform provider pins). ~=3.0 → >=3.0,<4.0.
+    - run: pip install --quiet 'oci-cli~=3.0'
       shell: bash
     - name: Deploy (resolve instance OCID by name -> restart -> re-pull GHCR image)
       shell: bash
