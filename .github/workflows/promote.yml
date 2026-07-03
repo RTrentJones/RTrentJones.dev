@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Never interrupt an in-flight promotion; one at a time.
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
 jobs:
   promote:
     runs-on: ubuntu-latest
@@ -20,10 +25,10 @@ jobs:
       # env-indirect the dispatch input so it's never interpolated into a shell `run:` line.
       NAME: ${{ inputs.name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
       - run: git fetch --no-tags origin main develop
 
@@ -43,8 +48,17 @@ jobs:
         run: |
           if [ -n "$CF" ]; then echo "have=1" >> "$GITHUB_OUTPUT"; else echo "have=0" >> "$GITHUB_OUTPUT"; fi
 
+      # A missing cred may skip an ACTION (a deploy), never a CHECK. Without creds the beta verify
+      # below would skip — and the previously-unconditional Promote step would fast-forward
+      # develop -> main UNVERIFIED. Fail loudly instead of silently dropping the gate. (Mirrors
+      # the framework's own promote workflow.)
+      - name: Require verification creds
+        if: steps.creds.outputs.have != '1'
+        run: |
+          echo "::error::promotion requires verification — set CLOUDFLARE_API_TOKEN so the beta gate runs before develop->main."
+          exit 1
+
       - name: Verify beta (gate)
-        if: steps.creds.outputs.have == '1'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm exec greenlight verify "$NAME" --env beta
@@ -55,8 +69,17 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           pnpm exec greenlight promote "$NAME" --perform --push
 
+      # The FF moved origin/main, but this job's working tree still holds the DISPATCH ref (main
+      # as of dispatch time) — building prod from it ships the PRE-promotion code, and the
+      # GITHUB_TOKEN push above never re-triggers deploy.yml, so promoted code would never
+      # actually reach prod. Check out exactly what was promoted before building.
+      - name: Check out the promoted main
+        run: |
+          git fetch --no-tags origin main
+          git checkout --detach origin/main
+          pnpm install --frozen-lockfile
+
       - name: Deploy + verify prod
-        if: steps.creds.outputs.have == '1'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
