@@ -49,6 +49,34 @@ export interface BenchData {
   baselines: { rawInsert: BenchBaseline; realBroker: BenchBaseline };
 }
 
+export interface ShadowData {
+  generatedAt: string;
+  version: string;
+  gitSha?: string;
+  config: {
+    records: number;
+    forwardPercentage: number;
+    writeMode: string;
+    syncMode: string;
+    realBroker: string;
+  };
+  /** One row per forwarding scenario (dual-write async/sync, external-only, %, committed/aborted txn). */
+  checks: { name: string; status: CellStatus }[];
+  /** Parity block for the headline 100% dual-write topic. */
+  counts: {
+    produced: number;
+    forwardedToBroker: number;
+    localStored: number;
+    shadowMetricsForwarded: number;
+    skipped: number;
+    failed: number;
+    outboxFinalized: number;
+    lag: number;
+  };
+  /** All checks pass AND forwardedToBroker === produced. */
+  passed: boolean;
+}
+
 export interface Evidence<T> {
   /** `null` when the evidence branch couldn't be fetched at build time. */
   data: T | null;
@@ -69,6 +97,7 @@ async function load<T>(file: string): Promise<Evidence<T>> {
 
 export const loadConformance = () => load<ConformanceData>('conformance.json');
 export const loadBench = () => load<BenchData>('bench.json');
+export const loadShadow = () => load<ShadowData>('shadow.json');
 
 /** The live recording URL if the evidence branch has one, else null. */
 export async function loadSessionSvg(): Promise<{ url: string | null; source: 'live' | 'unavailable' }> {
