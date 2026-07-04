@@ -58,6 +58,11 @@ env:
   # are its creds. Empty/unset → Discord auth stays disabled (apply unchanged).
   TF_VAR_heistmind_discord_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_ID }}
   TF_VAR_heistmind_discord_client_secret: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET }}
+  # HeistMind Discord bot interactions endpoint — the two apps' PUBLIC keys (dev app → the
+  # beta/preview Vercel target, prod app → production). Empty/unset → the endpoint stays
+  # creds-guarded (503) on that target.
+  TF_VAR_heistmind_discord_public_key: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_PUBLIC_KEY }}
+  TF_VAR_heistmind_discord_dev_public_key: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_DEV_PUBLIC_KEY }}
   # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
   # module + AD data source), so only the auth values + optional compartment are secrets.
   TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
