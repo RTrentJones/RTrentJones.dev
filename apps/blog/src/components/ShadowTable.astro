@@ -95,9 +95,11 @@ const label = (key: string) => LABELS[key] ?? key;
       </p>
       <p class="note">
         Each scenario produces to pg_kafka, drives its live forwarding path, then independently consumes
-        the real broker to confirm delivery. The parity block is the headline 100% dual-write topic
-        (forwarded → broker equals produced). Forwarding throughput is the <em>shadow-async</em> /
-        <em>shadow-sync</em> rows in the benchmark table above.
+        the real broker to confirm delivery. The parity block is the headline 100% dual-write topic, where
+        synchronous forwarding is exactly-once (forwarded → broker equals produced). Async and commit-time
+        forwarding are <em>at-least-once</em> — the durable outbox re-delivers on reclaim, so the broker can
+        see a few duplicates while the local store and finalized tracking stay exactly-once. Forwarding
+        throughput is the <em>shadow-async</em> / <em>shadow-sync</em> rows in the benchmark table above.
       </p>
     </figure>
   )
