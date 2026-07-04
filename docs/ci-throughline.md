@@ -28,7 +28,7 @@ flowchart TB
         direction TB
         PKci["push main / PR<br/>-> ci.yml (clippy, 782 tests, coverage)"]
         PKev["v* tag / weekly cron / dispatch<br/>-> evidence.yml (pgrx build + harnesses)"]
-        PKbr[("evidence branch<br/>conformance.json, bench.json, session.svg")]
+        PKbr[("evidence branch<br/>conformance.json, bench.json, session.svg, shadow.json")]
     end
 
     subgraph SITE["site repo — the wrapper (rtrentjones.dev)"]
@@ -69,7 +69,7 @@ site **pulling** the evidence at build time).
 | **greenlight** | branch / PR | `ci.yml` | `check-all` (build · lint · test · boundaries) — validate only |
 | **greenlight** | `v*` tag | `release.yml` | publish `@rtrentjones/greenlight` to npm (OIDC); the tag is what `infra ?ref=` pins |
 | **pg_kafka** | `main` / PR | `ci.yml` | clippy · 782 tests · coverage — **does not touch evidence or the site** |
-| **pg_kafka** | `v*` tag · weekly cron · dispatch | `evidence.yml` | build the extension, run conformance + benchmark + recording, **force-push the `evidence` branch** |
+| **pg_kafka** | `v*` tag · weekly cron · dispatch | `evidence.yml` | build the extension, run conformance + benchmark + recording + shadow-forwarding, **force-push the `evidence` branch** |
 | **site** | push `develop` | `deploy.yml` | build (fetches evidence) + deploy **BETA** + verify |
 | **site** | push `main` | `deploy.yml` | build + deploy **PROD** + verify |
 | **site** | push `main`, `infra/**` | `infra.yml` | `terraform apply` (HCP) |

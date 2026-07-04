@@ -9,12 +9,13 @@ date: 2026-06-26
 
 import ConformanceMatrix from '../../components/ConformanceMatrix.astro';
 import BenchTable from '../../components/BenchTable.astro';
+import ShadowTable from '../../components/ShadowTable.astro';
 import SessionCast from '../../components/SessionCast.astro';
 
 > A native PostgreSQL extension (Rust / `pgrx`) that embeds the **Kafka wire protocol** in the
 > database runtime. Point an unmodified Kafka client at Postgres on `:9092`, produce and consume —
 > and the messages are sitting in a SQL table. 23 Kafka APIs, consumer groups, idempotent +
-> transactional producers, 782 tests.
+> transactional producers, shadow-forwarding to an external Kafka cluster, 782 tests.
 
 ## Why there's no "live demo" here
 
@@ -47,6 +48,22 @@ layer with no protocol) and a real Kafka broker **ceiling**. Normalized scores f
 and any regression — shows up over time for free.
 
 <BenchTable />
+
+The last two rows — `shadow-async` and `shadow-sync` — are the cost of the shadow-forwarding path below:
+async forwarding runs off the ack path (≈ plain produce), sync waits (bounded) for the external broker's
+ack.
+
+## Shadow-mode forwarding, verified
+
+pg_kafka can **dual-write** to an external Kafka cluster while still storing locally — the migration /
+validation / hybrid path (produce to Postgres, forward to a real broker, per-topic and percentage-sampled,
+transaction-aware). The interesting part isn't that it forwards; it's that the forwarding is proven the
+same way everything else here is: each scenario produces to pg_kafka, drives the live outbox path, then
+**independently consumes the real broker** to confirm what actually landed — regenerated in CI, timestamped.
+It doubles as a regression guard: the counts are identical before and after removing the dead pre-outbox
+producer, which is objective proof the durable outbox is what does the work.
+
+<ShadowTable />
 
 ## The duality, in one session
 
