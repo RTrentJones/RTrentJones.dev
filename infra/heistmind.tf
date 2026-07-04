@@ -50,6 +50,22 @@ variable "heistmind_discord_client_secret" {
   description = "Discord OAuth Client Secret for HeistMind (secret TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET). Empty = Discord auth disabled."
 }
 
+# The bot's interactions endpoint (apps/web /api/discord) verifies Ed25519 against the Discord
+# APPLICATION's public key — one app per env (prod app → production, dev app → beta/preview).
+# Public keys aren't secrets, but they flow as TF_VARs like the rest. Empty (default) => the
+# endpoint answers 503 and the deployment is otherwise unaffected (creds-guarded by design).
+variable "heistmind_discord_public_key" {
+  type        = string
+  default     = ""
+  description = "Ed25519 public key of the PROD Discord app (secret TF_VAR_HEISTMIND_DISCORD_PUBLIC_KEY). Empty = bot endpoint disabled on prod."
+}
+
+variable "heistmind_discord_dev_public_key" {
+  type        = string
+  default     = ""
+  description = "Ed25519 public key of the DEV Discord app, whose endpoint is beta (secret TF_VAR_HEISTMIND_DISCORD_DEV_PUBLIC_KEY). Empty = bot endpoint disabled on beta."
+}
+
 variable "cloudflare_account_id" {
   type    = string
   default = "47f5715fc54e2280476f65d03cce71f5"
@@ -135,6 +151,10 @@ module "heistmind_vercel" {
     # required for a change to take effect. Without these, provider.ts defaults to 'development'.
     schema_prod = { key = "NEXT_PUBLIC_HEISTMIND_SCHEMA", target = ["production"], sensitive = false }
     schema_beta = { key = "NEXT_PUBLIC_HEISTMIND_SCHEMA", target = ["preview"], sensitive = false }
+    # The Discord bot's interactions endpoint: each env verifies against ITS app's public key
+    # (prod app / dev app — one interactions URL per Discord application). Empty = endpoint 503s.
+    discord_pubkey_prod = { key = "DISCORD_PUBLIC_KEY", target = ["production"], sensitive = false }
+    discord_pubkey_beta = { key = "DISCORD_PUBLIC_KEY", target = ["preview"], sensitive = false }
   }
   environment_values = {
     site_url_prod     = "https://www.heistmind.com" # canonical served domain (beta stays on subdomain)
@@ -149,6 +169,9 @@ module "heistmind_vercel" {
     supa_proj_beta    = module.heistmind_supabase.project_ref
     schema_prod       = "production"
     schema_beta       = "development"
+
+    discord_pubkey_prod = var.heistmind_discord_public_key
+    discord_pubkey_beta = var.heistmind_discord_dev_public_key
   }
 }
 
