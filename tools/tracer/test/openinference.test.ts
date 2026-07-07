@@ -88,9 +88,11 @@ describe('fromOpenInference', () => {
 //
 // The fixture is a hand-copied golden, so it can silently drift from the producer. FIXTURE_VERIFIED
 // records the greenlight minor series this fixture was last verified against (re-read against
-// packages/verify/src/export.ts at v0.7.0 — shape unchanged since the v0.6.0 introduction). The guard
-// below fails loudly when the installed dep moves to a new minor/major, forcing a re-verify + bump.
-const FIXTURE_VERIFIED = '0.7';
+// packages/verify/src/export.ts at v0.8.0: `toExportResult` now emits additive per-check
+// `duration_ms`/`attempts` keys — null for this settle-free fixture, and ignored by our adapter
+// (`fromOpenInference` reads none of them) — the v1 contract is otherwise unchanged since v0.6.0).
+// The guard below fails loudly when the installed dep moves to a new minor/major, forcing a re-verify + bump.
+const FIXTURE_VERIFIED = '0.8';
 // Read the installed version straight off disk (the package doesn't export ./package.json). The pnpm
 // symlink for a tool-declared dep always lands in the tool's local node_modules.
 const installedGreenlight = JSON.parse(
@@ -126,11 +128,13 @@ describe('Greenlight --json export parity', () => {
         input: null,
         expected: null,
         output: 'a summary',
+        duration_ms: null,
+        attempts: null,
         'eval.score': 0.95,
         'eval.explanation': 'faithful; names both changes',
       },
-      { name: 'GET /', passed: true, input: null, expected: null, output: null, 'eval.score': 1, 'eval.explanation': null },
-      { name: 'GET /missing', passed: false, input: null, expected: null, output: null, 'eval.score': 0, 'eval.explanation': null },
+      { name: 'GET /', passed: true, input: null, expected: null, output: null, duration_ms: null, attempts: null, 'eval.score': 1, 'eval.explanation': null },
+      { name: 'GET /missing', passed: false, input: null, expected: null, output: null, duration_ms: null, attempts: null, 'eval.score': 0, 'eval.explanation': null },
     ],
   };
 
