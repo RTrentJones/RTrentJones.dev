@@ -24,15 +24,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # Initialize submodules so doctor's submodule/spec checks see real state — required for
+          # --strict below (an uninitialized submodule is a warning, and warnings now gate).
+          submodules: true
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
 
-      # Consistency gate (no creds): catches infra ?ref drift vs the installed version, manifest
-      # coherence, token scoping, submodule state. Fails the job only on a `fail` (e.g. a missing
-      # dir); warnings (submodules aren't checked out in this job) are informational, exit 0.
-      - name: Doctor (consistency)
-        run: pnpm exec greenlight doctor
+      # Consistency gate (no creds): infra ?ref drift vs the installed version, manifest
+      # coherence, token scoping, submodule state. STRICT: warnings gate too — a tool drifting
+      # from the model (missing verify spec, unscoped token) fails CI instead of informing it.
+      - name: Doctor (consistency, strict)
+        run: pnpm exec greenlight doctor --strict
 
       - name: Resolve target env
         id: env

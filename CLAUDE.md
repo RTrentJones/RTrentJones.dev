@@ -46,9 +46,9 @@ Inside `apps/blog/`: `pnpm dev` / `pnpm build` / `pnpm preview` (Astro). No test
 
 Branch → environment, enforced by `.github/workflows/`:
 
-- **PR → preview**, **`develop` → beta**, **`main` → prod** (`deploy.yml`).
-- Promotion (`promote.yml`) is an explicit, manually-dispatched gated fast-forward: verify beta → fast-forward `develop` onto `main` → verify prod.
-- CI is **creds-guarded**: without the `CLOUDFLARE_API_TOKEN` secret, deploy/verify steps skip cleanly rather than fail.
+- **`develop` → beta**, **`main` → prod** (`deploy.yml`). PR → preview is deliberately NOT wired — Workers preview URLs aren't deterministic and `verify --env preview` throws by design; the local gate (`greenlight preview`) covers pre-merge.
+- Promotion (`promote.yml`) is an explicit, manually-dispatched gated fast-forward: verify beta → fast-forward `develop` onto `main` → **check out the promoted main** (the FF moves the remote ref, not the CI working tree) → deploy + verify prod.
+- Deploys are **creds-guarded**: without the `CLOUDFLARE_API_TOKEN` secret, deploy steps skip cleanly. **Promotion is NOT** — a missing cred may skip an action, never a check, so `promote.yml` fails loudly rather than fast-forwarding an unverified build.
 - **Clean up merged branches.** Once a `feat/*` branch has shipped (fast-forwarded into `develop`/`main`), delete it locally **and** on the remote so the repo stays at `main` + `develop` plus only in-flight feature branches: `git checkout develop && git branch -d <branch> && git push origin --delete <branch>`.
 
 The blog runs on **Cloudflare Workers Static Assets** (`apps/blog/wrangler.jsonc`), served at the apex (`prod`) and `beta.` subdomain via custom domains. Astro `site` is the real domain by default; `SITE_URL` overrides per-env (e.g. beta builds).
@@ -57,11 +57,11 @@ The blog runs on **Cloudflare Workers Static Assets** (`apps/blog/wrangler.jsonc
 
 - `greenlight.config.ts` — the manifest. The one file that defines this setup.
 - `apps/blog/` — the blog. Astro 5 → Cloudflare Workers. Content is `src/content/blog/*.{md,mdx}`; frontmatter schema (`title`, `date`, optional `description`) is in `src/content.config.ts`. New posts = new files in that collection.
-- `infra/*.tf` — Terraform instantiating Greenlight's modules (`tool`/`vercel`/`supabase`/`oci-*`/`keepalive`), **git-sourced by `?ref=v0.2.27`** (lockstep with the npm dep). One `.tf` per tool; `greenlight add`/`adopt` emit them. Apply runs in `infra.yml` against **HCP Terraform** state with scoped secrets.
+- `infra/*.tf` — Terraform instantiating Greenlight's modules (`tool`/`vercel`/`supabase`/`oci-*`/`keepalive`), **git-sourced by a `?ref=` pinned lockstep with the installed npm dep** (see `package.json`; `greenlight doctor` flags drift, `greenlight bump` re-pins). One `.tf` per tool; `greenlight add`/`adopt` emit them. Apply runs in `infra.yml` against **HCP Terraform** state with scoped secrets.
 
 ## Framework consumption
 
-`package.json` depends on the **published** `@rtrentjones/greenlight` (`^0.2.27`); Terraform pins the matching module tag (`?ref=v0.2.27`). Update the mechanics with `pnpm update @rtrentjones/greenlight` (then bump the `?ref=` in `infra/*.tf`) — never by merging framework source into this repo.
+`package.json` depends on the **published** `@rtrentjones/greenlight`; Terraform pins the matching module tag (`?ref=v<version>`, lockstep — the exact version lives in `package.json`, never here, so these docs can't drift). Update the mechanics with `pnpm update @rtrentjones/greenlight && pnpm greenlight bump` (re-pins the `?ref=` + dep range in one command) — never by merging framework source into this repo.
 
 ## Greenlight loop (deploy → verify → promote)
 

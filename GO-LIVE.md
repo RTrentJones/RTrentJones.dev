@@ -1,7 +1,7 @@
 # Greenlight ecosystem — full go-live runbook (all projects)
 
 > **✅ COMPLETE (2026-06) — historical record.** Every phase below was executed: the framework is
-> **published** (`@rtrentjones/greenlight@0.2.27`, OIDC), the wrapper consumes it from npm, and both
+> **published** (`@rtrentjones/greenlight@0.2.27` at go-live — a historical snapshot; the CURRENT pin lives in `package.json`, OIDC), the wrapper consumes it from npm, and both
 > **BAMCP** and **HeistMind** are **live** with green verify gates (HeistMind also has a prod
 > ship-gate + authenticated deploy-gate). Current state is in [README.md](README.md) +
 > [CLAUDE.md](CLAUDE.md); this runbook is kept as the go-live record of how it got there.

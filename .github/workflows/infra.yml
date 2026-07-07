@@ -58,6 +58,11 @@ env:
   # are its creds. Empty/unset → Discord auth stays disabled (apply unchanged).
   TF_VAR_heistmind_discord_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_ID }}
   TF_VAR_heistmind_discord_client_secret: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_CLIENT_SECRET }}
+  # HeistMind Discord bot interactions endpoint — the two apps' PUBLIC keys (dev app → the
+  # beta/preview Vercel target, prod app → production). Empty/unset → the endpoint stays
+  # creds-guarded (503) on that target.
+  TF_VAR_heistmind_discord_public_key: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_PUBLIC_KEY }}
+  TF_VAR_heistmind_discord_dev_public_key: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_DEV_PUBLIC_KEY }}
   # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
   # module + AD data source), so only the auth values + optional compartment are secrets.
   TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
@@ -74,8 +79,8 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: '~1.10'
           terraform_wrapper: false
@@ -100,7 +105,7 @@ jobs:
           fi
           echo "plan-guard: OK (no destroy/replace of a stateful prod store)"
       - name: Upload the verified plan
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: tf-plan
           path: infra/tf.plan
@@ -115,12 +120,12 @@ jobs:
     # guard result) before approving — no prod apply happens unattended.
     environment: Production
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: '~1.10'
           terraform_wrapper: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tf-plan
           path: infra

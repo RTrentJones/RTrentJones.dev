@@ -20,14 +20,19 @@ jobs:
   remediate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: '~1.10'
           terraform_wrapper: false
-      - name: Re-apply the instance (recreate it if OCI idle-reclaimed the Always-Free box)
+      # This is the ONE unattended, auto-approved terraform path in the repo — an idle-reclaimed
+      # box must heal with no human awake, so it cannot ride infra.yml's manual-approval gate. It
+      # therefore carries its own safety: plan -> destroy-guard -> apply THE PLAN. Even a
+      # -target'ed heal must never destroy a stateful store (the same backstop infra.yml
+      # enforces); scoping to module.bamcp_instance limits blast radius, the guard enforces it.
+      - name: Plan + guard + apply the heal (recreate the instance if OCI idle-reclaimed it)
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }} # HCP state backend auth
           TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
@@ -43,7 +48,16 @@ jobs:
           fi
           terraform -chdir=infra init -input=false
           # -target pulls in the instance's deps (the bamcp_network module) automatically.
-          terraform -chdir=infra apply -input=false -auto-approve -target=module.bamcp_instance
+          terraform -chdir=infra plan -input=false -out=tf.plan -target=module.bamcp_instance
+          # Destroy-guard (matches infra.yml's): refuse if the heal would delete/replace a
+          # stateful data store. Matches by resource TYPE, so address renames can't dodge it.
+          terraform -chdir=infra show -json tf.plan > heal-plan.json
+          BAD=$(jq '[.resource_changes[]? | select((.change.actions | index("delete")) and (.type | test("supabase_project|neon_project|neon_branch")))] | length' heal-plan.json)
+          if [ "$BAD" != "0" ]; then
+            echo "::error::heal plan would destroy $BAD stateful store resource(s) — refusing to auto-apply. Use the gated infra workflow."
+            exit 1
+          fi
+          terraform -chdir=infra apply -input=false tf.plan
       # Same resolve→restart→verify as greenlight-deploy-bamcp (shared composite). The terraform
       # re-apply above recreates the box if it was reclaimed; this then restarts + re-pulls + gates.
       - uses: ./.github/actions/oci-deploy-verify
