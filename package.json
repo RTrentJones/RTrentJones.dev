@@ -13,7 +13,7 @@
     "blog:preview": "pnpm --filter rtrentjones-blog preview"
   },
   "dependencies": {
-    "@rtrentjones/greenlight": "^0.7.0"
+    "@rtrentjones/greenlight": "^0.8.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

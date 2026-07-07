@@ -83,7 +83,7 @@ locals {
 
 # One Supabase project (schema-per-env), imported + kept declarative + recreatable.
 module "heistmind_supabase" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.7.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/supabase?ref=v0.8.0"
 
   name              = "heistmind"
   project_name      = "heistmind-db" # exact existing name (replace-forcing — must match)
@@ -127,7 +127,7 @@ module "heistmind_supabase" {
 
 # Configure the EXISTING Vercel project (domains + env vars). Deploys ride git integration.
 module "heistmind_vercel" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.7.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/vercel?ref=v0.8.0"
 
   project_id  = "prj_QF5mBjNr8sw0F8wckqWdfw1vCI2X"
   name        = "heistmind"
@@ -177,7 +177,7 @@ module "heistmind_vercel" {
 
 # Subdomain DNS — CNAME heistmind/beta.heistmind -> cname.vercel-dns.com.
 module "heistmind_dns" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.7.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.8.0"
 
   name        = "heistmind"
   domain      = "rtrentjones.dev"
@@ -196,7 +196,7 @@ module "heistmind_dns" {
 # wrapper's greenlight-remediate-<tool>.yml re-applies + redeploys + verifies (the no-PAYG
 # recover-on-alert strategy, automated). The module ships its own bundled worker.js.
 module "keepalive" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.7.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/keepalive?ref=v0.8.0"
 
   account_id        = var.cloudflare_account_id
   alert_github_repo = "RTrentJones/RTrentJones.dev"

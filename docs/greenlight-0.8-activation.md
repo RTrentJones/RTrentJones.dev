@@ -7,8 +7,19 @@ events, function-shaped verify configs, and the `exactTools` default flip. This 
 landed everything that works on v0.7.0 (fail-loud promote gate, heal destroy-guard, strict doctor,
 pinned actions, the inert `/__version` endpoint).
 
-**Everything below is blocked on the owner publishing v0.8.0** — merge the framework branch, then
-`git tag v0.8.0 && git push origin v0.8.0` (OIDC publish via release.yml). Then, in this repo:
+**Status — unblocked & landed (all 6 steps).** v0.8.0 is published (npm `@rtrentjones/greenlight@0.8.0`
++ git tag `v0.8.0`), so the checklist ran on `feat/greenlight-0.8`:
+
+1. Lockstep bump — root + `tools/tracer` deps → `^0.8.0`, infra `?ref=` → `v0.8.0` (bamcp/heistmind/tracer; muse is wrangler-managed, no `?ref=`), `doctor --strict` green.
+2. `deploy.yml` — `deploy+verify` pair → `greenlight ship blog`.
+3. `promote.yml` — SHA-pinned chain (capture sha → `verify --expect-sha` → `promote --commit` → checkout sha → `ship prod --expect-sha`).
+4. `exactTools` audit — no-op; `verify/bamcp.config.ts` already opts in explicitly and is the only mcp spec.
+5. Function-shaped verify config — `verify/bamcp.config.ts` converted; `tools/tracer/verify.config.ts` N/A (reads no `GREENLIGHT_*` at module-eval).
+6. Stage events — `GREENLIGHT_INGEST_URL` + `TRACER_INGEST_TOKEN` wired into `deploy.yml` + `promote.yml` (best-effort). Per-tool workflows (`deploy-muse.yml`, the bamcp/tracer jobs) can be wired the same way later.
+
+Local gate green (`greenlight preview blog` PASS + stage event emitted). Remaining = step 7 (re-verify
+the chain live: push develop → beta ship; dispatch promote → prod ship). (Original unblock note: publish
+was `git tag v0.8.0 && git push origin v0.8.0`, OIDC via release.yml.)
 
 ## 1. Bump the lockstep pair
 

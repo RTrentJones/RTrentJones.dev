@@ -1,7 +1,8 @@
 name: promote
 
-# Explicit, gated develop -> main fast-forward: verify beta -> FF -> deploy + verify prod.
-# (A GITHUB_TOKEN push doesn't trigger deploy.yml, so this job owns the prod deploy.)
+# Explicit, gated develop -> main fast-forward, SHA-pinned end to end:
+# capture develop's tip -> verify beta @sha -> FF main to exactly that sha -> ship prod @sha.
+# (A GITHUB_TOKEN push doesn't trigger deploy.yml, so this job owns the prod ship.)
 on:
   workflow_dispatch:
     inputs:
@@ -24,6 +25,10 @@ jobs:
     env:
       # env-indirect the dispatch input so it's never interpolated into a shell `run:` line.
       NAME: ${{ inputs.name }}
+      # Stage-event telemetry into tracer (ship/preview POST per-stage records). Best-effort
+      # (5s cap, never fails the ship) — an absent token just drops the beacon.
+      GREENLIGHT_INGEST_URL: https://tracer.rtrentjones.dev/api/ingest
+      TRACER_INGEST_TOKEN: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -31,6 +36,14 @@ jobs:
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
       - run: git fetch --no-tags origin main develop
+
+      # Capture develop's tip — the commit that gets beta-verified, promoted, and prod-shipped.
+      # Pinning the whole chain to this one sha closes the verify->promote TOCTOU: if develop moves
+      # after the beta verify, `promote --commit` limits the FF to the verified sha (or refuses a
+      # sha that never landed on develop).
+      - name: Capture the verified sha
+        id: sha
+        run: echo "sha=$(git rev-parse origin/develop)" >> "$GITHUB_OUTPUT"
 
       - name: Validate tool name (allow-list ↔ manifest)
         run: |
@@ -58,30 +71,27 @@ jobs:
           echo "::error::promotion requires verification — set CLOUDFLARE_API_TOKEN so the beta gate runs before develop->main."
           exit 1
 
-      - name: Verify beta (gate)
+      - name: Verify beta (gate, sha-pinned)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec greenlight verify "$NAME" --env beta
+        run: pnpm exec greenlight verify "$NAME" --env beta --expect-sha "${{ steps.sha.outputs.sha }}"
 
       - name: Promote (gated fast-forward)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          pnpm exec greenlight promote "$NAME" --perform --push
+          pnpm exec greenlight promote "$NAME" --perform --push --commit "${{ steps.sha.outputs.sha }}"
 
       # The FF moved origin/main, but this job's working tree still holds the DISPATCH ref (main
       # as of dispatch time) — building prod from it ships the PRE-promotion code, and the
       # GITHUB_TOKEN push above never re-triggers deploy.yml, so promoted code would never
-      # actually reach prod. Check out exactly what was promoted before building.
-      - name: Check out the promoted main
+      # actually reach prod. Check out exactly the promoted sha (already local — it's develop's tip).
+      - name: Check out the promoted commit
         run: |
-          git fetch --no-tags origin main
-          git checkout --detach origin/main
+          git checkout --detach "${{ steps.sha.outputs.sha }}"
           pnpm install --frozen-lockfile
 
-      - name: Deploy + verify prod
+      - name: Ship prod (build -> deploy -> SHA-gated verify -> rollback on failure)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          pnpm exec greenlight deploy "$NAME" --env prod
-          pnpm exec greenlight verify "$NAME" --env prod
+        run: pnpm exec greenlight ship "$NAME" --env prod --expect-sha "${{ steps.sha.outputs.sha }}"

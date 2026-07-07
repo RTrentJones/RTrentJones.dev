@@ -23,6 +23,13 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Stage-event telemetry into tracer: `ship`/`preview` POST per-stage records
+    # (build/deploy/verify/rollback) here. Best-effort (5s cap, never fails the ship), so an
+    # absent TRACER_INGEST_TOKEN just drops the beacon. Powers push->healthy-in-prod latency +
+    # first-pass gate rate in tracer.
+    env:
+      GREENLIGHT_INGEST_URL: https://tracer.rtrentjones.dev/api/ingest
+      TRACER_INGEST_TOKEN: ${{ secrets.TF_VAR_TRACER_INGEST_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -54,13 +61,15 @@ jobs:
         run: |
           if [ -n "$CF" ]; then echo "have=1" >> "$GITHUB_OUTPUT"; else echo "have=0" >> "$GITHUB_OUTPUT"; fi
 
-      - name: Deploy + verify
+      # One in-process loop turn: build -> deploy -> SHA-gated verify -> rollback on failure.
+      # `ship` defaults its expected sha to GITHUB_SHA; with the /__version endpoint live, verify
+      # retries within the settle budget until the DEPLOYED sha matches (no green-lighting the
+      # previous deployment) and fails hard on mismatch — then wrangler-rolls-back on a failed verify.
+      - name: Ship (build -> deploy -> SHA-gated verify -> rollback on failure)
         if: steps.creds.outputs.have == '1'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          pnpm exec greenlight deploy blog --env "${{ steps.env.outputs.env }}"
-          pnpm exec greenlight verify blog --env "${{ steps.env.outputs.env }}"
+        run: pnpm exec greenlight ship blog --env "${{ steps.env.outputs.env }}"
 
       - name: Skip notice
         if: steps.creds.outputs.have != '1'
