@@ -17,7 +17,7 @@ const { title, description, prose = false, image, structuredData } = Astro.props
 
 const SITE_NAME = 'Trent Jones';
 const SITE_DESC =
-  'Trent Jones — engineer building the platforms, tooling, and scientific software that other experts rely on. Projects, write-ups, and a blog.';
+  'Trent Jones — product-and-platform engineer. Projects and writing exploring LLM-driven development, the life sciences, and engineering for its own sake.';
 const fullTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
 const desc = description ?? SITE_DESC;
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.pathname;
