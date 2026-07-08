@@ -10,6 +10,8 @@ const posts = (await getCollection('blog'))
 const projects = (await getCollection('projects')).sort(
   (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
 );
+const featured = projects.filter((p) => p.data.featured);
+const rest = projects.filter((p) => !p.data.featured);
 // An `external: true` project links straight to its repo instead of a local write-up; none are
 // external today, so every card resolves to /<slug>/.
 const projectHref = (p: (typeof projects)[number]) =>
@@ -24,6 +26,20 @@ const projectHref = (p: (typeof projects)[number]) =>
       the other half: the stuff I chase on my own time — LLM-driven development, the life sciences,
       engineering for its own sake — some sparked by the day job, some just mine.
     </p>
+  </section>
+
+  <section class="selected">
+    <h2>Selected systems</h2>
+    <ul class="selected-list">
+      {
+        featured.map((p) => (
+          <li>
+            <a href={`/${p.id}/`}>{p.data.title}</a>
+            <span class="sig">{p.data.tagline ?? p.data.summary}</span>
+          </li>
+        ))
+      }
+    </ul>
   </section>
 
   <div class="home">
@@ -55,10 +71,10 @@ const projectHref = (p: (typeof projects)[number]) =>
       </section>
 
       <section class="panel">
-        <h2>Projects</h2>
+        <h2>More projects</h2>
         <ul class="project-links">
           {
-            projects.map((p) => (
+            rest.map((p) => (
               <li>
                 <a href={projectHref(p)}>
                   {p.data.title}
@@ -86,6 +102,45 @@ const projectHref = (p: (typeof projects)[number]) =>
     font-size: var(--text-lg);
     color: var(--fg-muted);
     max-width: var(--measure);
+  }
+
+  .selected {
+    margin: 0 0 2.75rem;
+  }
+  .selected > h2 {
+    margin-top: 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .selected-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1.1rem 1.75rem;
+  }
+  @media (min-width: 720px) {
+    .selected-list {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .selected-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .selected-list a {
+    font-weight: 650;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .selected-list a:hover {
+    color: var(--accent);
+  }
+  .selected-list .sig {
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
   }
 
   /* Single column by default (writing first, then the sidebar stacks below it). */

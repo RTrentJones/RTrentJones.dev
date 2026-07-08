@@ -38,6 +38,9 @@ const projects = defineCollection({
     verifyMode: z.enum(['api', 'playwright', 'test', 'mcp', 'eval', 'agent-web']).optional(),
     order: z.number().default(99),
     external: z.boolean().default(false),
+    // Surfaced in the homepage "Selected systems" strip, with a short one-line signal.
+    featured: z.boolean().default(false),
+    tagline: z.string().optional(),
     date: z.coerce.date().optional(),
   }),
 });
