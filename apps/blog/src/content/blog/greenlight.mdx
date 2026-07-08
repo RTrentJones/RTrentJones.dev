@@ -1,67 +1,68 @@
 ---
-title: "Greenlight: making correctness an enforced property"
+title: Where Greenlight came from
 date: 2026-06-22
-description: A deploy + verification harness that treats "deployed and working" as something the platform asserts on every push.
+description: I didn't set out to build a deploy framework — I set out to bring one project back from the dead, and realized I'd quietly rebuilt the same loop by hand a half-dozen times.
 ---
 
-Infrastructure decays the moment you look away. Free-tier databases pause, dependencies drift, a
-"live" link quietly starts returning a 404, and silent failures pile up until you notice months
-later. [Greenlight](https://github.com/RTrentJones/greenlight) treats "deployed and working" as an
-enforced property of the system, not a point-in-time memory.
+I came back to HeistMind after a few months away and found that its Supabase backend had paused itself
+and then quietly archived — the free tier keeps its own clock, and mine had run out while I wasn't
+paying attention. Before I could add a single feature I had to bring the whole thing back:
+re-provision the database, re-wire the auth, redeploy, and then convince myself it actually worked
+again, which is always the part that takes longer than it should.
 
-The architecture starts from a single manifest entry that describes a tool and how it must be
-verified. The CLI emits the infrastructure as Terraform across whatever providers the tool needs,
-then runs a deploy-verify-promote loop. A cron handles liveness, but the load-bearing mechanism is
-the verification gate: beta is verified, fast-forwarded onto main, deployed to prod, and re-verified.
-Production only ever accepts commits that passed the gate.
+Somewhere in the middle of that I realized I'd done all of this before — not for HeistMind
+specifically, for everything. Every side project I'd spun up had grown its own slightly different
+scaffolding around the same handful of problems: getting it deployed, noticing when a deploy was
+quietly broken, and moving a good build to production without dragging a bad one along behind it. And
+every one of those scaffolds had HeistMind's exact failure mode — it held up until I stopped looking
+at it, and then it didn't, and I'd find out months later when some link started 404ing.
 
-## Verification, sized to the tool
+The tooling for this isn't a mystery; I've spent a decade in other people's release pipelines. But the
+version I wanted for my own grab-bag of projects didn't really exist. I wanted one small harness I
+could run on my laptop, that CI could run identically, and — more and more — that an agent could run
+without me in the loop, so that "it passed" meant the same thing regardless of who or what was asking.
+I wanted "deployed and working" to be something the system re-checked on every push and told me about,
+instead of something I spot-checked after it had already broken. And I wanted all of it behind one
+manifest per tool, not a bespoke heap of config for Workers here, Vercel there, a container off
+somewhere else.
 
-A static site and an MCP server fail in different ways, so "verified" has to mean different things.
-Greenlight runs one `verify(baseUrl, spec)` harness with six modes, combinable per tool. Each answers
-a distinct question:
+So I pulled those out into a thing of their own — [Greenlight](https://github.com/RTrentJones/greenlight)
+— and, in the way these things go, promptly spent more time on the tool than on the project that needed
+it. It's an npm package now; the site you're reading pulls it in at arm's length, and it's grown up in
+public across a stack of releases, the latest of which pins the whole verify-then-promote path to a
+single commit, so the thing that gets checked is the thing that ships. The machinery lives on the
+[project page](/greenlight/); this isn't really a post about how it works. It's about why it exists,
+which is less noble than the architecture makes it sound: I got tired of rebuilding the same loop, and
+doing it with an agent finally made "one more small tool" cheap enough to actually finish. HeistMind
+was the first thing it brought back; it's been quietly keeping the others alive since.
 
-- **`api`** — does the deployed surface respond correctly? Status and body checks; for this blog,
-  every route is 200, the RSS feed and sitemap parse, and no internal link is broken.
-- **`playwright`** — do the real UI flows work in a browser?
-- **`test`** — does the tool's own suite pass against what's about to ship? It doubles as the
-  ship-gate; CI won't deploy a tool whose tests are red.
-- **`mcp`** — does an MCP server speak the protocol? `initialize` → `tools/list` → call a tool and
-  assert the shape → assert an unauthenticated call is rejected, with a drift-guard pinning the exact
-  tool set.
-- **`eval`** — are the answers good? An LLM-as-judge grades responses, so quality regressions surface,
-  not just crashes.
-- **`agent-web`** — can an agent accomplish a real goal? An LLM drives a live browser through a
-  scenario and scores the outcome.
+What makes it worth building, though, is that it's aimed at the problem that's actually next, not the
+one we just spent two years on. Getting an agent to write the feature is close to solved; what comes
+after isn't. Once ten agents on ten features cost about what one used to, the code stops being the
+bottleneck and I become it. I'm the part that doesn't scale — I can start fifteen of these in an
+afternoon and I cannot hold fifteen features in my head, read fifteen diffs with the attention each
+deserves, and still have room left for whether any of them were worth building.
 
-The number isn't the point. The point is that each tool is judged in the modality that actually proves
-it works.
+I'm not the first to land here; it's becoming the obvious shape. Boris Cherny, who leads Claude Code,
+talks about the loop, and plenty of people building with agents are circling the same idea from their
+own directions. Where I part from the default is which side of the loop to spend on. Almost all of the
+tooling energy right now goes into the agent's context — better prompts, better retrieval, more of the
+world crammed into the model. The scarcer thing to manage is the human's, because the human is the one
+that got slower relative to everything else.
 
-## The promote gate
+And my actual bet is narrower than "manage context." It's that the agent and I should be running the
+_same primitives_ — the same deploy, the same verify, the same promote — so we're speaking one language
+instead of two. When "it passes" means the identical thing to me and to the agent that reported it,
+there's nothing to translate and nothing to re-derive: the green check is a shared fact, not a claim on
+one side the other has to audit. That's what lets confidence keep pace with generation. Launch fifteen
+agents and the ones that come back green are green in the only sense that was ever going to matter — the
+one I defined and they ran — so my attention goes where it's actually mine: the judgment, the taste, the
+is-this-the-right-thing-at-all. It shrinks both sides of the loop at once — less for the agent to carry,
+less for me to hold.
 
-Branch maps to environment: pull request to preview, `develop` to beta, `main` to prod. Promotion is
-never a merge button. `greenlight promote` verifies beta, fast-forwards `develop` onto `main` (never a
-force-push, never a divergent merge), deploys prod, and verifies prod as the closing step. Because the
-only path onto `main` is a fast-forward of an already-verified `develop`, prod cannot hold a commit
-that skipped the gate. The whole thing is creds-guarded: with no deploy token, the deploy and verify
-steps skip cleanly instead of failing.
-
-## Infrastructure the manifest emits
-
-Adding a provider to a tool is a manifest change, not a new pile of YAML. `greenlight add` scaffolds a
-tool and appends one entry; from that, the CLI emits one Terraform module per tool — Cloudflare
-Workers, Vercel, Oracle Cloud, Neon — git-pinned in lockstep with the npm release, and gathers the
-tokens. The providers are pluggable behind the same lifecycle.
-
-## Liveness as a feature
-
-For anything that can pause — a free-tier database, an idle OCI container — a Cloudflare Worker cron
-health-checks it and, on an outage, fires a `repository_dispatch` that re-applies, redeploys, and
-re-verifies. Recover-on-alert keeps it on the free tier without a paid fallback.
-
-## The point
-
-The result is that correctness is something the platform asserts on every push, in the modality that
-proves it, rather than something I have to remember to check. This site is the smallest possible proof
-of that: a thin Greenlight consumer, deployed to Cloudflare Workers, gated by the same harness as
-everything else. Greenlight is [open source on GitHub](https://github.com/RTrentJones/greenlight).
+Greenlight is where I'm building that bet out. It's one small harness on purpose, not a platform,
+because the whole thing only works if the primitive is small enough that a person and a model can each
+hold all of it. I don't think it's the final shape — I'd be suspicious of anyone certain they had that
+this early — so if you're circling the same loop from your own side, or you've built your own version
+and it looks nothing like mine, I'd genuinely like to see it. A fresh take on this is worth more to me
+than agreement.
