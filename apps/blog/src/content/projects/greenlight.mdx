@@ -2,14 +2,14 @@
 title: Greenlight
 summary: A deploy → verify → promote framework for agent-assisted delivery — one manifest describes a tool, emits its infra, verifies the live surface, and only promotes commits that passed.
 repoUrl: https://github.com/RTrentJones/greenlight
-status: live
-verifyMode: api
+status: verified
+evidenceUrl: https://www.npmjs.com/package/@rtrentjones/greenlight
 order: 1
 date: 2026-06-23
 ---
 
 > Greenlight is a verification engine and deployment framework. From one manifest entry per tool it
-> emits provider-agnostic Terraform — Cloudflare Workers, Vercel, Oracle Cloud, Neon — and runs a
+> emits provider-pluggable Terraform — Cloudflare Workers, Vercel, Oracle Cloud, Neon — and runs a
 > strict **deploy → verify → promote** loop. Six verification modes, combinable per tool, decide
 > whether a deploy is good; the promote gate only advances commits that passed. It's the framework
 > that runs this whole site — the blog you're reading ships through it.
@@ -52,8 +52,10 @@ prod**. Promotion is never a merge button. `greenlight promote` is an explicit, 
 3. Deploy **prod**, then **verify prod** as the closing gate.
 
 Because the only path onto `main` is a fast-forward of an already-verified `develop`, the promotion
-path won't advance a commit that didn't pass the gate. CI is creds-guarded: without the deploy token, the
-deploy/verify steps skip cleanly instead of failing, so the gate degrades safely.
+path won't advance a commit that didn't pass the gate. Deploys are creds-guarded — without the token
+they skip cleanly instead of failing — but **promotion is not**: a missing credential fails the promote
+loudly rather than fast-forwarding an unverified build, so an unverified commit can't reach prod even
+when creds are absent.
 
 ## Infrastructure as emitted code
 
@@ -73,8 +75,9 @@ before I do.
 
 ## What I find interesting
 
-- **Correctness is enforced, not remembered.** Every push re-asserts that the thing still works, in
-  the modality that actually proves it. That's the whole thesis of this site, made mechanical.
+- **The checks are enforced, not remembered.** Every push re-asserts a tool's declared verification
+  contract — deploy health and the invariants it names — in the modality that actually proves it,
+  instead of trusting the last green run. That's the whole thesis of this site, made mechanical.
 - **One harness, many providers.** The same loop ships an Astro site to Workers, a Next app to
   Vercel, and a Python MCP server to an OCI container. The lane and target are manifest cells; the
   discipline doesn't change.

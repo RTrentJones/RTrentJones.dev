@@ -19,14 +19,15 @@ import BamcpDemo from '../../components/BamcpDemo.astro';
 This is the thread I care about most. Before Amazon I was the second engineer at
 [Fulgent Genetics](https://www.fulgentgenetics.com/), building the variant-curation platform
 clinical scientists used to call variants. BAMCP is that domain pointed at agents: the bottleneck in
-applying an LLM to genomics is that it can't _look_ at the alignment, so it confabulates. Give it the
-pileup and the population frequencies, and the work changes from plausible-sounding to checkable.
+applying an LLM to genomics is that it can't _look_ at the alignment, so its answer can't be checked.
+Give it the pileup and the population frequencies, and the work changes from plausible-sounding to
+auditable — not guaranteed right, but checkable against the evidence.
 
 ## What it does
 
 - **Sees the reads.** `visualize_region` renders aligned reads as an HTML5 Canvas pileup —
   color-coded mismatches, indels, and soft-clips, packed to handle 1,000–10,000+ reads per region —
-  delivered inline via the **MCP Apps Extension** (an `text/html+mcp` resource), so it pans and zooms
+  delivered inline via the **MCP Apps Extension** (a `text/html+mcp` resource), so it pans and zooms
   in the chat rather than dumping text.
 - **Grounds the call.** `get_variants`, `get_coverage`, `lookup_clinvar`, `lookup_gnomad`,
   `get_variant_curation_summary`, and `search_gene` pull non-reference alleles, depth, clinical
@@ -100,7 +101,6 @@ A few honest notes:
 - **Public, but auth-gated.** Claude reaches the server from Anthropic's cloud, so it has to be on the
   public internet — and an unauthenticated request gets a `401`, which is why the OAuth step isn't
   optional.
-- **Free plans allow one custom connector;** Pro and Max allow more.
 - **Bring a file by URL.** BAMCP reads indexed local or remote alignments (HTTP / S3), so you can
   point it at a public BAM/CRAM without uploading anything.
 
