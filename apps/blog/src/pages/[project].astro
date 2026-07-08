@@ -27,18 +27,31 @@ const { title, summary, liveUrl, repoUrl, status, evidenceUrl } = project.data;
 // Deployed tools get an env-aware live URL from the manifest (a beta write-up links to the beta
 // tool); non-tools fall back to the MDX liveUrl.
 const facets = toolByName[project.id];
-const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
-// A prototype's live surface isn't a finished "live tool" — label the CTA to match the status.
-const openLabel = status === 'prototype' ? 'Open the prototype ↗' : 'Open the live tool ↗';
+// Prefer an explicit MDX liveUrl (e.g. heistmind points at its beta app, since prod is gated) over the
+// manifest's env-aware URL.
+const live = liveUrl ?? (facets ? toolUrl(project.id, envFromSite(Astro.site)) : undefined);
+// MCP servers aren't browsable — the "live" surface is an OAuth-gated /mcp endpoint that 401s in a
+// browser — so send the CTA to the on-page setup section instead. Otherwise label it to match status.
+const isMcp = facets?.lane === 'mcp';
+const openLabel =
+  status === 'prototype'
+    ? 'Open the prototype ↗'
+    : status === 'beta'
+      ? 'Open the beta ↗'
+      : 'Open the live tool ↗';
 ---
 
 <Base title={title} description={summary} prose>
   <article>
-    <p class="back"><a href="/#projects">← projects</a></p>
+    <p class="back"><a href="/projects">← projects</a></p>
     <h1>{title}</h1>
     <p class="summary">{summary}</p>
     <p class="links">
-      {live && <a class="cta" href={live}>{openLabel}</a>}
+      {isMcp ? (
+        <a class="cta" href="#connect-it-to-claude">Connect to Claude ↓</a>
+      ) : (
+        live && <a class="cta" href={live}>{openLabel}</a>
+      )}
       {repoUrl && <a href={repoUrl}>Source ↗</a>}
       {status &&
         (evidenceUrl ? (

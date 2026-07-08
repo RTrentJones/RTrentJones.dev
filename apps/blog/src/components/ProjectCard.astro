@@ -9,11 +9,14 @@ const { project } = Astro.props;
 const { title, summary, liveUrl, repoUrl, status, external, evidenceUrl, verifyMode } = project.data;
 
 // Live details from the manifest (single source of truth) when this project is a deployed tool — its
-// stack, providers, and an env-aware live URL (a beta card links to the beta tool). Non-tools (e.g.
-// the framework) fall back to the MDX liveUrl.
+// stack, providers, and an env-aware live URL. An explicit MDX liveUrl wins (e.g. heistmind points at
+// its beta app, since prod is gated); non-tools fall back to it too.
 const facets = toolByName[project.id];
 const providers = facets ? providersFor(facets) : [];
-const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
+const live = liveUrl ?? (facets ? toolUrl(project.id, envFromSite(Astro.site)) : undefined);
+// MCP servers aren't browsable (the /mcp endpoint 401s), so skip the "Live ↗" link on the card — the
+// write-up carries the "Connect to Claude" setup.
+const isMcp = facets?.lane === 'mcp';
 
 // Local projects get a write-up page at /<slug>/; an external: true project links straight out
 // instead (none are external today).
@@ -52,7 +55,7 @@ const statusTitle = verifyMode ? `${status} · backed by ${verifyMode} verify` :
   }
   <p class="links">
     {writeup && <a href={writeup}>Write-up →</a>}
-    {live && <a href={live}>Live ↗</a>}
+    {live && !isMcp && <a href={live}>Live ↗</a>}
     {!writeup && repoUrl && <a href={repoUrl}>GitHub ↗</a>}
   </p>
 </article>
@@ -94,6 +97,7 @@ const statusTitle = verifyMode ? `${status} · backed by ${verifyMode} verify` :
   .status[data-status='live'] {
     color: var(--accent);
   }
+  .status[data-status='beta'],
   .status[data-status='prototype'],
   .status[data-status='experimental'] {
     color: var(--warn);

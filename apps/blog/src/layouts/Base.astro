@@ -20,12 +20,15 @@ const SITE_DESC =
   'Trent Jones — product-and-platform engineer. Projects and writing exploring LLM-driven development, the life sciences, and engineering for its own sake.';
 const fullTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
 const desc = description ?? SITE_DESC;
-const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.pathname;
-// Social card image, resolved to an absolute URL (crawlers require it). Defaults to the site card.
-const ogImage = Astro.site ? new URL(image ?? '/og.png', Astro.site).href : (image ?? '/og.png');
-
 // Beta builds get SITE_URL=https://beta.rtrentjones.dev (set by the Greenlight adapter).
 const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
+
+// Beta pages canonicalize to their prod equivalent and carry noindex (below), so beta never competes
+// with prod in search. Prod resolves absolute URLs (canonical, og:url, og:image) against its own origin.
+const absBase = isBeta ? 'https://rtrentjones.dev' : (Astro.site?.origin ?? '');
+const canonical = absBase ? new URL(Astro.url.pathname, absBase).href : Astro.url.pathname;
+// Social card image, resolved to an absolute URL (crawlers require it). Defaults to the site card.
+const ogImage = absBase ? new URL(image ?? '/og.png', absBase).href : (image ?? '/og.png');
 
 // Web Analytics (Cloudflare, free + cookieless) is injected automatically at the edge for the
 // proxied zone — no app-side beacon. On-account zones only get automatic setup (the manual token
@@ -39,7 +42,10 @@ const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={desc} />
+    {isBeta && <meta name="robots" content="noindex" />}
     <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" sizes="32x32" type="image/png" />
     <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} — blog`} href="/rss.xml" />
 
     <meta property="og:type" content="website" />
