@@ -8,10 +8,12 @@ order: 2
 date: 2026-06-23
 ---
 
+import BamcpDemo from '../../components/BamcpDemo.astro';
+
 > BAMCP gives an AI assistant eyes on the genome. It's a Model Context Protocol server that browses
 > BAM/CRAM alignment files and renders **IGV-style read pileups inline in the conversation** — so a
 > model reasons over the actual evidence at a locus instead of guessing from a text summary. It
-> exposes 11 genomic tools, including ClinVar and gnomAD lookups, that ground variant interpretation
+> exposes 12 genomic tools, including ClinVar and gnomAD lookups, that ground variant interpretation
 > in real data.
 
 This is the thread I care about most. Before Amazon I was the second engineer at
@@ -29,6 +31,23 @@ pileup and the population frequencies, and the work changes from plausible-sound
 - **Grounds the call.** `get_variants`, `get_coverage`, `lookup_clinvar`, `lookup_gnomad`,
   `get_variant_curation_summary`, and `search_gene` pull non-reference alleles, depth, clinical
   significance, and population frequency from real sources — the inputs a curator actually weighs.
+
+## See it
+
+Here's the whole point, in a real Claude conversation: ask about a BAM file at a locus, and BAMCP
+renders the read pileup **inline** — pan and zoom the reads, read the coverage track, and work down
+the variants panel, each row wired to ClinVar and gnomAD. No screenshots pasted in, no text summary
+standing in for the data: the model and the person are looking at the same reads.
+
+<BamcpDemo
+  src="/bamcp-demo.mp4"
+  poster="/bamcp-demo-poster.png"
+  alt="A real claude.ai session: BAMCP renders an IGV-style read pileup inline — color-coded forward and reverse reads packed across BRCA2 — with a variants table wired to ClinVar and gnomAD, then grounds a homozygous variant against gnomAD population frequency."
+>
+  A real claude.ai session — HG00096 (a 1000 Genomes genome) at BRCA2. The pileup renders inline; a
+  homozygous variant checks out against gnomAD at ~52% — a common, benign polymorphism, not a
+  pathogenic BRCA2 mutation. Evidence the model can check, not a verdict it has to trust.
+</BamcpDemo>
 
 ## The workflow
 
@@ -54,6 +73,36 @@ those become checkable rather than plausible.
 - Runs on an **Oracle Cloud Always-Free Ampere A1 Container Instance** — the whole network (VCN +
   subnet) is Terraform, fronted by a Cloudflare tunnel; the only manual input is the API key.
 - Built + pushed as a container image by its own CI; "deploy" is a restart that re-pulls.
+
+## Connect it to Claude
+
+BAMCP is a hosted, public **remote MCP server** — adding it to Claude takes about a minute, with
+nothing to install and nothing to run locally. The server URL is:
+
+```
+https://bamcp.rtrentjones.dev/mcp
+```
+
+In claude.ai:
+
+1. Open **Customize → Connectors**, then click **+ → Add custom connector**.
+2. Paste the URL above and click **Add**.
+3. Complete the **OAuth sign-in** when Claude prompts you — the server registers your client
+   automatically (dynamic client registration), so there's no API key or client ID to configure.
+4. In any chat, open the **+** menu → **Connectors**, toggle the BAMCP connector on, and ask about a
+   BAM file at a locus. The pileup renders inline.
+
+A few honest notes:
+
+- **The inline viewer needs a client with [interactive-connector](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude)
+  support (MCP Apps)** — claude.ai, Claude Desktop, and the iOS / Android apps. Anywhere else the
+  tools still return their data; you just don't get the interactive pileup.
+- **Public, but auth-gated.** Claude reaches the server from Anthropic's cloud, so it has to be on the
+  public internet — and an unauthenticated request gets a `401`, which is why the OAuth step isn't
+  optional.
+- **Free plans allow one custom connector;** Pro and Max allow more.
+- **Bring a file by URL.** BAMCP reads indexed local or remote alignments (HTTP / S3), so you can
+  point it at a public BAM/CRAM without uploading anything.
 
 ## What I find interesting
 

@@ -1,0 +1,74 @@
+---
+// A recorded real claude.ai session driving the hosted BAMCP connector — the inline pileup viewer
+// rendering for a real BAM file and its variants. Same "real session, not a rendering of one" ethos
+// as SessionCast (pg_kafka), but a screen capture rather than a CI-generated SVG.
+//
+// Media-agnostic: pass an mp4/webm and it renders a muted, looping <video> (poster = the static
+// screenshot); pass a gif and it renders an <img>. With no `src` yet, it falls back to the poster
+// still so the page stays valid (and the verify link-check stays green) before the recording lands.
+interface Props {
+  /** Path under /public, e.g. "/bamcp-demo.mp4" or "/bamcp-demo.gif". Omit to show the poster still. */
+  src?: string;
+  /** Poster / fallback still (must exist). */
+  poster: string;
+  /** Accessible description of what the clip shows. */
+  alt: string;
+}
+
+const { src, poster, alt } = Astro.props;
+
+const VIDEO_EXTS = ['.mp4', '.webm', '.mov'];
+const lower = src?.toLowerCase() ?? '';
+const isVideo = VIDEO_EXTS.some((ext) => lower.endsWith(ext));
+const mime = lower.endsWith('.webm') ? 'video/webm' : 'video/mp4';
+---
+
+<figure class="demo">
+  <div class="frame">
+    {
+      isVideo ? (
+        <video
+          src={src}
+          poster={poster}
+          autoplay
+          muted
+          loop
+          playsinline
+          controls
+          preload="metadata"
+          aria-label={alt}
+        >
+          <source src={src} type={mime} />
+        </video>
+      ) : (
+        <img src={src ?? poster} alt={alt} loading="lazy" />
+      )
+    }
+  </div>
+  <figcaption>
+    <slot />
+  </figcaption>
+</figure>
+
+<style>
+  .demo {
+    margin: 1.6rem 0 2.2rem;
+  }
+  .frame {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--code-bg);
+  }
+  .frame video,
+  .frame img {
+    display: block;
+    width: 100%;
+    border-radius: 0;
+  }
+  figcaption {
+    margin-top: 0.7rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+</style>
