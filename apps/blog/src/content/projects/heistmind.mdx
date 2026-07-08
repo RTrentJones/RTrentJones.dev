@@ -1,6 +1,6 @@
 ---
 title: HeistMind
-summary: A rules-driven crew manager for Forged-in-the-Dark tabletop RPGs — custom rulesets, characters, factions, and clocks for async, Discord-centered play, with authenticated journeys verified against the live deploy.
+summary: A rules-driven crew manager for Forged-in-the-Dark tabletop RPGs — custom rulesets, characters, factions, and clocks for async play, with a Discord bot for at-the-table actions and authenticated journeys checked against every deploy.
 repoUrl: https://github.com/RTrentJones/HeistMind
 status: live
 verifyMode: playwright
@@ -9,16 +9,19 @@ date: 2026-06-23
 ---
 
 > HeistMind is a character and crew manager for **Forged-in-the-Dark** tabletop RPGs — the
-> mechanical backbone for asynchronous, play-by-post campaigns on Discord. Game masters run custom
-> rulesets, crews, factions, and progress clocks; players build characters and track stress, harm,
-> and XP. The app enforces the rules, so every action it offers is legal for your ruleset.
+> mechanical backbone for asynchronous, play-by-post campaigns. Game masters run custom rulesets,
+> crews, factions, and progress clocks; players build characters and track stress, harm, and XP;
+> everyone joins a game by code and shares one campaign log. A Discord bot handles at-the-table
+> actions without leaving chat, and the app enforces the rules, so every action it offers is legal
+> for your ruleset.
 
 ## Why it exists
 
 Play-by-post campaigns are collaborative software without the software: characters, crews, factions,
 clocks, harm, XP, and a table's worth of house rules, spread across Discord threads, pinned messages,
 and a stack of spreadsheets. HeistMind puts that state in one place and only offers actions that are
-legal for the ruleset in play — the GM sets the rules, the app keeps everyone honest to them.
+legal for the ruleset in play — the GM sets the rules, the app keeps everyone honest to them. Players
+join a game by code, characters are portable between campaigns, and every roll lands in a shared log.
 
 ## What makes it hard
 
@@ -29,25 +32,33 @@ legal for the ruleset in play — the GM sets the rules, the app keeps everyone 
 - **Auth you can actually test.** Those journeys only matter once you're authenticated — the part a
   unit test skips and a smoke test fakes — so the boundary has to be real _and_ verifiable (Discord
   OAuth, Supabase row-level security, and the deploy gate that drives it, below).
+- **A bot that acts outside RLS.** The Discord bot verifies each interaction (Ed25519) and then acts
+  through the service-role client, which bypasses row-level security — so the engine has to re-assert
+  ownership itself, in code, rather than leaning on the database to enforce it.
 
 ## The stack
 
-- **Next.js 15 / React 19 / TypeScript / Tailwind** on **Vercel** (git-integration deploys),
-  **Zustand** for domain state.
+- **Next.js 15 / React 19 / TypeScript / Tailwind 4** on **Vercel** (git-integration deploys), with
+  **Zustand** for local domain state and **TanStack Query** as the data seam over the Supabase
+  repositories.
 - **Supabase** for Postgres (with row-level security) + auth.
-- **Discord OAuth** as the sign-in method — declared in Terraform, so the Supabase `/config/auth` is
-  managed as code, not clicked in a dashboard.
-- A shared `@heist-mind/ui` component library (Radix + Tailwind), kept in sync with a Claude Design
-  System project.
+- **Discord** two ways: **OAuth** as the sign-in method, plus a first-party **bot** — an
+  Ed25519-verified slash-command handler at `/api/discord` for actions taken without leaving chat.
+  Both are declared in Terraform, so the auth and app config are managed as code, not clicked in a
+  dashboard.
+- A shared `@heist-mind/ui` library (Radix primitives + Tailwind) — the app's own design system.
 
 ## What I find interesting
 
 It rides the [Greenlight](https://github.com/RTrentJones/greenlight) deploy → verify → promote loop:
 
-- **A prod ship-gate** — branch protection requires the CI `Validate & Build` check, so prod only
-  ever holds CI-green commits.
+- **A prod ship-gate** — branch protection requires CI to pass, so the promotion path only advances
+  CI-green commits.
 - **An authenticated deploy gate** — every preview deploy runs a Playwright suite that injects real
   GM/Player sessions via the Supabase service-role key (no scripting Discord's consent screen), so
-  authenticated journeys are verified against the live deployment, not just unit-tested.
+  authenticated journeys are verified against each deploy, not just unit-tested.
 - The whole thing is one manifest entry; the infra (domains, env, auth, keepalive) is Terraform the
   CLI emits.
+
+Prod itself is behind a pre-launch gate right now while I finish a security pass — the full app runs
+on beta and preview today, and the public launch flips on once that's done.
