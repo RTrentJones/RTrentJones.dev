@@ -5,7 +5,7 @@ repoUrl: https://github.com/RTrentJones/pg_kafka
 status: verified
 verifyMode: test
 evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
-order: 5
+order: 3
 date: 2026-06-26
 ---
 
@@ -32,22 +32,30 @@ depth instead of away from it.
 
 ## The thesis, proven: unmodified clients just work
 
-The claim is "any Kafka client works, no code changes." So prove it — run a real conformance pass
+The claim isn't "complete Kafka" — it's narrower and testable: for the implemented surface, an
+unmodified client should produce, consume, coordinate groups, and exercise the supported
+transactional APIs without knowing Postgres is on the other end. So prove it — run a real conformance pass
 for **kafkajs, librdkafka, kafka-python, and Sarama** against the 23 implemented APIs and render the
 grid. This is the live demo: the same Tracer pattern (continuously-verified, timestamped), applied
 to protocol coverage instead of eval pass-rates. Where a client genuinely doesn't exercise an API —
 kafka-python has no transaction support — the cell is marked **N/A**, not quietly passed. The grid
 shows what's covered _and_ where it stops.
 
+**At a glance:** four client libraries, 23 Kafka APIs, every supported cell passing — with the
+transaction cells marked N/A for kafka-python, which doesn't expose them.
+
 <ConformanceMatrix />
 
 ## Performance, in context
 
-Co-located methodology: warm-up excluded, multiple message sizes, batched vs unbatched, reported as
-p50/p99 and msgs/sec — measured against two honest anchors, a raw-`INSERT` **floor** (the storage
-layer with no protocol) and a real Kafka broker **ceiling**. Normalized scores flow into
+Co-located methodology: warm-up excluded, a fixed 1 KB payload, batched vs unbatched, reported as
+p50/p99 and msgs/sec — run next to two reference points under the _same_ single-client, synchronous
+harness: a raw-`INSERT` (the storage layer with no protocol) and a real Kafka broker. They're a
+like-for-like baseline, not each system's tuned throughput — in a single-client loop batching
+dominates, so read the table for _shape_ (what the protocol layer costs, what batching buys), not as
+a leaderboard. Normalized scores also flow into
 [Tracer](https://tracer.rtrentjones.dev/runs?tool=pg_kafka) — the eval dashboard, with pg_kafka
-wired in first — on each tagged release, so the trend (and any regression) accrues over time.
+wired in first — on each tagged release, so regressions show up over time.
 
 <BenchTable />
 

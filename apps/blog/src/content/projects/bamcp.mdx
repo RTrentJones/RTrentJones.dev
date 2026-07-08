@@ -4,7 +4,7 @@ summary: An MCP server that brings IGV-style genomic alignment visualization int
 repoUrl: https://github.com/RTrentJones/BAMCP
 status: live
 verifyMode: mcp
-order: 4
+order: 2
 date: 2026-06-23
 ---
 
@@ -29,6 +29,23 @@ pileup and the population frequencies, and the work changes from plausible-sound
 - **Grounds the call.** `get_variants`, `get_coverage`, `lookup_clinvar`, `lookup_gnomad`,
   `get_variant_curation_summary`, and `search_gene` pull non-reference alleles, depth, clinical
   significance, and population frequency from real sources — the inputs a curator actually weighs.
+
+## The workflow
+
+The path mirrors how a curator actually works: start from a gene, locus, or candidate variant; search
+the gene; look at the aligned reads; check coverage; surface the non-reference alleles; and pull
+ClinVar and gnomAD context. What comes back isn't a verdict — it's a trail of evidence the model _and_
+the human are looking at together, so a summary can be checked against the reads instead of taken on
+faith.
+
+## What it does not decide
+
+BAMCP is not a clinical decision system. It doesn't make a final pathogenicity call or stand in for a
+curator; its job is to put the right evidence in front of the model and the person at the same time.
+That framing is also the guardrail against the failure modes a text-only agent invites — hallucinating
+evidence that isn't in the reads, ignoring low coverage, over-reading a ClinVar entry, missing allele
+balance, or treating a population frequency as more decisive than it is. With the pileup on screen,
+those become checkable rather than plausible.
 
 ## The stack
 

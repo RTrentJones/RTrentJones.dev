@@ -28,6 +28,8 @@ const { title, summary, liveUrl, repoUrl, status, evidenceUrl } = project.data;
 // tool); non-tools fall back to the MDX liveUrl.
 const facets = toolByName[project.id];
 const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
+// A prototype's live surface isn't a finished "live tool" — label the CTA to match the status.
+const openLabel = status === 'prototype' ? 'Open the prototype ↗' : 'Open the live tool ↗';
 ---
 
 <Base title={title} description={summary} prose>
@@ -36,7 +38,7 @@ const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
     <h1>{title}</h1>
     <p class="summary">{summary}</p>
     <p class="links">
-      {live && <a class="cta" href={live}>Open the live tool ↗</a>}
+      {live && <a class="cta" href={live}>{openLabel}</a>}
       {repoUrl && <a href={repoUrl}>Source ↗</a>}
       {status &&
         (evidenceUrl ? (

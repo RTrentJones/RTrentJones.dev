@@ -1,10 +1,10 @@
 ---
 title: Tracer
-summary: A Claude evals dashboard — the persistence + UI layer for Greenlight's eval & agent-web verify modes.
+summary: A dashboard for agentic verification runs — eval scores, benchmark trends, and browser-agent results that outlive a CI log.
 repoUrl: https://github.com/RTrentJones/RTrentJones.dev/tree/main/tools/tracer
 status: prototype
 evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
-order: 2
+order: 5
 date: 2026-06-24
 ---
 
@@ -24,6 +24,13 @@ pipeline** — its normalized conformance and performance scores land here on ea
 Wiring the rest of the tools' `eval` / `agent-web` runs in is still in progress, so it's marked
 `prototype`, not `live`: real data, partial coverage — honest about being a work in progress.
 
+## What's in it now
+
+- pg_kafka's conformance pass-rate per tagged release
+- its normalized benchmark scores, on the same cadence
+- the commit SHA and verification timestamp behind each point
+- enough metadata to click a chart point back to the run that produced it
+
 ## The stack
 
 - **Next.js on Vercel**, backed by **Neon** Postgres — a branch per env (prod + beta), so beta evals
@@ -41,3 +48,9 @@ Wiring the rest of the tools' `eval` / `agent-web` runs in is still in progress,
 - **Branch-per-env evals.** Because each environment is its own Neon branch (instant copy-on-write,
   scale-to-zero), you can run a noisy experiment on beta and diff it against the prod baseline without
   polluting it.
+
+## What's next
+
+- wire Greenlight's `eval` and `agent-web` runs into the same schema, so it's not just pg_kafka
+- run-detail pages: rubric, judge model, prompt, score, and artifact links per run
+- diff beta against the prod baseline _before_ a promote, not after

@@ -1,10 +1,10 @@
 ---
 title: HeistMind
-summary: A rules-driven crew manager for Forged-in-the-Dark tabletop RPGs — and a proof that authenticated journeys are verified against the live deploy.
+summary: A rules-driven crew manager for Forged-in-the-Dark tabletop RPGs — custom rulesets, characters, factions, and clocks for async, Discord-centered play, with authenticated journeys verified against the live deploy.
 repoUrl: https://github.com/RTrentJones/HeistMind
 status: live
 verifyMode: playwright
-order: 3
+order: 4
 date: 2026-06-23
 ---
 
@@ -13,9 +13,22 @@ date: 2026-06-23
 > rulesets, crews, factions, and progress clocks; players build characters and track stress, harm,
 > and XP. The app enforces the rules, so every action it offers is legal for your ruleset.
 
-The game is the front; the engineering signal is the deploy gate. HeistMind has two roles (GM and
-Player) whose journeys only matter once you're authenticated — exactly the part a unit test skips and
-a smoke test fakes. So the gate verifies them against the live deployment.
+## Why it exists
+
+Play-by-post campaigns are collaborative software without the software: characters, crews, factions,
+clocks, harm, XP, and a table's worth of house rules, spread across Discord threads, pinned messages,
+and a stack of spreadsheets. HeistMind puts that state in one place and only offers actions that are
+legal for the ruleset in play — the GM sets the rules, the app keeps everyone honest to them.
+
+## What makes it hard
+
+- **Two real roles.** GM and Player see and do different things; the interesting bugs live in the
+  permission boundary between them.
+- **Custom rulesets without conditional soup.** Forged-in-the-Dark is a family of games, not one — the
+  domain model has to bend to a group's variant instead of collapsing into a pile of `if`s.
+- **Auth you can actually test.** Those journeys only matter once you're authenticated — the part a
+  unit test skips and a smoke test fakes — so the boundary has to be real _and_ verifiable (Discord
+  OAuth, Supabase row-level security, and the deploy gate that drives it, below).
 
 ## The stack
 

@@ -1,6 +1,6 @@
 ---
 title: Greenlight
-summary: A verification engine and deployment framework. It emits provider-agnostic Terraform and enforces a deploy-verify-promote loop, so production only ever holds verified commits.
+summary: A deploy → verify → promote framework for agent-assisted delivery — one manifest describes a tool, emits its infra, verifies the live surface, and only promotes commits that passed.
 repoUrl: https://github.com/RTrentJones/greenlight
 status: live
 verifyMode: api
@@ -11,14 +11,14 @@ date: 2026-06-23
 > Greenlight is a verification engine and deployment framework. From one manifest entry per tool it
 > emits provider-agnostic Terraform — Cloudflare Workers, Vercel, Oracle Cloud, Neon — and runs a
 > strict **deploy → verify → promote** loop. Six verification modes, combinable per tool, decide
-> whether a deploy is good; the promote gate guarantees production only ever holds commits that
-> passed. It's the framework that runs this whole site — the blog you're reading ships through it.
+> whether a deploy is good; the promote gate only advances commits that passed. It's the framework
+> that runs this whole site — the blog you're reading ships through it.
 
 Most personal infrastructure rots the moment you look away. Free-tier databases pause, a dependency
 drifts, a "live" link quietly 404s, and you find out months later. Greenlight treats "deployed and
 working" as a property the platform _asserts on every push_, not a thing you remember to check. The
 same harness that deploys a tool is the one that proves it, and the same code runs locally and in CI
-— so green on my laptop means green in prod.
+— so the local check and the prod gate exercise the same verification contract.
 
 ## Six verify modes — what each one proves
 
@@ -51,8 +51,8 @@ prod**. Promotion is never a merge button. `greenlight promote` is an explicit, 
 2. Fast-forward `develop` onto `main` (never a force-push, never a divergent merge).
 3. Deploy **prod**, then **verify prod** as the closing gate.
 
-Because the only path onto `main` is a fast-forward of an already-verified `develop`, production can
-never hold a commit that didn't pass the gate. CI is creds-guarded: without the deploy token, the
+Because the only path onto `main` is a fast-forward of an already-verified `develop`, the promotion
+path won't advance a commit that didn't pass the gate. CI is creds-guarded: without the deploy token, the
 deploy/verify steps skip cleanly instead of failing, so the gate degrades safely.
 
 ## Infrastructure as emitted code
@@ -82,3 +82,11 @@ before I do.
   [`@rtrentjones/greenlight`](https://www.npmjs.com/package/@rtrentjones/greenlight); this site is a
   thin consumer pinned to a release, so the framework evolves upstream and arrives as a version bump
   rather than copied-in source.
+
+## What this demonstrates
+
+Greenlight is small enough to run my own projects, but it's the same shape as the release-engineering
+work I do at the day job: deciding what gets checked on every change, what's allowed to promote, how
+deploy health is represented, and how much of that policy can be mechanical instead of tribal. The
+personal version just lets me own the whole loop end to end — manifest to gate — without a
+twenty-team blast radius to negotiate first.
