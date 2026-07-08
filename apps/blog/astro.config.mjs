@@ -31,6 +31,5 @@ export default defineConfig({
   // Enforce the trailing-slash invariant the site (and verify.config) rely on: directory output +
   // Workers redirect no-slash → slash, so every internal link is canonical with the trailing slash.
   trailingSlash: 'always',
-  // Keep the /v2 draft homepage (noindex) out of the sitemap too, so it's never submitted.
-  integrations: [mdx(), sitemap({ filter: (page) => !page.includes('/v2') }), versionEndpoint()],
+  integrations: [mdx(), sitemap(), versionEndpoint()],
 });

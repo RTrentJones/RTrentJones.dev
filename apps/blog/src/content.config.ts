@@ -37,8 +37,6 @@ const projects = defineCollection({
     verifyMode: z.enum(['api', 'playwright', 'test', 'mcp', 'eval', 'agent-web']).optional(),
     order: z.number().default(99),
     external: z.boolean().default(false),
-    // Flagship projects surfaced first (the /v2 "Selected systems" strip).
-    featured: z.boolean().default(false),
     date: z.coerce.date().optional(),
   }),
 });

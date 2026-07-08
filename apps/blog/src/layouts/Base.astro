@@ -12,10 +12,8 @@ interface Props {
   image?: string;
   /** JSON-LD injected as <script type="application/ld+json"> (Person, BlogPosting, …). */
   structuredData?: object | object[];
-  /** Keep the page out of search indexes (used by the /v2 draft homepage). */
-  noindex?: boolean;
 }
-const { title, description, prose = false, image, structuredData, noindex = false } = Astro.props;
+const { title, description, prose = false, image, structuredData } = Astro.props;
 
 const SITE_NAME = 'Trent Jones';
 const SITE_DESC =
@@ -41,7 +39,6 @@ const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={desc} />
-    {noindex && <meta name="robots" content="noindex" />}
     <link rel="canonical" href={canonical} />
     <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} — blog`} href="/rss.xml" />
 
