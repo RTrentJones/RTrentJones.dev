@@ -8,24 +8,27 @@ order: 4
 date: 2026-06-23
 ---
 
-> HeistMind is a character and crew manager for **Forged-in-the-Dark** tabletop RPGs — think Avrae,
-> but for Blades in the Dark: the mechanical backbone for asynchronous, play-by-post campaigns. Game
-> masters run custom rulesets, crews, factions, and progress clocks; players build characters and
-> track stress, harm, and XP; everyone joins a game by code and shares one campaign log. A Discord
-> bot handles at-the-table actions without leaving chat, and the app enforces the rules, so every
-> action it offers is legal for your ruleset.
+> HeistMind is a character and crew manager for **Forged-in-the-Dark** tabletop RPGs — the
+> mechanical backbone for asynchronous, play-by-post campaigns. Game masters run custom rulesets,
+> crews, factions, and progress clocks; players build characters and track stress, harm, and XP;
+> everyone joins a game by code and shares one campaign log. A Discord bot handles at-the-table
+> actions without leaving chat, and the app enforces the rules, so every action it offers is legal
+> for your ruleset.
 
 ## Why it exists
 
-I built HeistMind because the tool I wanted didn't exist. D&D players have Avrae; when I went looking
-for somewhere to start with Blades in the Dark, Forged-in-the-Dark had no real equivalent — so I made
-the companion I'd have wanted on day one.
+HeistMind is the tool I wanted and couldn't find. D&D has a deep bench of play aids; when I went
+looking for somewhere to start with Blades in the Dark, there was nothing equivalent — so I built the
+companion I'd have wanted on day one.
 
 Play-by-post campaigns are collaborative software without the software: characters, crews, factions,
 clocks, harm, XP, and a table's worth of house rules, spread across Discord threads, pinned messages,
-and a stack of spreadsheets. HeistMind puts that state in one place and only offers actions that are
-legal for the ruleset in play — the GM sets the rules, the app keeps everyone honest to them. Players
-join a game by code, characters are portable between campaigns, and every roll lands in a shared log.
+and spreadsheets. HeistMind puts that state in one place and only offers actions that are legal for
+the ruleset in play.
+
+It's built to take what you want and leave the rest — a lightweight character tracker for a live
+table, or the full campaign layer (crews, factions, clocks, a shared log, join-by-code) for an async,
+play-by-post game on Discord. As much or as little as your table needs.
 
 ## What makes it hard
 
@@ -54,12 +57,16 @@ join a game by code, characters are portable between campaigns, and every roll l
 
 ## What I find interesting
 
-It's the first thing I built greenfield with an agent in the loop — started with Cline in early 2025,
-nearly rebuilt with Claude Code since. Taking a hobby idea all the way to real auth, a rules engine,
-and a Discord bot — mostly by pairing with a model — is a big part of why I trust agentic development
-for more than throwaway scripts.
+It's the first thing I built greenfield with an agent, and it's had two lives: a first pass with
+Cline in 2025, then a near-total rebuild with Claude Code in 2026.
 
-It rides the [Greenlight](https://github.com/RTrentJones/greenlight) deploy → verify → promote loop:
+That rebuild is also where Greenlight came from. Coming back to HeistMind after a while, I found
+Supabase had paused and then archived the original backend, so I had to stand the whole thing up
+again — dev loop and all. Recreating that deploy → verify → release loop by hand, for a single
+project, is what made me realize every project I had wanted the same primitives. That became
+[Greenlight](https://github.com/RTrentJones/greenlight).
+
+So HeistMind rides the loop it kicked off:
 
 - **A prod ship-gate** — branch protection requires CI to pass, so the promotion path only advances
   CI-green commits.
