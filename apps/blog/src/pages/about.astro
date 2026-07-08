@@ -16,38 +16,43 @@ const person = {
 
 <Base
   title="About"
-  description="Trent Jones — senior engineer building verification-heavy infrastructure, agentic workflows, and life-sciences tooling."
+  description="Trent Jones — senior engineer who builds developer platforms, product infrastructure, and genomics tooling: systems that make other experts faster."
   prose
   structuredData={person}
 >
   <h1>About</h1>
 
   <p class="positioning">
-    Senior engineer focused on verification-heavy infrastructure, agentic workflows, and the seam
-    between software and the life sciences — systems that ship on evidence, not assertion.
+    Senior engineer. I build systems that make experts better at high-stakes work — developer
+    platforms and release tooling for fellow engineers, product infrastructure for the teams that
+    ship on it, and curation software for the clinical scientists who call genetic variants.
   </p>
 
   <h2>What I do</h2>
   <ul>
     <li>
-      <strong>Platform &amp; infrastructure</strong> — deploy/verify/promote loops and the gates that
-      keep production honest.
+      <strong>Developer platforms &amp; release tooling</strong> — paved-path systems fellow
+      engineers adopt because they make them faster: release pipelines, internal CLIs, agent tooling.
     </li>
     <li>
-      <strong>Agentic workflows</strong> — LLM tools with measurable quality gates (evals,
-      protocol checks), not vibes.
+      <strong>Product infrastructure</strong> — the platforms product teams ship on, decoupled from
+      release cycles.
     </li>
     <li>
-      <strong>Full-stack product</strong> — authenticated web apps end to end, from schema to UI.
+      <strong>Scientific &amp; clinical software</strong> — genomics tooling built around expert
+      judgment, under clinical-grade correctness bars.
     </li>
-    <li><strong>Life sciences</strong> — genomics tooling, where correctness is not optional.</li>
+    <li>
+      <strong>AI-native tooling</strong> — agents and MCP servers with real verification (evals,
+      protocol checks), so a model augments an expert instead of guessing.
+    </li>
   </ul>
 
   <h2>Experience</h2>
   <p>
     I'm a senior full-stack engineer with 11 years in the industry, the last 7 at
-    <strong>Amazon</strong>, where I've worked on Alexa across both the mobile and web surfaces.
-    My teams deliver product first — most recently Alexa+'s Buy Now commerce integration — but the
+    Amazon, where I've worked on Alexa across both the mobile and web surfaces.
+    My teams deliver product first, but the
     work I reach for is the pipelines and tooling that make that delivery go faster for the people
     around me. For three-plus years I owned the release pipeline that more than twenty teams across
     two orgs shipped through, and I built Vertex, an internal agent-tooling system that's been
@@ -68,10 +73,9 @@ const person = {
 
   <h2>Selected proof points</h2>
   <p>
-    I build self-verifying infrastructure — tools that prove they work in production rather than
-    asserting it. This site is itself one: a thin
-    <a href="https://github.com/RTrentJones/greenlight">Greenlight</a> consumer, deployed to
-    Cloudflare Workers and gated by the same verify harness as everything else.
+    A thread I keep pulling on is making verification automatic — so everything here ships and
+    re-verifies through my own <a href="https://github.com/RTrentJones/greenlight">Greenlight</a>
+    loop, and this site runs on it too.
   </p>
   <ul>
     <li>

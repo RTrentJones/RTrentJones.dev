@@ -5,7 +5,7 @@ export async function GET(context) {
   const posts = await getCollection('blog');
   return rss({
     title: 'Trent Jones — blog',
-    description: 'Writing on building self-verifying tools.',
+    description: 'Writing on platforms, AI tooling, protocol-level engineering, and software for the life sciences.',
     site: context.site,
     items: posts
       .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
