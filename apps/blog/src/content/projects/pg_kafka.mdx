@@ -3,7 +3,10 @@ title: pg_kafka
 summary: A PostgreSQL extension that speaks the Kafka wire protocol — produce and consume with unmodified Kafka clients, with Postgres as the broker.
 repoUrl: https://github.com/RTrentJones/pg_kafka
 status: verified
+verifyMode: test
+evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
 order: 5
+featured: true
 date: 2026-06-26
 ---
 
@@ -44,8 +47,8 @@ shows what's covered _and_ where it stops.
 Co-located methodology: warm-up excluded, multiple message sizes, batched vs unbatched, reported as
 p50/p99 and msgs/sec — measured against two honest anchors, a raw-`INSERT` **floor** (the storage
 layer with no protocol) and a real Kafka broker **ceiling**. Normalized scores flow into
-[Tracer](https://tracer.rtrentjones.dev/runs?tool=pg_kafka) on each tagged release, so the trend —
-and any regression — shows up over time for free.
+[Tracer](https://tracer.rtrentjones.dev/runs?tool=pg_kafka) — the eval dashboard, with pg_kafka
+wired in first — on each tagged release, so the trend (and any regression) accrues over time.
 
 <BenchTable />
 

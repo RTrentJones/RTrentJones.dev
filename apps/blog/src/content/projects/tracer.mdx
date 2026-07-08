@@ -2,7 +2,8 @@
 title: Tracer
 summary: A Claude evals dashboard — the persistence + UI layer for Greenlight's eval & agent-web verify modes.
 repoUrl: https://github.com/RTrentJones/RTrentJones.dev/tree/main/tools/tracer
-status: live
+status: prototype
+evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
 order: 2
 date: 2026-06-24
 ---
@@ -17,6 +18,11 @@ Greenlight can already grade a deploy with an LLM: `eval` mode judges an MCP ser
 ephemeral — a pass/fail in CI logs, then gone. Tracer is the **persistence + UI layer**: an eval run
 lands in Postgres and shows up as a trend you can actually look at, instead of a green check that
 scrolled past.
+
+Where it stands today: the dashboard is deployed and holds **real runs from pg_kafka's benchmark
+pipeline** — its normalized conformance and performance scores land here on each tagged release.
+Wiring the rest of the tools' `eval` / `agent-web` runs in is still in progress, so it's marked
+`prototype`, not `live`: real data, partial coverage — honest about being a work in progress.
 
 ## The stack
 
@@ -35,8 +41,3 @@ scrolled past.
 - **Branch-per-env evals.** Because each environment is its own Neon branch (instant copy-on-write,
   scale-to-zero), you can run a noisy experiment on beta and diff it against the prod baseline without
   polluting it.
-
-{/* TODO(trent): confirm tracer.rtrentjones.dev holds real runs (couldn't verify — the live URL
-    returned 403 to an automated fetch). If the dashboard is currently empty, drop `status: live`
-    from the frontmatter above and soften the pg_kafka -> Tracer trend link, so an empty dashboard
-    isn't presented as live evidence. */}

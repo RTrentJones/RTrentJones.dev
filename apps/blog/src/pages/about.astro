@@ -1,32 +1,107 @@
 ---
 import Base from '../layouts/Base.astro';
+
+// Person structured data — /about is the canonical identity page for the site.
+const person = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: 'Trent Jones',
+  url: 'https://rtrentjones.dev/about/',
+  jobTitle: 'Senior Software Development Engineer',
+  worksFor: { '@type': 'Organization', name: 'Amazon' },
+  alumniOf: { '@type': 'CollegeOrUniversity', name: 'University of Southern California' },
+  sameAs: ['https://github.com/RTrentJones', 'https://www.linkedin.com/in/rtrentjones'],
+};
 ---
 
-<Base title="About" prose>
+<Base
+  title="About"
+  description="Trent Jones — senior engineer building verification-heavy infrastructure, agentic workflows, and life-sciences tooling."
+  prose
+  structuredData={person}
+>
   <h1>About</h1>
+
+  <p class="positioning">
+    Senior engineer focused on verification-heavy infrastructure, agentic workflows, and the seam
+    between software and the life sciences — systems that ship on evidence, not assertion.
+  </p>
+
+  <h2>What I do</h2>
+  <ul>
+    <li>
+      <strong>Platform &amp; infrastructure</strong> — deploy/verify/promote loops and the gates that
+      keep production honest.
+    </li>
+    <li>
+      <strong>Agentic workflows</strong> — LLM tools with measurable quality gates (evals,
+      protocol checks), not vibes.
+    </li>
+    <li>
+      <strong>Full-stack product</strong> — authenticated web apps end to end, from schema to UI.
+    </li>
+    <li><strong>Life sciences</strong> — genomics tooling, where correctness is not optional.</li>
+  </ul>
+
+  <h2>Experience</h2>
   <p>
-    I'm Trent Jones — a senior full-stack software engineer with 11 years in the industry, the last
-    7 at Amazon. At Amazon I've worked on Alexa, across both the mobile and web surfaces.
+    I'm a senior full-stack engineer with 11 years in the industry, the last 7 at
+    <strong>Amazon</strong>, where I've worked on Alexa across both the mobile and web surfaces.
+    My teams deliver product first — most recently Alexa+'s Buy Now commerce integration — but the
+    work I reach for is the pipelines and tooling that make that delivery go faster for the people
+    around me. For three-plus years I owned the release pipeline that more than twenty teams across
+    two orgs shipped through, and I built Vertex, an internal agent-tooling system that's been
+    adopted across the org.
   </p>
   <p>
-    Before Amazon I was at <a href="https://www.fulgentgenetics.com/">Fulgent Genetics</a>, a
-    clinical genetics lab, where I worked on the LIMS (lab information management software), clinical
-    genomics variant curation and reporting, and the patient-facing web portal.
+    Before Amazon I was the <strong>second engineer</strong> at
+    <a href="https://www.fulgentgenetics.com/">Fulgent Genetics</a>, a clinical genetics lab, where
+    I built the variant-curation platform clinical scientists used to call variants — along with the
+    LIMS (lab information management software) and the FulgentGenetics.com ordering portal.
   </p>
   <p>
-    I studied at USC, where I earned dual degrees in <strong>neuroscience</strong> and
-    <strong>computer science</strong>. The biology didn't stay in the background — I'm drawn to the
-    seam between software and the life sciences, and some of what I build lives there (see
+    I studied at <strong>USC</strong>, where I earned dual degrees in <strong>neuroscience</strong>
+    and <strong>computer science</strong>. The biology didn't stay in the background — I'm drawn to
+    the seam between software and the life sciences, and some of what I build lives there (see
     <a href="/bamcp/">BAMCP</a>, which puts genomic evidence in front of an AI agent).
   </p>
+
+  <h2>Selected proof points</h2>
   <p>
-    I build self-verifying infrastructure — resilient systems, agentic workflows, and tools that
-    prove they work in production rather than asserting it. This site is where I keep them, and it's
-    itself one: a thin <a href="https://github.com/RTrentJones/greenlight">Greenlight</a> consumer,
-    deployed to Cloudflare Workers and gated by the same verify harness as everything else.
+    I build self-verifying infrastructure — tools that prove they work in production rather than
+    asserting it. This site is itself one: a thin
+    <a href="https://github.com/RTrentJones/greenlight">Greenlight</a> consumer, deployed to
+    Cloudflare Workers and gated by the same verify harness as everything else.
   </p>
+  <ul>
+    <li>
+      <a href="/greenlight/">Greenlight</a> — a deploy → verify → promote framework spanning
+      Cloudflare, Vercel, Oracle Cloud, and Neon.
+    </li>
+    <li>
+      <a href="/pg_kafka/">pg_kafka</a> — a PostgreSQL extension that speaks the Kafka wire protocol,
+      backed by conformance and benchmark evidence.
+    </li>
+    <li>
+      <a href="/bamcp/">BAMCP</a> — an MCP server that puts genomic alignment evidence in front of an
+      AI agent.
+    </li>
+    <li>
+      <a href="/heistmind/">HeistMind</a> — an authenticated full-stack app, verified against the
+      live deploy.
+    </li>
+  </ul>
+
+  <h2>Contact</h2>
   <p>
-    Find me on <a href="https://github.com/RTrentJones">GitHub</a> and
-    <a href="https://www.linkedin.com/in/rtrentjones">LinkedIn</a>.
+    Reach me on <a href="https://www.linkedin.com/in/rtrentjones">LinkedIn</a> — best for a first
+    message — or find my work on <a href="https://github.com/RTrentJones">GitHub</a>.
   </p>
 </Base>
+
+<style>
+  .positioning {
+    font-size: var(--text-lg);
+    color: var(--fg-muted);
+  }
+</style>

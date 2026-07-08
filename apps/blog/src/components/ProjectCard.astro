@@ -6,7 +6,7 @@ interface Props {
   project: CollectionEntry<'projects'>;
 }
 const { project } = Astro.props;
-const { title, summary, liveUrl, repoUrl, status, external } = project.data;
+const { title, summary, liveUrl, repoUrl, status, external, evidenceUrl, verifyMode } = project.data;
 
 // Live details from the manifest (single source of truth) when this project is a deployed tool — its
 // stack, providers, and an env-aware live URL (a beta card links to the beta tool). Non-tools (e.g.
@@ -15,15 +15,29 @@ const facets = toolByName[project.id];
 const providers = facets ? providersFor(facets) : [];
 const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
 
-// Local projects get a write-up page at /<slug>/; external ones (e.g. Greenlight) link straight out.
+// Local projects get a write-up page at /<slug>/; an external: true project links straight out
+// instead (none are external today).
 const writeup = external ? undefined : `/${project.id}/`;
 const primary = writeup ?? repoUrl ?? live ?? '#';
+
+// Anchor the status badge to evidence: link it to evidenceUrl when present, and name the verify
+// mode that backs it — so "verified" points at proof rather than just asserting.
+const statusTitle = verifyMode ? `${status} · backed by ${verifyMode} verify` : status;
 ---
 
 <article class="project-card">
   <h3>
     <a href={primary}>{title}</a>
-    {status && <span class="status">{status}</span>}
+    {status &&
+      (evidenceUrl ? (
+        <a class="status" data-status={status} href={evidenceUrl} title={statusTitle}>
+          {status}
+        </a>
+      ) : (
+        <span class="status" data-status={status} title={statusTitle}>
+          {status}
+        </span>
+      ))}
   </h3>
   {facets && <p class="stack">{stackLine(facets)}</p>}
   <p class="summary">{summary}</p>
@@ -71,6 +85,23 @@ const primary = writeup ?? repoUrl ?? live ?? '#';
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+  /* verified / live read as "proven"; prototype / experimental as "partial"; the rest stay muted. */
+  .status[data-status='verified'],
+  .status[data-status='live'] {
+    color: var(--accent);
+  }
+  .status[data-status='prototype'],
+  .status[data-status='experimental'] {
+    color: var(--warn);
+  }
+  a.status {
+    border-bottom: 1px dashed currentColor;
+  }
+  a.status:hover {
     color: var(--accent);
   }
   .stack {

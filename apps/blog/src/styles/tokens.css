@@ -27,6 +27,7 @@
   --border: #e3e3df;
   --accent: #1f7a4d; /* a restrained green nod to "Greenlight" */
   --accent-fg: #ffffff;
+  --warn: #9a6a00; /* amber — "partial / in progress" status badges (prototype, experimental) */
   --code-bg: #f3f3f1;
 }
 
@@ -39,6 +40,7 @@
     --border: #2e2e34;
     --accent: #4ade80;
     --accent-fg: #0b0b0d;
+    --warn: #e3b341;
     --code-bg: #1f1f24;
   }
 }

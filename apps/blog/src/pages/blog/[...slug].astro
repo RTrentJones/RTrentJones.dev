@@ -10,9 +10,25 @@ export async function getStaticPaths() {
 const { post } = Astro.props;
 const { Content } = await render(post);
 const iso = post.data.date.toISOString();
+
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: post.data.title,
+  datePublished: iso,
+  ...(post.data.description ? { description: post.data.description } : {}),
+  ...(canonical ? { url: canonical, mainEntityOfPage: canonical } : {}),
+  author: { '@type': 'Person', name: 'Trent Jones', url: 'https://rtrentjones.dev/about/' },
+};
 ---
 
-<Base title={post.data.title} description={post.data.description} prose>
+<Base
+  title={post.data.title}
+  description={post.data.description}
+  prose
+  structuredData={structuredData}
+>
   <article>
     <h1>{post.data.title}</h1>
     <time datetime={iso}>{iso.slice(0, 10)}</time>

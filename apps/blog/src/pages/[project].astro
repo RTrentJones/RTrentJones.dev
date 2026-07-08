@@ -10,7 +10,7 @@ export async function getStaticPaths() {
   // (Defined inside getStaticPaths — Astro extracts this function and won't capture outer consts.)
   const RESERVED = new Set(['about', 'blog', 'projects', 'rss', 'sitemap', '404']);
   const projects = await getCollection('projects');
-  // External projects (e.g. Greenlight) link straight to GitHub — no local write-up page.
+  // An external: true project links straight to GitHub — no local write-up page. (None today.)
   const local = projects.filter((project) => !project.data.external);
   const collision = local.find((p) => RESERVED.has(p.id));
   if (collision) {
@@ -23,7 +23,7 @@ export async function getStaticPaths() {
 
 const { project } = Astro.props;
 const { Content } = await render(project);
-const { title, summary, liveUrl, repoUrl, status } = project.data;
+const { title, summary, liveUrl, repoUrl, status, evidenceUrl } = project.data;
 // Deployed tools get an env-aware live URL from the manifest (a beta write-up links to the beta
 // tool); non-tools fall back to the MDX liveUrl.
 const facets = toolByName[project.id];
@@ -38,7 +38,14 @@ const live = facets ? toolUrl(project.id, envFromSite(Astro.site)) : liveUrl;
     <p class="links">
       {live && <a class="cta" href={live}>Open the live tool ↗</a>}
       {repoUrl && <a href={repoUrl}>Source ↗</a>}
-      {status && <span class="muted">{status}</span>}
+      {status &&
+        (evidenceUrl ? (
+          <a class="muted" href={evidenceUrl}>
+            {status} ↗
+          </a>
+        ) : (
+          <span class="muted">{status}</span>
+        ))}
     </p>
     <Content />
   </article>

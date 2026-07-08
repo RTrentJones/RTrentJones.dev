@@ -10,7 +10,8 @@ const posts = (await getCollection('blog'))
 const projects = (await getCollection('projects')).sort(
   (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
 );
-// External projects (e.g. Greenlight) link straight to their repo; local ones to their write-up.
+// An `external: true` project links straight to its repo instead of a local write-up; none are
+// external today, so every card resolves to /<slug>/.
 const projectHref = (p: (typeof projects)[number]) =>
   p.data.external ? (p.data.repoUrl ?? '#') : `/${p.id}/`;
 ---

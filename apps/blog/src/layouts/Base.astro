@@ -8,8 +8,14 @@ interface Props {
   description?: string;
   /** Narrow <main> to the reading measure (long-form: posts + project write-ups). */
   prose?: boolean;
+  /** Social card image (site-relative or absolute). Defaults to the site card, /og.png. */
+  image?: string;
+  /** JSON-LD injected as <script type="application/ld+json"> (Person, BlogPosting, …). */
+  structuredData?: object | object[];
+  /** Keep the page out of search indexes (used by the /v2 draft homepage). */
+  noindex?: boolean;
 }
-const { title, description, prose = false } = Astro.props;
+const { title, description, prose = false, image, structuredData, noindex = false } = Astro.props;
 
 const SITE_NAME = 'Trent Jones';
 const SITE_DESC =
@@ -17,15 +23,15 @@ const SITE_DESC =
 const fullTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
 const desc = description ?? SITE_DESC;
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.pathname;
+// Social card image, resolved to an absolute URL (crawlers require it). Defaults to the site card.
+const ogImage = Astro.site ? new URL(image ?? '/og.png', Astro.site).href : (image ?? '/og.png');
 
 // Beta builds get SITE_URL=https://beta.rtrentjones.dev (set by the Greenlight adapter).
 const isBeta = Astro.site?.hostname.startsWith('beta.') ?? false;
 
-// Cloudflare Web Analytics (free, privacy-friendly, cookieless). Enable it for rtrentjones.dev in
-// the Cloudflare dashboard → Web Analytics, then paste the beacon token below (it's public, not a
-// secret). The beacon loads ONLY on the prod apex — never on beta or local.
-const CF_BEACON_TOKEN = ''; // ← paste the token to turn analytics on
-const analyticsOn = Boolean(CF_BEACON_TOKEN) && Astro.site?.hostname === 'rtrentjones.dev';
+// Web Analytics (Cloudflare, free + cookieless) is injected automatically at the edge for the
+// proxied zone — no app-side beacon. On-account zones only get automatic setup (the manual token
+// flow is unavailable), and a second in-app beacon would double-count, so there's deliberately none.
 ---
 
 <!doctype html>
@@ -35,6 +41,7 @@ const analyticsOn = Boolean(CF_BEACON_TOKEN) && Astro.site?.hostname === 'rtrent
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={desc} />
+    {noindex && <meta name="robots" content="noindex" />}
     <link rel="canonical" href={canonical} />
     <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} — blog`} href="/rss.xml" />
 
@@ -43,15 +50,17 @@ const analyticsOn = Boolean(CF_BEACON_TOKEN) && Astro.site?.hostname === 'rtrent
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={desc} />
     <meta property="og:url" content={canonical} />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={desc} />
+    <meta name="twitter:image" content={ogImage} />
 
     {
-      analyticsOn && (
-        <script
-          defer
-          src="https://static.cloudflareinsights.com/beacon.min.js"
-          data-cf-beacon={`{"token": "${CF_BEACON_TOKEN}"}`}
-        />
+      structuredData && (
+        <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
       )
     }
   </head>
