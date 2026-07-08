@@ -23,14 +23,18 @@ import SessionCast from '../../components/SessionCast.astro';
 
 ## Why there's no "live demo" here
 
-A produce/consume button would be glue code, and it would make a wire-protocol-in-Postgres
-implementation read as a toy — the work would go into its least impressive part while the actual
-signal (the protocol layer, consumer groups, transactions, the conformance suite) sits in the
-background. For an implementation, "live" shouldn't mean a hosted service with a frontend. It should
-mean **continuously-verified evidence** — which is exactly what runs ephemerally in CI: spin the
-`docker-compose` up in a runner, run the checks against real clients, publish the results, tear it
-down. No public instance, no abuse surface, no bespoke UI. Three artifacts, each pointing at systems
-depth instead of away from it.
+I built the first version of pg_kafka in about three weeks with Claude Code, then didn't touch it for
+months. It was the first time the deploy-and-verify loop really clicked for me — because a Kafka
+implementation comes with its own test harness built in. The whole claim is that unmodified clients
+just work, so the clients _are_ the check: if kafkajs and librdkafka can produce and consume without
+knowing they're talking to Postgres, it works, and if they can't, it doesn't. I didn't have to invent
+a way to verify it.
+
+I came back to it while building Greenlight, where the awkward part was that an extension has nothing
+to _show_ — there's no button to click and watch it go. So the demo became the evidence: run the real
+clients on every tagged release, grade the coverage, and publish the grid and the benchmarks (that's
+the [Tracer](/tracer/) thread, still a prototype). Making "does it work" reportable is also what let
+me hand it back to agents and let them iterate without me watching every change.
 
 ## The thesis, proven: unmodified clients just work
 
@@ -47,6 +51,22 @@ shows what's covered _and_ where it stops.
 transaction cells marked N/A for kafka-python, which doesn't expose them.
 
 <ConformanceMatrix />
+
+## What the verification loop caught
+
+The proof that the reportable version was worth building is a bug the grid caught that I never would
+have. My suite was 782 tests deep and green, but I'd only ever run it against one client — my own
+mental model in different hats. The four-client grid ran Sarama, the Go one, and it couldn't even
+connect.
+
+I'd recently tightened version negotiation so pg_kafka strictly rejected any request whose version ran
+past what it advertised, which sounds correct. But Sarama is pinned to a broker version and doesn't
+down-negotiate like the others; it opens with a Metadata request at v10, take it or leave it. pg_kafka
+advertised v9, left it, and handed back the rejection as an old-format error frame a strict client
+can't parse — so Sarama read that 57-byte error as the v10 response it expected, walked off the end of
+the buffer, and panicked, taking the rest of its column down with it. The fix was one line's worth of
+intent — advertise the version I actually serve. It had been sitting there the whole time, invisible,
+because I'd only ever tested myself against myself.
 
 ## Performance, in context
 
