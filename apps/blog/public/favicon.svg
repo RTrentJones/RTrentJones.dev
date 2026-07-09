@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Trent Jones">
-  <rect width="100" height="100" rx="22" fill="#16161a" />
-  <rect x="44" y="20" width="12" height="60" rx="3" fill="#4ade80" />
-  <rect x="31" y="34" width="38" height="11" rx="3" fill="#4ade80" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Trent Jones"><rect width="100" height="100" rx="22" fill="#16161a"/><path d="M24 37 L38 52 L24 67" fill="none" stroke="#bbf7d0" stroke-width="10" stroke-linejoin="miter" stroke-linecap="round"/><path d="M57.13 69.51L50.07 69.51L50.07 39.97L41 39.97L41 33.79L66.19 33.79L66.19 39.97L57.13 39.97Z M67.46 67.74L67.46 59.56Q69.51 61.67 71.85 62.77Q74.18 63.87 76.55 63.87Q79.32 63.87 80.61 62.48Q81.91 61.09 81.91 58.05L81.91 40.01L73.27 40.01L73.27 33.79L88.96 33.79L88.96 58.05Q88.96 64.58 86.22 67.4Q83.49 70.21 77.19 70.21Q74.92 70.21 72.44 69.59Q69.97 68.96 67.46 67.74Z" fill="#4ade80"/></svg>
