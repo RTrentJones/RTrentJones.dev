@@ -21,7 +21,24 @@ import SessionCast from '../../components/SessionCast.astro';
 > and the messages are sitting in a SQL table. 23 Kafka APIs, consumer groups, idempotent +
 > transactional producers, shadow-forwarding to an external Kafka cluster, 782 tests.
 
-## Why there's no "live demo" here
+## Why this exists
+
+pg_kafka started as a response to the ["Postgres is all you
+need"](https://dev.to/shayy/postgres-is-all-you-need-3pgb) discourse — not the strawman version, the
+reasonable one. The reasonable version isn't "Postgres should replace every specialized system." It's:
+before you add another moving part, check whether Postgres already covers the shape of the problem. That
+held up for queues, search, vectors, and key-value. Kafka was the harder case, and the people
+[benchmarking it](https://topicpartition.io/blog/postgres-pubsub-queue-benchmarks)
+[knew it](https://blog.2minutestreaming.com/p/just-use-postgres): Postgres might be a good enough storage
+engine, but Kafka's moat was never only throughput — it's the protocol, the clients, and the ecosystem.
+Make every app learn a new SQL-based queue API and you didn't replace Kafka; you started a migration.
+
+So pg_kafka asks a narrower, more testable question. Not "can Postgres replace Kafka at Kafka's scale,"
+and not "should you run this in production" — just: **can an unmodified Kafka client connect to Postgres,
+produce, consume, coordinate a group, and drive the transactional producer APIs without ever knowing the
+broker is a database extension?** That's the claim the rest of this page tries to make falsifiable.
+
+## The demo is the conformance report
 
 I built the first version of pg_kafka in about three weeks with Claude Code, then didn't touch it for
 months. It was the first time the deploy-and-verify loop really clicked for me — because a Kafka
@@ -38,9 +55,8 @@ me hand it back to agents and let them iterate without me watching every change.
 
 ## The thesis, proven: unmodified clients just work
 
-The claim isn't "complete Kafka" — it's narrower and testable: for the implemented surface, an
-unmodified client should produce, consume, coordinate groups, and exercise the supported
-transactional APIs without knowing Postgres is on the other end. So prove it — run a real conformance pass
+The claim isn't "complete Kafka" — it's the narrow, testable one from the top of the page, and its one
+virtue is that it can be proven directly instead of asserted. So prove it — run a real conformance pass
 for **kafkajs, librdkafka, kafka-python, and Sarama** against the 23 implemented APIs and render the
 grid. This is the live demo: the same Tracer pattern (continuously-verified, timestamped), applied
 to protocol coverage instead of eval pass-rates. Where a client genuinely doesn't exercise an API —
