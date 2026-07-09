@@ -100,7 +100,10 @@ export const loadBench = () => load<BenchData>('bench.json');
 export const loadShadow = () => load<ShadowData>('shadow.json');
 
 /** The live recording URL if the evidence branch has one, else null. */
-export async function loadSessionSvg(): Promise<{ url: string | null; source: 'live' | 'unavailable' }> {
+export async function loadSessionSvg(): Promise<{
+  url: string | null;
+  source: 'live' | 'unavailable';
+}> {
   try {
     const res = await fetch(SESSION_SVG_URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (res.ok) return { url: SESSION_SVG_URL, source: 'live' };
