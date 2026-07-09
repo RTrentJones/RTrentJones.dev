@@ -92,8 +92,9 @@ const statusTitle = verifyMode ? `${status} · backed by ${verifyMode} verify` :
     color: var(--fg-muted);
     text-decoration: none;
   }
-  /* verified / live read as "proven"; prototype / experimental as "partial"; the rest stay muted. */
+  /* verified / published / live read as "proven"; prototype / experimental as "partial"; the rest stay muted. */
   .status[data-status='verified'],
+  .status[data-status='published'],
   .status[data-status='live'] {
     color: var(--accent);
   }

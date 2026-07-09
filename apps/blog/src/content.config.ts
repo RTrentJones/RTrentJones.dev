@@ -24,13 +24,23 @@ const projects = defineCollection({
     repoUrl: z.string().url().optional(),
     // Typed, not free-form, so a typo fails the build and the badge means something specific:
     //   verified  — CI evidence proves it (conformance / bench / tests), e.g. pg_kafka
+    //   published — shipped to a public registry; the evidence is the listing itself (npm), e.g. greenlight
     //   live      — reachable and running in prod, e.g. bamcp
     //   beta      — the full app runs on beta/preview; prod is gated / pre-launch, e.g. heistmind
     //   prototype — deployed but partial: real data, incomplete coverage, e.g. tracer
     //   repo-only — source only, nothing deployed
     //   experimental / paused — early, or previously live and now idle
     status: z
-      .enum(['verified', 'live', 'beta', 'prototype', 'repo-only', 'experimental', 'paused'])
+      .enum([
+        'verified',
+        'published',
+        'live',
+        'beta',
+        'prototype',
+        'repo-only',
+        'experimental',
+        'paused',
+      ])
       .optional(),
     // What the status is anchored to (a CI artifact, a runs dashboard, a verify spec) and the
     // Greenlight verify mode that backs it — so the badge points at evidence instead of asserting.
