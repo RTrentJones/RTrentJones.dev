@@ -59,7 +59,7 @@ Two views of the same idea — verification runs that persist instead of scrolli
 ## The stack
 
 - **Next.js on Vercel**, backed by **Neon** Postgres — a branch per env (prod + beta), so beta evals
-  never touch the prod record. (It's the first live tool on Greenlight's Neon backend.)
+  never touch the prod record. (It's the first deployed tool on Greenlight's Neon backend.)
 - **Schema as code** — migrations run on the build against Neon's direct connection; the pooled
   connection serves the app. Prod and beta hit different branches by design.
 - Ships through the same loop as everything else here: local preview gate, `verify --env prod`,
