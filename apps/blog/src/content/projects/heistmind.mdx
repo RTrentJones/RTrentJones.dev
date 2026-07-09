@@ -9,6 +9,8 @@ order: 4
 date: 2026-06-23
 ---
 
+import Shot from '../../components/BamcpDemo.astro';
+
 > HeistMind is a character and crew manager for **Forged-in-the-Dark** tabletop RPGs — the
 > mechanical backbone for asynchronous, play-by-post campaigns. Game masters run custom rulesets,
 > crews, factions, and progress clocks; players build characters and track stress, harm, and XP;
@@ -43,6 +45,39 @@ play-by-post game on Discord. As much or as little as your table needs.
 - **A bot that acts outside RLS.** The Discord bot verifies each interaction (Ed25519) and then acts
   through the service-role client, which bypasses row-level security — so the engine has to re-assert
   ownership itself, in code, rather than leaning on the database to enforce it.
+
+## See it
+
+Two sides of the same app. First, a character — a rules-valid scoundrel built through a wizard that
+only ever offers moves your ruleset allows, and a sheet you can bring to any table:
+
+<Shot
+  poster="/heistmind-wizard.png"
+  alt="HeistMind's character-creation wizard on the Assign Action Ratings step — a stepper across creation steps, a '2 / 7 points spent' budget, and Edge/Grit attribute cards with point-buy dots."
+>
+  Creation is ruleset-driven: the point-buy budget and the actions on offer come straight from the
+  uploaded ruleset, so what you can build is always legal for the game you're playing.
+</Shot>
+
+<Shot
+  poster="/heistmind-character.png"
+  alt="A HeistMind character sheet for a Blades in the Dark 'razor' — attributes, a Battle-Born special ability, a stress track, harm slots, and a per-score loadout."
+>
+  The finished sheet — stress, harm, XP, special abilities, and a per-score loadout, every affordance
+  constrained to the active ruleset, so nobody's re-reading the book mid-scene.
+</Shot>
+
+And the campaign it lives in — the shared mechanical layer a table builds up as the story posts over
+days:
+
+<Shot
+  poster="/heistmind-campaign.png"
+  alt="A HeistMind campaign page — invite-by-code, a character, a crew sheet, and two progress clocks (The Alarm 2/4, Rising Heat 1/4) rendered as filling pie segments."
+>
+  The campaign page — DB-backed shared state, loaded on view: characters, a crew sheet, and progress
+  clocks that tick as the story moves. Everyone sees the same truth, whether they're at the table or
+  posting async on Discord.
+</Shot>
 
 ## The stack
 
