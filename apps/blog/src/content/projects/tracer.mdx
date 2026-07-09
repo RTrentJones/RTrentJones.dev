@@ -8,6 +8,8 @@ order: 5
 date: 2026-06-24
 ---
 
+import Shot from '../../components/BamcpDemo.astro';
+
 > Tracer keeps Greenlight's verification runs from dying in a CI log. Today it holds pg_kafka's
 > conformance and benchmark history; the `eval` and `agent-web` modes the harness runs are what it
 > takes next.
@@ -31,6 +33,28 @@ Wiring the rest of the tools' `eval` / `agent-web` runs in is still in progress,
 - its normalized benchmark scores, on the same cadence
 - the commit SHA and verification timestamp behind each point
 - enough metadata to click a chart point back to the run that produced it
+
+## See it
+
+Two views of the same idea — verification runs that persist instead of scrolling past.
+
+<Shot
+  poster="/tracer-trend.png"
+  alt="Tracer's home dashboard — a 'Pass rate over time (30d)' line chart with a line per run, above a 'Latest run per tool' table listing bamcp, blog, pg_kafka, and tracer, each passing."
+>
+  The dashboard: every `verify` run plotted over 30 days, one line each. That flat line near 100% is
+  the honest state today — pg_kafka's conformance and benchmarks pass, so the trend is boring, which is
+  exactly what you want a regression chart to be right up until it isn't. Latest run per tool underneath.
+</Shot>
+
+<Shot
+  poster="/tracer-runs.png"
+  alt="Tracer's Runs page filtered to pg_kafka — a table of benchmark runs, one per commit, each in 'benchmark' mode and 'ci' env at 100% pass rate, with a 'detail' link per row."
+>
+  Filtered to pg_kafka: one row per tagged commit, each a benchmark run normalized to a pass rate, every
+  row clickable back to the run behind it. This is the history under the chart — the part a green check
+  in a CI log throws away.
+</Shot>
 
 ## The stack
 
