@@ -22,8 +22,9 @@ const env = envFromSite(Astro.site);
     <summary>Deployed tools registry · {registeredTools.length}</summary>
     <p class="registry-note">
       Every tool registered in the manifest, generated from <code>greenlight.config.ts</code> — the
-      inventory check so nothing deployed slips off the showcase above (e.g. <code>muse</code>, the
-      agent, and the blog itself have no card but run live).
+      inventory check so nothing deployed slips off the showcase above. <code>muse</code> (a daily
+      cron agent that publishes one Gemini-written tip on deploying safely) and the blog itself have
+      no card but run live.
     </p>
     <div class="registry-scroll">
       <table class="registry-table">
