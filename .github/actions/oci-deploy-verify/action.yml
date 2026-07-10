@@ -1,10 +1,14 @@
-name: 'BAMCP OCI deploy + verify'
+name: 'OCI deploy + verify'
 description: >
-  Resolve the bamcp container instance by display name, restart it (re-pull the GHCR image),
-  and verify prod. Shared by greenlight-deploy-bamcp and greenlight-remediate-bamcp so the
-  resolve→deploy→verify logic lives in ONE place. The caller must have already run
-  actions/checkout + mise + `pnpm install` (this composite calls `pnpm exec greenlight`).
+  Resolve an oci tool's container instance by display name, restart it (re-pull the GHCR image),
+  and verify prod. Shared by the greenlight-deploy-<tool> and greenlight-remediate-<tool>
+  workflows (bamcp, polyphony) so the resolve→deploy→verify logic lives in ONE place. The caller
+  must have already run actions/checkout + mise + `pnpm install` (this calls `pnpm exec greenlight`).
 inputs:
+  tool-name:
+    description: Manifest tool name = the instance display name (bamcp, polyphony, ...)
+    required: false
+    default: 'bamcp'
   oci-tenancy:
     description: OCI tenancy OCID
     required: true
@@ -25,7 +29,7 @@ inputs:
     required: false
     default: ''
   verify-token:
-    description: BAMCP_VERIFY_TOKEN — enables the authenticated mcp verify; empty → the 401 smoke alone gates
+    description: BAMCP_VERIFY_TOKEN — enables bamcp's authenticated mcp verify; empty → the anonymous checks alone gate (polyphony's api spec needs no token)
     required: false
     default: ''
 runs:
@@ -45,30 +49,33 @@ runs:
         OCI_CLI_KEY_CONTENT: ${{ inputs.oci-private-key }}
         OCI_CLI_REGION: ${{ inputs.oci-region }}
         OCI_COMPARTMENT_ID: ${{ inputs.oci-compartment }}
+        TOOL_NAME: ${{ inputs.tool-name }}
       run: |
         # The instance OCID is abstracted from the developer: resolve it from OCI by the
         # instance's display name (= the tool name, set by the oci-container-instance module).
         # No manually-fetched/stored OCID secret. Compartment falls back to the tenancy (root).
         set -o pipefail
         COMPARTMENT="${OCI_COMPARTMENT_ID:-$OCI_CLI_TENANCY}"
-        echo "Resolving 'bamcp' (region=$OCI_CLI_REGION)…"
+        echo "Resolving '$TOOL_NAME' (region=$OCI_CLI_REGION)…"
         oci container-instances container-instance list \
-          --compartment-id "$COMPARTMENT" --display-name bamcp --all > list.json \
+          --compartment-id "$COMPARTMENT" --display-name "$TOOL_NAME" --all > list.json \
           || { echo "::error::oci list failed (auth/region/compartment) — see output above"; exit 1; }
         # OCIDs are identifiers, not secrets (tenancy/compartment are masked by Actions).
         echo "Matches:"; jq -r '(.data.items // .data // [])[]? | "  \(.["lifecycle-state"] // "?")  \(.id)"' list.json
         OCID=$(jq -r '[(.data.items // .data // [])[]? | select((.["lifecycle-state"] // "")=="ACTIVE") | .id][0] // ""' list.json)
         if [ -z "$OCID" ]; then
-          echo "::error::no ACTIVE container instance named 'bamcp' in compartment $COMPARTMENT"
+          echo "::error::no ACTIVE container instance named '$TOOL_NAME' in compartment $COMPARTMENT"
           exit 1
         fi
-        echo "Resolved bamcp instance: $OCID"
-        OCI_CONTAINER_INSTANCE_OCID="$OCID" pnpm exec greenlight deploy bamcp --env prod
+        echo "Resolved $TOOL_NAME instance: $OCID"
+        OCI_CONTAINER_INSTANCE_OCID="$OCID" pnpm exec greenlight deploy "$TOOL_NAME" --env prod
     - name: Verify prod (gate the signal on real health, not just the restart)
       shell: bash
       env:
-        # BAMCP_VERIFY_TOKEN (optional) enables the authenticated functional/eval mcp check; absent →
-        # the api 401 check alone gates (see verify/bamcp.config.ts). verify has a built-in readiness
-        # wait, so this covers re-pull + container start before asserting.
+        # BAMCP_VERIFY_TOKEN (optional) enables bamcp's authenticated functional/eval mcp check;
+        # absent → the anonymous checks alone gate. Polyphony's api spec reads no token — passing
+        # an empty verify-token is the norm there. verify has a built-in readiness wait, so this
+        # covers re-pull + container start (and Polyphony's boot-time migrations) before asserting.
         BAMCP_VERIFY_TOKEN: ${{ inputs.verify-token }}
-      run: pnpm exec greenlight verify bamcp --env prod
+        TOOL_NAME: ${{ inputs.tool-name }}
+      run: pnpm exec greenlight verify "$TOOL_NAME" --env prod

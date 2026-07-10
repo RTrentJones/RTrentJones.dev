@@ -76,6 +76,26 @@ BAMCP_VERIFY_TOKEN                 # M2M token for the authenticated mcp verify 
 GREENLIGHT_STATUS_TOKEN_BAMCP      # PAT to post commit status back to RTrentJones/BAMCP (deploy workflow)
 ```
 
+polyphony (OCI compute reuses the `TF_VAR_OCI_*` set above; Neon reuses `NEON_API_KEY`; the
+LLM key reuses the **shared** `GEMINI_API_KEY` — `infra.yml` maps it to
+`TF_VAR_polyphony_gemini_api_key`, tracer-style). Qdrant Cloud has no Terraform provider in the
+module set: create the free 1 GB cluster by hand at https://cloud.qdrant.io, then record its URL +
+API key as the two secrets below.
+
+```sh
+TF_VAR_POLYPHONY_SECRET_KEY        # JWT signing key, >= 32 random chars (app refuses to boot without it)
+TF_VAR_POLYPHONY_QDRANT_URL        # Qdrant Cloud cluster URL (hand-provisioned free tier)
+TF_VAR_POLYPHONY_QDRANT_API_KEY    # Qdrant Cloud API key
+TF_VAR_POLYPHONY_ADMIN_PASSWORD    # first-boot admin password (admin mints the invite codes)
+GREENLIGHT_STATUS_TOKEN_POLYPHONY  # PAT to post commit status back to RTrentJones/Polyphony (deploy workflow)
+```
+
+On RTrentJones/Polyphony itself (the only secret that repo holds):
+
+```sh
+GREENLIGHT_DISPATCH_TOKEN          # PAT with Contents:write on THIS wrapper — fires repository_dispatch(deploy-polyphony)
+```
+
 keepalive:
 
 ```sh

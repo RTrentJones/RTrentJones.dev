@@ -7,3 +7,6 @@
 [submodule "tools/pg_kafka"]
 	path = tools/pg_kafka
 	url = https://github.com/RTrentJones/pg_kafka
+[submodule "tools/polyphony"]
+	path = tools/polyphony
+	url = https://github.com/RTrentJones/Polyphony.git
