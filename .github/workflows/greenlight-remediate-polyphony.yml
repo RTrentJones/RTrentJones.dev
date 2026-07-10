@@ -44,8 +44,6 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           TF_VAR_polyphony_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           TF_VAR_polyphony_secret_key: ${{ secrets.TF_VAR_POLYPHONY_SECRET_KEY }}
-          TF_VAR_polyphony_qdrant_url: ${{ secrets.TF_VAR_POLYPHONY_QDRANT_URL }}
-          TF_VAR_polyphony_qdrant_api_key: ${{ secrets.TF_VAR_POLYPHONY_QDRANT_API_KEY }}
           TF_VAR_polyphony_admin_password: ${{ secrets.TF_VAR_POLYPHONY_ADMIN_PASSWORD }}
         run: |
           if [ -z "$TF_TOKEN_app_terraform_io" ]; then
