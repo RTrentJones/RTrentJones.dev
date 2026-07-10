@@ -1,4 +1,5 @@
 # polyphony — mcp/oci (a FastAPI book-writing platform; the mcp lane only gates the oci target).
+# NOTE: the GHCR package must be PUBLIC — OCI pulls anonymously (no registry creds are wired).
 # Review, then commit + push: the wrapper's infra.yml (HCP-backed) runs `terraform apply`.
 # Assumes infra/main.tf declares: oci + neon provider(s)
 # and var.cloudflare_zone_id, var.cloudflare_account_id, local.oci_compartment_id.
