@@ -221,6 +221,15 @@ module "keepalive" {
       remediate = true
       url       = "https://bamcp.rtrentjones.dev"
       probePath = "/mcp" # 401 (auth-gated) is reachable; proves tunnel + container are serving
+    },
+    {
+      # Same oci recover-on-alert shape for polyphony (fires greenlight-remediate-polyphony.yml).
+      name      = "polyphony"
+      env       = "prod"
+      kind      = "oci"
+      remediate = true
+      url       = "https://polyphony.rtrentjones.dev"
+      probePath = "/health" # 200 proves tunnel + container + app (incl. boot migrations) serving
     }
   ])
 }

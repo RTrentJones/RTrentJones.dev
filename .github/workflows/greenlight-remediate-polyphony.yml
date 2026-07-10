@@ -1,0 +1,96 @@
+name: greenlight-remediate-polyphony
+
+# Auto-heal: the keepalive Worker dispatches remediate-polyphony when polyphony (oci) is unreachable.
+on:
+  repository_dispatch:
+    types: [remediate-polyphony]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Same group as greenlight-deploy-polyphony: a self-heal never overlaps a deploy or another heal,
+# and re-applying an already-healthy instance is idempotent (no diff) — anti-flap with no extra state.
+concurrency:
+  group: deploy-polyphony
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+      - run: pnpm install --frozen-lockfile
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: '~1.10'
+          terraform_wrapper: false
+      # Unattended, auto-approved terraform path (same carve-out as remediate-bamcp): an
+      # idle-reclaimed box must heal with no human awake. It carries the same safety: plan ->
+      # destroy-guard -> apply THE PLAN, scoped to module.polyphony_instance. The guard refuses
+      # any heal that would destroy a stateful store (polyphony's Neon project lives in the same
+      # state — the type-matching guard covers it automatically).
+      - name: Plan + guard + apply the heal (recreate the instance if OCI idle-reclaimed it)
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }} # HCP state backend auth
+          TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
+          TF_VAR_oci_user_ocid: ${{ secrets.TF_VAR_OCI_USER_OCID }}
+          TF_VAR_oci_fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
+          TF_VAR_oci_private_key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
+          TF_VAR_oci_region: ${{ secrets.TF_VAR_OCI_REGION }}
+          TF_VAR_oci_compartment_id: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_polyphony_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          TF_VAR_polyphony_secret_key: ${{ secrets.TF_VAR_POLYPHONY_SECRET_KEY }}
+          TF_VAR_polyphony_qdrant_url: ${{ secrets.TF_VAR_POLYPHONY_QDRANT_URL }}
+          TF_VAR_polyphony_qdrant_api_key: ${{ secrets.TF_VAR_POLYPHONY_QDRANT_API_KEY }}
+          TF_VAR_polyphony_admin_password: ${{ secrets.TF_VAR_POLYPHONY_ADMIN_PASSWORD }}
+        run: |
+          if [ -z "$TF_TOKEN_app_terraform_io" ]; then
+            echo "::warning::no TF_API_TOKEN — skipping re-apply; will still attempt a restart below"
+            exit 0
+          fi
+          terraform -chdir=infra init -input=false
+          # -target pulls in the instance's deps (network/tunnel/neon outputs) automatically.
+          terraform -chdir=infra plan -input=false -out=tf.plan -target=module.polyphony_instance
+          # Destroy-guard (matches infra.yml's): refuse if the heal would delete/replace a
+          # stateful data store. Matches by resource TYPE, so address renames can't dodge it.
+          terraform -chdir=infra show -json tf.plan > heal-plan.json
+          BAD=$(jq '[.resource_changes[]? | select((.change.actions | index("delete")) and (.type | test("supabase_project|neon_project|neon_branch")))] | length' heal-plan.json)
+          if [ "$BAD" != "0" ]; then
+            echo "::error::heal plan would destroy $BAD stateful store resource(s) — refusing to auto-apply. Use the gated infra workflow."
+            exit 1
+          fi
+          terraform -chdir=infra apply -input=false tf.plan
+      # Same resolve→restart→verify as greenlight-deploy-polyphony (shared composite). The
+      # terraform re-apply above recreates the box if it was reclaimed; this then restarts +
+      # re-pulls + gates.
+      - uses: ./.github/actions/oci-deploy-verify
+        with:
+          tool-name: polyphony
+          oci-tenancy: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
+          oci-user: ${{ secrets.TF_VAR_OCI_USER_OCID }}
+          oci-fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
+          oci-private-key: ${{ secrets.TF_VAR_OCI_PRIVATE_KEY }}
+          oci-region: ${{ secrets.TF_VAR_OCI_REGION }}
+          oci-compartment: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
+      - name: Escalate if the self-heal failed
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REASON: ${{ github.event.client_payload.reason || 'manual/unknown' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="remediate-polyphony: self-heal FAILED"
+          BODY="Automatic remediation for polyphony (reason: $REASON) did not bring prod back. Manual attention needed. Run: $RUN_URL"
+          # De-dup: a sustained outage fires this every cron tick — comment on the existing open
+          # keepalive issue instead of stacking identical ones (alert fatigue).
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --label keepalive \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "Still failing — $BODY" || true
+          else
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" --body "$BODY" --label keepalive || true
+          fi

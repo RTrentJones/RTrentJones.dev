@@ -50,8 +50,8 @@ jobs:
           # Allow-list mirrors greenlight.config.ts (blog + the tools[] array). The CLI also validates,
           # but reject an unknown/metachar name here before it reaches any `pnpm exec` command line.
           case "$NAME" in
-            blog | heistmind | bamcp | tracer | muse) ;;
-            *) echo "::error::unknown tool '$NAME' (allowed: blog heistmind bamcp tracer muse)"; exit 1 ;;
+            blog | heistmind | bamcp | tracer | muse | polyphony) ;;
+            *) echo "::error::unknown tool '$NAME' (allowed: blog heistmind bamcp tracer muse polyphony)"; exit 1 ;;
           esac
 
       - name: Check Cloudflare creds

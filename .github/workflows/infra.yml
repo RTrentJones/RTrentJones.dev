@@ -74,6 +74,15 @@ env:
   # BAMCP M2M service token for the CI verify — same secret the deploy/remediate verify step
   # presents. Empty/unset → functional verify dormant (the 401 smoke still gates).
   TF_VAR_bamcp_verify_token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
+  # polyphony (mcp/oci + Neon + Qdrant Cloud) runtime secrets, wired into the container env by
+  # polyphony.tf. The Gemini key is the SHARED account secret (tracer/muse-style override of the
+  # manifest's per-tool TF_VAR_POLYPHONY_GEMINI_API_KEY default). Neon rides the same NEON_API_KEY
+  # already set for tracer. Qdrant Cloud is hand-provisioned (no TF provider) — see infra/TOKENS.md.
+  TF_VAR_polyphony_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+  TF_VAR_polyphony_secret_key: ${{ secrets.TF_VAR_POLYPHONY_SECRET_KEY }}
+  TF_VAR_polyphony_qdrant_url: ${{ secrets.TF_VAR_POLYPHONY_QDRANT_URL }}
+  TF_VAR_polyphony_qdrant_api_key: ${{ secrets.TF_VAR_POLYPHONY_QDRANT_API_KEY }}
+  TF_VAR_polyphony_admin_password: ${{ secrets.TF_VAR_POLYPHONY_ADMIN_PASSWORD }}
 
 jobs:
   plan:
