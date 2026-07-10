@@ -1,6 +1,13 @@
 ---
 import type { CollectionEntry } from 'astro:content';
-import { envFromSite, providersFor, stackLine, toolByName, toolUrl } from '../data/manifest';
+import {
+  envFromSite,
+  isMcpServer,
+  providersFor,
+  stackLine,
+  toolByName,
+  toolUrl,
+} from '../data/manifest';
 
 interface Props {
   project: CollectionEntry<'projects'>;
@@ -15,8 +22,8 @@ const facets = toolByName[project.id];
 const providers = facets ? providersFor(facets) : [];
 const live = liveUrl ?? (facets ? toolUrl(project.id, envFromSite(Astro.site)) : undefined);
 // MCP servers aren't browsable (the /mcp endpoint 401s), so skip the "Live ↗" link on the card — the
-// write-up carries the "Connect to Claude" setup.
-const isMcp = facets?.lane === 'mcp';
+// write-up carries the "Connect to Claude" setup. Browsable mcp-lane apps (polyphony) are exempt.
+const isMcp = isMcpServer(project.id);
 
 // Local projects get a write-up page at /<slug>/; an external: true project links straight out
 // instead (none are external today).
