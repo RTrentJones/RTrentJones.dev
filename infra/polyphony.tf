@@ -18,12 +18,9 @@ module "polyphony_tunnel" {
   ]
 }
 
-module "polyphony_network" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-network?ref=v0.8.0"
-
-  name           = "polyphony"
-  compartment_id = local.oci_compartment_id
-}
+# No dedicated network: polyphony shares bamcp's VCN/subnet (infra/bamcp.tf). The subnet is
+# egress-only — ingress rides each tool's own tunnel — so nothing about it is tool-specific,
+# and the tenancy's vcn-count service limit is already consumed by bamcp's VCN.
 
 # Neon Postgres — instantiated directly (the manifest's data field must be 'none' for the mcp lane;
 # the matrix constrains the manifest, not this file). Scale-to-zero + auto-resume → no keepalive
@@ -41,7 +38,7 @@ module "polyphony_instance" {
 
   name           = "polyphony"
   compartment_id = local.oci_compartment_id
-  subnet_id      = module.polyphony_network.subnet_id
+  subnet_id      = module.bamcp_network.subnet_id
   image_url      = var.polyphony_image
   tunnel_token   = module.polyphony_tunnel.token
 
