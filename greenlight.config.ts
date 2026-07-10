@@ -17,6 +17,6 @@ export default defineConfig({
     // spec uses api mode (verify/polyphony.config.ts). data stays 'none' per the matrix; its Neon
     // project is instantiated directly in infra/polyphony.tf (the plan-guard covers neon_* destroys).
     // The LLM key rides the SHARED account secret (GEMINI_API_KEY), tracer-style — see infra.yml.
-    { name: 'polyphony', lane: 'mcp', target: 'oci', data: 'none', auth: 'bearer', access: 'public', envs: ['prod'], dir: 'tools/polyphony', adopted: true, external: true, port: 8000, preview: { command: 'docker compose --profile preview up --build', teardown: 'docker compose --profile preview down -v', port: 8000, path: '/health' }, tokens: ['GREENLIGHT_STATUS_TOKEN_POLYPHONY', 'TF_VAR_POLYPHONY_GEMINI_API_KEY', 'TF_VAR_POLYPHONY_SECRET_KEY', 'TF_VAR_POLYPHONY_QDRANT_URL', 'TF_VAR_POLYPHONY_QDRANT_API_KEY', 'TF_VAR_POLYPHONY_ADMIN_PASSWORD'] },
+    { name: 'polyphony', lane: 'mcp', target: 'oci', data: 'none', auth: 'bearer', access: 'public', envs: ['prod'], dir: 'tools/polyphony', adopted: true, external: true, port: 8000, preview: { command: 'docker compose --profile preview up --build', teardown: 'docker compose --profile preview down -v', port: 8000, path: '/health' }, tokens: ['GREENLIGHT_STATUS_TOKEN_POLYPHONY', 'TF_VAR_POLYPHONY_GEMINI_API_KEY', 'TF_VAR_POLYPHONY_SECRET_KEY', 'TF_VAR_POLYPHONY_ADMIN_PASSWORD'] },
   ],
 });

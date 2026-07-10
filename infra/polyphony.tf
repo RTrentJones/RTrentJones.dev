@@ -52,11 +52,9 @@ module "polyphony_instance" {
   environment = {
     ENVIRONMENT  = "production"
     PORT         = "8000"
-    DATABASE_URL = module.polyphony_neon.direct_url["prod"]
-    # Qdrant Cloud free cluster (1 GB) — created by hand in the Qdrant console (no TF provider in
-    # the module set); URL + API key ride GitHub secrets → TF vars. See infra/TOKENS.md.
-    QDRANT_URL      = var.polyphony_qdrant_url
-    QDRANT_API_KEY  = var.polyphony_qdrant_api_key
+    # Vector search lives IN this database via pgvector (the app's Alembic
+    # baseline creates the extension + voice_chunks table) — no separate store.
+    DATABASE_URL    = module.polyphony_neon.direct_url["prod"]
     LLM_PROVIDER    = "gemini"
     GEMINI_API_KEY  = var.polyphony_gemini_api_key
     SECRET_KEY      = var.polyphony_secret_key
@@ -88,19 +86,6 @@ variable "polyphony_secret_key" {
   default     = ""
   sensitive   = true
   description = "JWT signing key (>= 32 chars). App refuses to boot without it."
-}
-
-variable "polyphony_qdrant_url" {
-  type        = string
-  default     = ""
-  description = "Qdrant Cloud cluster URL (hand-provisioned free tier)."
-}
-
-variable "polyphony_qdrant_api_key" {
-  type        = string
-  default     = ""
-  sensitive   = true
-  description = "Qdrant Cloud API key."
 }
 
 variable "polyphony_admin_password" {
