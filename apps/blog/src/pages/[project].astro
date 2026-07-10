@@ -1,7 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import { envFromSite, toolByName, toolUrl } from '../data/manifest';
+import { envFromSite, isMcpServer, toolByName, toolUrl } from '../data/manifest';
 
 // Top-level write-up pages (/heistmind, /bamcp). Astro's SSG emits ONLY the slugs returned
 // here, so this never shadows the static routes (/, /blog, /about).
@@ -31,8 +31,9 @@ const facets = toolByName[project.id];
 // manifest's env-aware URL.
 const live = liveUrl ?? (facets ? toolUrl(project.id, envFromSite(Astro.site)) : undefined);
 // MCP servers aren't browsable — the "live" surface is an OAuth-gated /mcp endpoint that 401s in a
-// browser — so send the CTA to the on-page setup section instead. Otherwise label it to match status.
-const isMcp = facets?.lane === 'mcp';
+// browser — so send the CTA to the on-page setup section instead. Otherwise label it to match
+// status. Browsable mcp-lane apps (polyphony) get the normal live CTA.
+const isMcp = isMcpServer(project.id);
 const openLabel =
   status === 'prototype'
     ? 'Open the prototype ↗'

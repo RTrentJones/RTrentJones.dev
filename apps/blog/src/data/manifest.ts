@@ -54,6 +54,17 @@ export function stackLine(t: Facets): string {
 
 export const domain = (config as unknown as { domain: string }).domain;
 
+/** Tools whose manifest lane is 'mcp' only because that lane gates the oci target — they are
+ * ordinary browsable web apps, not MCP servers. Their live surface is the root URL (no /mcp),
+ * and cards/CTAs should treat them like any other app. */
+const BROWSABLE_MCP_LANE = new Set(['polyphony']);
+
+/** True when the tool is an actual MCP server (protocol endpoint at /mcp, not browsable). */
+export function isMcpServer(name: string): boolean {
+  const facets = toolByName[name];
+  return facets?.lane === 'mcp' && !BROWSABLE_MCP_LANE.has(name);
+}
+
 const blogFacets: Facets = { name: 'blog', ...(config as unknown as { blog: Facets }).blog };
 
 // --- env-aware URLs ------------------------------------------------------------------------------
@@ -75,7 +86,7 @@ export function toolUrl(name: string, env: Env): string {
     domain,
     name: name === 'blog' ? undefined : name,
     env: env === 'beta' && hasBeta ? 'beta' : 'prod',
-    mcp: facets?.lane === 'mcp',
+    mcp: isMcpServer(name),
   });
 }
 
