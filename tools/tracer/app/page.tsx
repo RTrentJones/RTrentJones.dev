@@ -5,7 +5,7 @@ import { RunEval } from './components/RunEval';
 import { Card, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from './components/ui';
 
 // Read fresh each request so the dashboard reflects the DB and the verify gate exercises a live query
-// (a broken connection / missing table 500s instead of returning the seeded marker).
+// (a broken connection / missing table 500s instead of hiding behind stale content).
 export const dynamic = 'force-dynamic';
 
 // Pivot the long (bucket, model, pass_rate) rows into one row per day with a column per model — the

@@ -15,6 +15,13 @@
       "when": 1782420572359,
       "tag": "0001_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782420580000,
+      "tag": "0002_remove_seeded_demo_data",
+      "breakpoints": true
     }
   ]
 }
