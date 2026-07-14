@@ -1,6 +1,6 @@
 # Tracer — model evals dashboard
 
-The persistence + UI layer for Greenlight's `verify --mode eval` / `agent-web` runs: store every
+The persistence + UI layer for Greenlight's `verify --mode eval`, `agent-web`, API, and project-specific runs (for example `pg_kafka`): store every
 eval run, show pass-rate over time, flag regressions, compare models **across providers**, and surface
 the LLM judge's rationale. **`next` lane · `vercel` target · `neon` data.**
 
@@ -49,7 +49,7 @@ Add a vendor by appending a row to `PROVIDERS`. Each run is one `eval_run` per p
   and **free-by-default** — set only `GEMINI_API_KEY` and a full run costs **$0**; a paid key
   (`ANTHROPIC_API_KEY`) makes *every* `/api/run` spend, so set it deliberately. There's no per-IP
   rate-limit — keep the token secret and rotate it if exposed.
-- The dashboard is `access: public` (a shareable portfolio link); only seeded/demo data lives here.
+- The dashboard is `access: public` (a shareable portfolio link) but evidence-only: migrations do not seed demo rows, and empty states remain empty until a real producer ingests data.
 
 ## Standards & interop (the hybrid)
 
@@ -64,7 +64,7 @@ Nothing here is bespoke, so production can swap Tracer for a maintained backend:
 
 ## Data (Neon)
 
-Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)).
+Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)). Migrations are schema/cleanup only: `0001_seed.sql` is intentionally empty, and `0002_remove_seeded_demo_data.sql` removes the legacy portfolio fixtures so only real ingested runs are visible.
 **Regressions are derived on read in TypeScript** — `deriveRegressions` ([lib/regression.ts](lib/regression.ts)),
 applied by [lib/queries.ts](lib/queries.ts) `runsWithRegression`; it's the single implementation
 (unit-tested without a DB, there is no SQL mirror) and the read scan is bounded to ~90 days. Runtime
