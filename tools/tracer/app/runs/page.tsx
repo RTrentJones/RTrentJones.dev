@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { filterOptions, runsWithRegression } from '../../lib/queries';
-import { Card, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from '../components/ui';
+import { Card, EmptyState, EvidenceBanner, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from '../components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +33,12 @@ export default async function RunsPage({
 
   return (
     <div style={{ display: 'grid', gap: '1.25rem' }}>
-      <h1 style={{ margin: 0 }}>Runs</h1>
+      <div>
+        <h1 style={{ margin: '0 0 0.25rem' }}>Runs</h1>
+        <p style={{ margin: 0, color: '#64748b' }}>Filter real ingested signal by project, model/source, and environment.</p>
+      </div>
+
+      <EvidenceBanner />
 
       <Card>
         {/* Plain GET form → filters live in the URL, no client state. */}
@@ -90,7 +95,7 @@ export default async function RunsPage({
             {runs.length === 0 && (
               <tr>
                 <td style={{ ...td, color: '#94a3b8' }} colSpan={9}>
-                  No runs match these filters.
+                  No real runs match these filters. Clear the filters or ingest a new run from CI, Greenlight verify, /api/run, or a project pipeline.
                 </td>
               </tr>
             )}

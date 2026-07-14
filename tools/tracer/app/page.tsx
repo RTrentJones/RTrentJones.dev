@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { latestRunPerTool, passRateOverTime, runsWithRegression } from '../lib/queries';
 import { LineChart } from './components/LineChart';
 import { RunEval } from './components/RunEval';
-import { Card, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from './components/ui';
+import { Card, EmptyState, EvidenceBanner, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from './components/ui';
 
 // Read fresh each request so the dashboard reflects the DB and the verify gate exercises a live query
-// (a broken connection / missing table 500s instead of returning the seeded marker).
+// (a broken connection / missing table 500s instead of hiding behind stale content).
 export const dynamic = 'force-dynamic';
 
 // Pivot the long (bucket, model, pass_rate) rows into one row per day with a column per model — the
@@ -39,21 +39,22 @@ export default async function Page() {
     <div style={{ display: 'grid', gap: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
         <div>
-          <h1 style={{ margin: '0 0 0.25rem' }}>Model evals</h1>
+          <h1 style={{ margin: '0 0 0.25rem' }}>Project signals</h1>
           <p style={{ margin: 0, color: '#64748b' }}>
-            Every <code>verify --mode eval</code> run, stored over time — pass rate, regressions, and
-            cross-provider comparisons (Claude · Gemini · Grok).
+            Real verification history for LLM evals, agent runs, API checks, and project pipelines like <code>pg_kafka</code> — pass rate, regressions, and comparisons.
           </p>
         </div>
         <RunEval />
       </div>
+
+      <EvidenceBanner />
 
       <Card>
         <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Pass rate over time (30d)</h2>
         {data.length > 0 ? (
           <LineChart data={data} models={models} />
         ) : (
-          <p style={{ color: '#94a3b8' }}>No runs yet.</p>
+          <EmptyState title="No real runs yet">Post an authenticated ingest payload or run an enabled provider suite; Tracer leaves the dashboard empty until real data arrives.</EmptyState>
         )}
       </Card>
 
@@ -74,7 +75,7 @@ export default async function Page() {
             {latest.length === 0 ? (
               <tr>
                 <td style={{ ...td, color: '#94a3b8' }} colSpan={6}>
-                  No runs yet.
+                  No real ingested runs yet.
                 </td>
               </tr>
             ) : (
@@ -115,7 +116,7 @@ export default async function Page() {
             {recent.length === 0 ? (
               <tr>
                 <td style={{ ...td, color: '#94a3b8' }} colSpan={7}>
-                  No runs yet.
+                  No real ingested runs yet.
                 </td>
               </tr>
             ) : (

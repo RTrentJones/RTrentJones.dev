@@ -1,7 +1,7 @@
 import { compareModels, filterOptions } from '../../lib/queries';
 import type { CompareCell } from '../../lib/types';
 import { BarChart } from '../components/BarChart';
-import { Card, PassBadge, pct } from '../components/ui';
+import { Card, EmptyState, EvidenceBanner, PassBadge, pct } from '../components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +36,10 @@ export default async function ComparePage({
     <div style={{ display: 'grid', gap: '1.5rem' }}>
       <div>
         <h1 style={{ margin: '0 0 0.25rem' }}>Compare models</h1>
-        <p style={{ margin: 0, color: '#64748b' }}>Latest run per model on the same suite, aligned case by case.</p>
+        <p style={{ margin: 0, color: '#64748b' }}>Latest real run per model or source on the same suite, aligned case by case.</p>
       </div>
+
+      <EvidenceBanner />
 
       <Card>
         <form method="get" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -69,9 +71,7 @@ export default async function ComparePage({
 
       {models.length === 0 ? (
         <Card>
-          <p style={{ color: '#94a3b8', margin: 0 }}>
-            No runs for <strong>{tool}</strong> in <strong>{env}</strong>.
-          </p>
+          <EmptyState title="Nothing to compare yet">No real runs for <strong>{tool}</strong> in <strong>{env}</strong>. Ingest at least one run for this project/environment; ingest multiple models or sources to unlock a useful comparison.</EmptyState>
         </Card>
       ) : (
         <>

@@ -19,7 +19,7 @@ dbDescribe('tracer queries (DB-backed, Neon branch)', () => {
     db = (await import('../../lib/db')).getDb();
     q = await import('../../lib/queries');
     ({ insertRun } = await import('../../lib/insert-run'));
-    // Start from a clean slate (the branch is migrated + seeded; we want deterministic fixtures).
+    // Start from a clean slate (the branch is migrated; we want deterministic fixtures).
     await db.execute(sql`TRUNCATE eval_run, eval_case RESTART IDENTITY CASCADE`);
   });
 
