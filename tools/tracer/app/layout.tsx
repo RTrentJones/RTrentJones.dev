@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'Tracer — Claude evals',
-  description: 'A Claude evals dashboard: pass-rate over time, regressions, and model comparisons.',
+  title: 'Tracer — project signals',
+  description: 'Evidence-only project signal dashboard: evals, CI checks, regressions, and comparisons.',
 };
 
 const navLink = { color: '#4338ca', textDecoration: 'none', fontWeight: 600 } as const;

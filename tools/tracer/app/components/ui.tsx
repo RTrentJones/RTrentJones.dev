@@ -61,3 +61,40 @@ export function Card({ children, style }: { children: ReactNode; style?: CSSProp
     </section>
   );
 }
+
+export function EvidenceBanner() {
+  return (
+    <aside
+      style={{
+        border: '1px solid #bfdbfe',
+        background: '#eff6ff',
+        color: '#1e3a8a',
+        borderRadius: 12,
+        padding: '0.85rem 1rem',
+        display: 'grid',
+        gap: '0.25rem',
+      }}
+    >
+      <strong>Evidence-only dashboard</strong>
+      <span style={{ fontSize: '0.9rem', lineHeight: 1.45 }}>
+        Tracer does not seed demo runs. Every row should come from a real producer: Greenlight verify,
+        an authenticated provider run, CI, or a project pipeline such as pg_kafka.
+      </span>
+    </aside>
+  );
+}
+
+export function EmptyState({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ color: '#64748b', display: 'grid', gap: '0.35rem' }}>
+      <strong style={{ color: '#334155' }}>{title}</strong>
+      <div style={{ fontSize: '0.9rem', lineHeight: 1.45 }}>{children}</div>
+    </div>
+  );
+}
