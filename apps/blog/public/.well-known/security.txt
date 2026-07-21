@@ -1,0 +1,6 @@
+# https://rtrentjones.dev/.well-known/security.txt — RFC 9116
+# Renew before the Expires date below (or Security Center will flag it as stale).
+Contact: https://github.com/RTrentJones
+Expires: 2027-07-20T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://rtrentjones.dev/.well-known/security.txt
