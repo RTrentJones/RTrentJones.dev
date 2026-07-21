@@ -1,0 +1,19 @@
+# Security response headers for every path, served by Cloudflare Workers Static Assets.
+# (Workers natively honors this _headers file when placed in the asset directory; Astro copies
+# public/ -> dist/.) This file only ADDS security headers — it deliberately does not set
+# Cache-Control/Content-Type, leaving the edge cache behavior untouched.
+#
+# NOTE: HSTS is intentionally NOT set here. Strict-Transport-Security is injected by Cloudflare's
+# edge (zone) HSTS setting; setting it here too would be overridden (double header). HSTS hardening
+# (includeSubDomains, longer max-age, preload) is done at the zone level.
+#
+# The CSP is evidence-based (inventoried against built dist/): no external or executable inline JS
+# (only application/ld+json data blocks) -> strict script-src 'self'; Astro inlines critical CSS
+# -> style-src needs 'unsafe-inline'; one external image (pg_kafka evidence SVG on raw.githubusercontent.com).
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https://raw.githubusercontent.com; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; media-src 'self'; manifest-src 'self'; upgrade-insecure-requests

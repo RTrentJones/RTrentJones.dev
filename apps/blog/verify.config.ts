@@ -21,6 +21,9 @@ export default {
     // Trailing slash to match the site's trailingSlash:'always' invariant (a no-slash path gets the
     // dev server's built-in 404 locally; the custom page serves for the canonical slash form).
     { path: '/__greenlight_404_probe__/', status: 404, contains: 'check failed' },
+    // RFC 9116 disclosure file — lock it in so it can't silently 404 again. No trailing slash
+    // (it's a file with an extension, not a directory route).
+    { path: '/.well-known/security.txt', status: 200 },
   ],
   rssValid: true,
   sitemapValid: true,
