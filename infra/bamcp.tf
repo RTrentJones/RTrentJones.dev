@@ -45,7 +45,21 @@ module "bamcp_instance" {
     BAMCP_ISSUER_URL          = "https://bamcp.rtrentjones.dev"
     BAMCP_RESOURCE_SERVER_URL = "https://bamcp.rtrentjones.dev"
     BAMCP_ALLOW_REMOTE_FILES  = "true"
-    BAMCP_RATE_LIMIT          = "60"
+    # SSRF blast-radius bound: remote fetch stays ON (region-scoped streaming of public
+    # datasets + remote reference FASTA is a core feature), but restricted to trusted public
+    # genomics hosts instead of "any public IP". Append the user's own cloud-bucket hosts here
+    # if prod needs to stream from them. Empty/unset = no allow-list (only private-IP blocking).
+    BAMCP_ALLOWED_REMOTE_HOSTS = join(",", [
+      "hgdownload.soe.ucsc.edu",     # UCSC reference FASTA (hg38/hg19) for CRAM decode
+      "ftp.ncbi.nlm.nih.gov",        # NCBI
+      "ftp-trace.ncbi.nlm.nih.gov",  # GIAB / NIST truth + sample data
+      "ftp.1000genomes.ebi.ac.uk",   # 1000 Genomes (EBI)
+      "1000genomes.s3.amazonaws.com" # 1000 Genomes (S3, virtual-hosted HTTPS)
+    ])
+    BAMCP_RATE_LIMIT = "60"
+    # cloudflared tunnel sidecar is co-located → the immediate proxy is loopback. XFF is trusted
+    # only from here, so an external client cannot spoof its IP to bypass per-IP rate limits.
+    BAMCP_RATE_LIMIT_TRUSTED_PROXIES = "127.0.0.1,::1"
     # M2M service token for the CI verify (stateless bearer → survives restarts). The SAME secret is
     # presented by the verify step (greenlight-deploy/remediate). Empty → functional verify dormant;
     # the 401 smoke still gates. Per-tool name (BAMCP_) so it never collides with another tool.
