@@ -38,13 +38,20 @@ module "bamcp_instance" {
 
   # BAMCP runtime env — the container listens on 8000 (the tunnel routes there). OAuth on in prod.
   environment = {
-    BAMCP_TRANSPORT           = "streamable-http"
-    BAMCP_HOST                = "0.0.0.0"
-    BAMCP_PORT                = "8000"
-    BAMCP_AUTH_ENABLED        = "true"
-    BAMCP_ISSUER_URL          = "https://bamcp.rtrentjones.dev"
-    BAMCP_RESOURCE_SERVER_URL = "https://bamcp.rtrentjones.dev"
-    BAMCP_ALLOW_REMOTE_FILES  = "true"
+    BAMCP_TRANSPORT    = "streamable-http"
+    BAMCP_HOST         = "0.0.0.0"
+    BAMCP_PORT         = "8000"
+    BAMCP_AUTH_ENABLED = "true"
+    # Interactive MCP clients (claude.ai's connector) onboard via OAuth Dynamic Client
+    # Registration — they POST /register to obtain a client, then run the auth-code flow. That
+    # endpoint MUST be enabled or those clients can't connect (they can't pre-register). This is a
+    # personal, read-only server: the practical boundary is the unpublished tunnel URL + read-only
+    # tools + the remote-fetch allow-list above, NOT multi-tenant access control. The static
+    # BAMCP_VERIFY_TOKEN below is a separate M2M path for the CI verify.
+    BAMCP_ALLOW_DYNAMIC_REGISTRATION = "true"
+    BAMCP_ISSUER_URL                 = "https://bamcp.rtrentjones.dev"
+    BAMCP_RESOURCE_SERVER_URL        = "https://bamcp.rtrentjones.dev"
+    BAMCP_ALLOW_REMOTE_FILES         = "true"
     # SSRF blast-radius bound: remote fetch stays ON (region-scoped streaming of public
     # datasets + remote reference FASTA is a core feature), but restricted to trusted public
     # genomics hosts instead of "any public IP". Append the user's own cloud-bucket hosts here
