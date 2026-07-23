@@ -5,8 +5,11 @@
 // ONE config, two contexts (the model's local-gate ↔ prod split):
 //  - preview (ctx.preview): the `preview` compose profile serves streamable-http /mcp with
 //    auth OFF, so we run an unauthenticated tools/list — no 401, no token.
-//  - prod: api 401 (server up + OAuth enforced) + an authenticated tools/list (when the M2M token is
-//    set). Telemetry-into-verify attaches the live HTTP response on failure.
+//  - prod: api 401 (server up + OAuth enforced) + the OAuth metadata advertises a
+//    registration_endpoint (interactive MCP clients — claude.ai's connector — onboard via OAuth
+//    Dynamic Client Registration; if it's disabled they can't connect, and the static M2M token
+//    below never exercises that path, so this check is the regression guard) + an authenticated
+//    tools/list (when the M2M token is set). Telemetry-into-verify attaches the response on failure.
 //
 // exactTools is the DRIFT GUARD: tools/list must equal TOOLS exactly — a tool added in code but not
 // listed here (or removed) FAILS the gate, so a new capability is forced into the verify loop.
@@ -37,7 +40,23 @@ export default ({ preview }: VerifyConfigContext) =>
   preview
     ? [{ mode: 'mcp', expectTools: TOOLS, exactTools: true, logsOnFailure }]
     : [
-        { mode: 'api', checks: [{ path: '', status: 401 }], logsOnFailure },
+        {
+          mode: 'api',
+          checks: [
+            // Server up + OAuth enforced.
+            { path: '', status: 401 },
+            // Interactive onboarding guard: the OAuth authorization-server metadata must advertise
+            // a registration_endpoint (i.e. Dynamic Client Registration is enabled), or claude.ai's
+            // MCP connector can't register and connect. The verify base is <host>/mcp but discovery
+            // lives at the root, so `/../.well-known/...` normalizes back up to <host>/.well-known/...
+            {
+              path: '/../.well-known/oauth-authorization-server',
+              status: 200,
+              contains: 'registration_endpoint',
+            },
+          ],
+          logsOnFailure,
+        },
         ...(token
           ? [
               {
