@@ -78,4 +78,24 @@ runs:
         # covers re-pull + container start (and Polyphony's boot-time migrations) before asserting.
         BAMCP_VERIFY_TOKEN: ${{ inputs.verify-token }}
         TOOL_NAME: ${{ inputs.tool-name }}
-      run: pnpm exec greenlight verify "$TOOL_NAME" --env prod
+      run: |
+        # `greenlight deploy` (previous step) fires the OCI restart ASYNCHRONOUSLY and returns —
+        # the re-pull + container swap can lag by 1-2 min. verify's readiness wait only proves the
+        # URL is *reachable*, which the OLD container still is, so a single verify can assert
+        # against the pre-deploy image (e.g. a tool-list change that isn't live yet — how the ACMG
+        # deploy first failed). Retry across the restart window so the check gates on the NEW
+        # artifact once it's up. Proper fix (identity gate on /__version == client_payload.sha,
+        # the SHA the dispatch already carries) tracked upstream in Greenlight.
+        attempts=6
+        for i in $(seq 1 "$attempts"); do
+          if pnpm exec greenlight verify "$TOOL_NAME" --env prod; then
+            echo "verify passed on attempt $i/$attempts"
+            exit 0
+          fi
+          if [ "$i" -lt "$attempts" ]; then
+            echo "::warning::verify attempt $i/$attempts failed — the re-pull may still be settling; retrying in 25s"
+            sleep 25
+          fi
+        done
+        echo "::error::verify still failing after $attempts attempts (~2.5 min) — the new image is not live/healthy"
+        exit 1
