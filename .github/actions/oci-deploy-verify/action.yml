@@ -32,6 +32,15 @@ inputs:
     description: BAMCP_VERIFY_TOKEN — enables bamcp's authenticated mcp verify; empty → the anonymous checks alone gate (polyphony's api spec needs no token)
     required: false
     default: ''
+  expected-sha:
+    description: >
+      The commit SHA of the image being deployed (the dispatch's client_payload.sha).
+      When set, verify first waits for https://<tool>.rtrentjones.dev/__version to equal
+      it — an identity gate that fixes the false-NEGATIVE (a slow OCI re-pull timing out
+      the verify) AND the false-POSITIVE (verify passing against the still-running old
+      container). Empty → skip the gate (current retry-only behaviour).
+    required: false
+    default: ''
 runs:
   using: composite
   steps:
@@ -78,14 +87,39 @@ runs:
         # covers re-pull + container start (and Polyphony's boot-time migrations) before asserting.
         BAMCP_VERIFY_TOKEN: ${{ inputs.verify-token }}
         TOOL_NAME: ${{ inputs.tool-name }}
+        EXPECTED_SHA: ${{ inputs.expected-sha }}
       run: |
         # `greenlight deploy` (previous step) fires the OCI restart ASYNCHRONOUSLY and returns —
-        # the re-pull + container swap can lag by 1-2 min. verify's readiness wait only proves the
-        # URL is *reachable*, which the OLD container still is, so a single verify can assert
-        # against the pre-deploy image (e.g. a tool-list change that isn't live yet — how the ACMG
-        # deploy first failed). Retry across the restart window so the check gates on the NEW
-        # artifact once it's up. Proper fix (identity gate on /__version == client_payload.sha,
-        # the SHA the dispatch already carries) tracked upstream in Greenlight.
+        # the re-pull + container swap + boot-migrations + model load can lag by SEVERAL minutes on
+        # the free-tier Ampere box. verify's readiness wait only proves the URL is *reachable*,
+        # which the OLD container still is, so a bare verify can assert against the pre-deploy image.
+        #
+        # IDENTITY GATE: when the caller passes the deployed SHA, first wait for /__version to
+        # equal it. That both (a) fixes the false-NEGATIVE — a slow re-pull timing out the old
+        # ~2.5-min budget while the box was still coming up (it now waits ~8 min for the RIGHT
+        # artifact), and (b) fixes the false-POSITIVE — verify can no longer pass against the still
+        # -running old container. Empty SHA → skip the gate (bamcp keeps the retry-only behaviour).
+        BASE_URL="https://${TOOL_NAME}.rtrentjones.dev"
+        if [ -n "$EXPECTED_SHA" ]; then
+          echo "identity gate: waiting for $BASE_URL/__version == ${EXPECTED_SHA:0:12} (up to ~8 min)…"
+          live_ok=""
+          for i in $(seq 1 32); do  # 32 * 15s = 8 min
+            live=$(curl -fsS --max-time 10 "$BASE_URL/__version" 2>/dev/null | jq -r '.sha // empty' 2>/dev/null || true)
+            if [ "$live" = "$EXPECTED_SHA" ]; then
+              echo "identity confirmed on attempt $i/32: /__version == ${EXPECTED_SHA:0:12}"
+              live_ok=1
+              break
+            fi
+            echo "::warning::attempt $i/32: live='${live:0:12}' != expected='${EXPECTED_SHA:0:12}' — re-pull still settling; retrying in 15s"
+            sleep 15
+          done
+          if [ -z "$live_ok" ]; then
+            echo "::error::new image (${EXPECTED_SHA:0:12}) never became live at $BASE_URL/__version after ~8 min"
+            exit 1
+          fi
+        fi
+        # The right artifact is up (or no SHA was given) — run the functional verify. A short retry
+        # absorbs any residual settle between /__version flipping and the app being fully ready.
         attempts=6
         for i in $(seq 1 "$attempts"); do
           if pnpm exec greenlight verify "$TOOL_NAME" --env prod; then
@@ -93,7 +127,7 @@ runs:
             exit 0
           fi
           if [ "$i" -lt "$attempts" ]; then
-            echo "::warning::verify attempt $i/$attempts failed — the re-pull may still be settling; retrying in 25s"
+            echo "::warning::verify attempt $i/$attempts failed — retrying in 25s"
             sleep 25
           fi
         done

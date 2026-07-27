@@ -28,6 +28,9 @@ jobs:
       - uses: ./.github/actions/oci-deploy-verify
         with:
           tool-name: polyphony
+          # Identity-gate verify on the deployed image's /__version so a slow OCI re-pull
+          # doesn't false-fail the run (the free-tier box can take minutes to come up).
+          expected-sha: ${{ github.event.client_payload.sha }}
           oci-tenancy: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
           oci-user: ${{ secrets.TF_VAR_OCI_USER_OCID }}
           oci-fingerprint: ${{ secrets.TF_VAR_OCI_FINGERPRINT }}
