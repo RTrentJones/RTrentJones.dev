@@ -23,7 +23,9 @@ export default (_ctx: VerifyConfigContext) => [
       { path: '', status: 200 },
       { path: '/health', status: 200, contains: '"status"' },
       { path: '/../', status: 200 },
-      { path: '/../api/v1/manuscripts/', status: 401 },
+      // Was /manuscripts/ (removed in the book-as-root rework — it's /sources/
+      // now). The stale check 404'd on the new image and red-failed every deploy.
+      { path: '/../api/v1/sources/', status: 401 },
       { path: '/../api/v1/scenes/', status: 401 },
       { path: '/../api/v1/books/', status: 401 },
       { path: '/../api/v1/auth/me', status: 401 },
