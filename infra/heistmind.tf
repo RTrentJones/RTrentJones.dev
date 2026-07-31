@@ -210,6 +210,15 @@ module "keepalive" {
       env     = "prod"
       url     = local.heistmind_supabase_url
       anonKey = module.heistmind_supabase.anon_key
+      # probeTable is REQUIRED (v0.9.0+) and is the whole point of the probe: it makes the ping
+      # run `select ... limit 1`, a query that actually reaches Postgres. Supabase counts DATABASE
+      # activity, so the old root ping (/rest/v1/, answered from PostgREST's schema cache) never
+      # reset the 7-day timer — heistmind-db was paused in 2026-07 while keepalive read "ok".
+      # `public.profiles` is the right table here: 00003_schema_grants GRANTs SELECT to `anon` and
+      # its RLS is "viewable by everyone", so the query returns 200 (zero rows would be fine too —
+      # what matters is that it executed). It sits in `public`, so no probeSchema is needed.
+      probeTable  = "profiles"
+      probeSelect = "id"
     },
     {
       # OCI health-check (kind:"oci" → HTTP probe, no DB query). remediate:true → a failed probe
