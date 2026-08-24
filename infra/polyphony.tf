@@ -10,7 +10,7 @@
 # NOTE the free-tier cap: bamcp (1 OCPU/6GB) + polyphony (1 OCPU/6GB) = the full 2-OCPU/12-GB
 # Always-Free A1 allowance. A third instance (or a beta) needs PAYG — see docs/oci-payg-runbook.md.
 module "polyphony_tunnel" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tunnel?ref=v0.8.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tunnel?ref=v0.9.0"
 
   account_id = var.cloudflare_account_id
   name       = "polyphony-tunnel"
@@ -27,7 +27,7 @@ module "polyphony_tunnel" {
 # the matrix constrains the manifest, not this file). Scale-to-zero + auto-resume → no keepalive
 # needed for the DB. Protected by infra.yml's plan-guard (blocks neon_project|neon_branch destroys).
 module "polyphony_neon" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/neon?ref=v0.8.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/neon?ref=v0.9.0"
 
   name   = "polyphony"
   region = "aws-us-east-1"
@@ -35,7 +35,7 @@ module "polyphony_neon" {
 }
 
 module "polyphony_instance" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-container-instance?ref=v0.8.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/oci-container-instance?ref=v0.9.0"
 
   name           = "polyphony"
   compartment_id = local.oci_compartment_id
@@ -95,7 +95,7 @@ variable "polyphony_admin_password" {
 
 # Subdomain DNS — CNAME polyphony → the tunnel.
 module "polyphony_dns" {
-  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.8.0"
+  source = "git::https://github.com/RTrentJones/greenlight.git//infra/modules/tool?ref=v0.9.0"
 
   name         = "polyphony"
   domain       = "rtrentjones.dev"
