@@ -1,6 +1,6 @@
 ---
 title: HeistMind
-summary: Like Avrae for Forged-in-the-Dark — a rules-driven character and crew manager for live tables and play-by-post on Discord.
+summary: A character and campaign manager for Forged-in-the-Dark games, originally built for the kind of play-by-post game I wanted to run.
 repoUrl: https://github.com/RTrentJones/HeistMind
 liveUrl: https://beta.heistmind.rtrentjones.dev
 status: beta
@@ -91,7 +91,7 @@ days:
   dashboard.
 - A shared `@heist-mind/ui` library (Radix primitives + Tailwind) — the app's own design system.
 
-## What I find interesting
+## Two lives
 
 It's the first thing I built greenfield with an agent, and it's had two lives: a first pass with
 Cline in 2025, then a near-total rebuild with Claude Code in 2026.
@@ -101,16 +101,6 @@ Supabase had paused and then archived the original backend, so I had to stand th
 again — dev loop and all. Recreating that deploy → verify → release loop by hand, for a single
 project, is what made me realize every project I had wanted the same primitives. That became
 [Greenlight](https://github.com/RTrentJones/greenlight).
-
-So HeistMind rides the loop it kicked off:
-
-- **A prod ship-gate** — branch protection requires CI to pass, so the promotion path only advances
-  CI-green commits.
-- **An authenticated deploy gate** — every preview deploy runs a Playwright suite that injects real
-  GM/Player sessions via the Supabase service-role key (no scripting Discord's consent screen), so
-  authenticated journeys are verified against each deploy, not just unit-tested.
-- The whole thing is one manifest entry; the infra (domains, env, auth, keepalive) is Terraform the
-  CLI emits.
 
 Prod itself is behind a pre-launch gate right now while I finish a security pass — the full app runs
 on beta and preview today, and the public launch flips on once that's done.
