@@ -1,6 +1,6 @@
 ---
 title: Tracer
-summary: A dashboard that keeps agentic verification runs from dying in a CI log — today, pg_kafka's conformance and benchmark history; eval and browser-agent runs are what it takes next.
+summary: A small dashboard for keeping benchmark and eval history around after the CI run that produced it is gone.
 repoUrl: https://github.com/RTrentJones/RTrentJones.dev/tree/main/tools/tracer
 status: prototype
 evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
@@ -10,22 +10,19 @@ date: 2026-06-24
 
 import Shot from '../../components/BamcpDemo.astro';
 
-> Tracer keeps Greenlight's verification runs from dying in a CI log. Today it holds pg_kafka's
-> conformance and benchmark history; the `eval` and `agent-web` modes the harness runs are what it
-> takes next.
+> Tracer is a place to keep benchmark and eval results after the CI run that produced them is gone.
+> Today it holds pg_kafka's conformance and benchmark history.
 
 ## Why it exists
 
-Greenlight can already grade a deploy with an LLM: `eval` mode judges an MCP server's answers, and
-`agent-web` drives a real browser through a scenario and scores the result. But those runs are
-ephemeral — a pass/fail in CI logs, then gone. Tracer is the **persistence + UI layer**: an eval run
-lands in Postgres and shows up as a trend you can actually look at, instead of a green check that
-scrolled past.
+I wanted benchmark history to outlive the CI log it appeared in. Tracer is the small persistence and
+UI layer for that: a run lands in Postgres and shows up as a trend instead of disappearing behind a
+green check.
 
 Where it stands today: the dashboard is deployed and holds **real runs from pg_kafka's benchmark
 pipeline** — its normalized conformance and performance scores land here on each tagged release.
-Wiring the rest of the tools' `eval` / `agent-web` runs in is still in progress, so it's marked
-`prototype`, not `live`: real data, partial coverage — honest about being a work in progress.
+I'm wiring the other tools' `eval` and browser-agent runs into it next, so for now it remains a
+prototype with one real source of data.
 
 ## What's in it now
 
@@ -36,7 +33,7 @@ Wiring the rest of the tools' `eval` / `agent-web` runs in is still in progress,
 
 ## See it
 
-The public proof point is the filtered pg_kafka view: verification runs that persist instead of scrolling past.
+The public view is currently filtered to pg_kafka: runs that persist instead of scrolling past.
 
 <Shot
   poster="/tracer-runs.png"
@@ -53,17 +50,6 @@ The public proof point is the filtered pg_kafka view: verification runs that per
   never touch the prod record. (It's the first deployed tool on Greenlight's Neon backend.)
 - **Schema as code** — migrations run on the build against Neon's direct connection; the pooled
   connection serves the app. Prod and beta hit different branches by design.
-- Ships through the same loop as everything else here: local preview gate, `verify --env prod`,
-  gated promote.
-
-## What I find interesting
-
-- **It closes the loop on its own infra.** The eval / agent-web modes are how Greenlight decides a
-  deploy is good; Tracer is where that judgment accumulates into signal over time — regressions you
-  can _see_, not just a check that passed once.
-- **Branch-per-env evals.** Because each environment is its own Neon branch (instant copy-on-write,
-  scale-to-zero), you can run a noisy experiment on beta and diff it against the prod baseline without
-  polluting it.
 
 ## What's next
 
