@@ -1,12 +1,12 @@
 ---
 title: Greenlight
-summary: A deploy → verify → promote framework for agent-assisted delivery — one manifest describes a tool, emits its infra, verifies the live surface, and only promotes commits that passed.
+summary: A deploy → verify → promote framework I built after getting tired of recreating the same release loop for every side project.
 repoUrl: https://github.com/RTrentJones/greenlight
 status: published
 evidenceUrl: https://www.npmjs.com/package/@rtrentjones/greenlight
 order: 1
 featured: true
-tagline: The deploy → verify → promote framework that runs this whole site.
+tagline: A deploy → verify → promote framework for my side projects.
 date: 2026-06-23
 ---
 
@@ -15,6 +15,11 @@ date: 2026-06-23
 > strict **deploy → verify → promote** loop. Six verification modes, combinable per tool, decide
 > whether a deploy is good; the promote gate only advances commits that passed. It's the framework
 > that runs this whole site — the blog you're reading ships through it.
+
+I didn't set out to build another deployment framework. I was trying to revive HeistMind after its
+free-tier database had been archived and realized I had rebuilt roughly the same deploy-and-check
+loop several times already. Every project needed environments, deployment, some way to check the
+deployed version, and a safe path to production. I pulled that repeated glue into its own tool.
 
 Most personal infrastructure rots the moment you look away. Free-tier databases pause, a dependency
 drifts, a "live" link quietly 404s, and you find out months later. Greenlight treats "deployed and
@@ -75,11 +80,11 @@ and re-verifies. Recover-on-alert keeps them on the free tier without a pay-as-y
 "live" link on this site ever goes dead, the same gate that ships everything else is meant to catch it
 before I do.
 
-## What I find interesting
+## A few design choices
 
 - **The checks are enforced, not remembered.** Every push re-asserts a tool's declared verification
   contract — deploy health and the invariants it names — in the modality that actually proves it,
-  instead of trusting the last green run. That's the whole thesis of this site, made mechanical.
+  instead of trusting the last green run.
 - **One harness, many providers.** The same loop ships an Astro site to Workers, a Next app to
   Vercel, and a Python MCP server to an OCI container. The lane and target are manifest cells; the
   discipline doesn't change.
@@ -87,11 +92,3 @@ before I do.
   [`@rtrentjones/greenlight`](https://www.npmjs.com/package/@rtrentjones/greenlight); this site is a
   thin consumer pinned to a release, so the framework evolves upstream and arrives as a version bump
   rather than copied-in source.
-
-## What this demonstrates
-
-Greenlight is small enough to run my own projects, but it's the same shape as the release-engineering
-work I do at the day job: deciding what gets checked on every change, what's allowed to promote, how
-deploy health is represented, and how much of that policy can be mechanical instead of tribal. The
-personal version just lets me own the whole loop end to end — manifest to gate — without a
-twenty-team blast radius to negotiate first.

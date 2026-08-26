@@ -10,29 +10,28 @@ const posts = (await getCollection('blog'))
 const projects = (await getCollection('projects')).sort(
   (a, b) => (a.data.order ?? 99) - (b.data.order ?? 99),
 );
-const featured = projects.filter((p) => p.data.featured);
-const rest = projects.filter((p) => !p.data.featured);
-// An `external: true` project links straight to its repo instead of a local write-up; none are
-// external today, so every card resolves to /<slug>/.
-const projectHref = (p: (typeof projects)[number]) =>
-  p.data.external ? (p.data.repoUrl ?? '#') : `/${p.id}/`;
 ---
 
 <Base>
   <section class="intro">
     <h1>Trent Jones</h1>
     <p class="lede">
-      I build products, platforms, and tools for making complex work more trustworthy. This site is
-      where I keep the systems I build outside the day job: agentic development loops, protocol
-      experiments, life-sciences tooling, and the verification harness that keeps them honest.
+      I'm a software engineer in Los Angeles. Outside work I build things that scratch an itch,
+      answer a technical question, or give me an excuse to learn a part of the stack I don't
+      normally touch.
+    </p>
+    <p class="lede">
+      Lately that's meant putting the Kafka protocol inside Postgres, building an MCP server for
+      exploring genomic data, and accidentally turning the deployment scripts for my side projects
+      into a project of their own.
     </p>
   </section>
 
   <section class="selected">
-    <h2>Selected systems</h2>
+    <h2>Projects</h2>
     <ul class="selected-list">
       {
-        featured.map((p) => (
+        projects.map((p) => (
           <li>
             <a href={`/${p.id}/`}>{p.data.title}</a>
             <span class="sig">{p.data.tagline ?? p.data.summary}</span>
@@ -40,6 +39,7 @@ const projectHref = (p: (typeof projects)[number]) =>
         ))
       }
     </ul>
+    <p class="more"><a href="/projects/">All projects →</a></p>
   </section>
 
   <div class="home">
@@ -64,28 +64,11 @@ const projectHref = (p: (typeof projects)[number]) =>
       <section class="panel">
         <h2>About</h2>
         <p>
-          Senior engineer at Amazon, 11 years in. Dual degrees in neuroscience and CS at USC — the
-          life-sciences thread still runs through what I build.
+          I studied neuroscience and computer science at USC and started my career working on
+          software for a clinical genetics lab before moving into larger product and platform
+          systems. The biology part never entirely went away.
         </p>
         <p class="more"><a href="/about/">More about me →</a></p>
-      </section>
-
-      <section class="panel">
-        <h2>More projects</h2>
-        <ul class="project-links">
-          {
-            rest.map((p) => (
-              <li>
-                <a href={projectHref(p)}>
-                  {p.data.title}
-                  {p.data.external && <span class="ext">↗</span>}
-                </a>
-                <span class="blurb">{p.data.summary}</span>
-              </li>
-            ))
-          }
-        </ul>
-        <p class="more"><a href="/projects/">All projects →</a></p>
       </section>
     </aside>
   </div>
@@ -188,32 +171,5 @@ const projectHref = (p: (typeof projects)[number]) =>
   }
   .panel .more {
     margin-top: 0.9rem;
-  }
-  .project-links {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 1rem;
-  }
-  .project-links a {
-    font-weight: 600;
-    color: var(--fg);
-    text-decoration: none;
-  }
-  .project-links a:hover {
-    color: var(--accent);
-  }
-  .ext {
-    color: var(--fg-muted);
-    font-size: 0.8rem;
-    margin-left: 0.2rem;
-  }
-  .blurb {
-    display: block;
-    color: var(--fg-muted);
-    font-size: 0.85rem;
-    line-height: 1.45;
-    margin-top: 0.15rem;
   }
 </style>

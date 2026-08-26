@@ -1,6 +1,6 @@
 ---
 title: BAMCP
-summary: An MCP server that brings IGV-style genomic alignment visualization into an AI conversation — variant evidence a model can inspect, not infer from text.
+summary: An MCP server for exploring BAM/CRAM files, with an interactive read pileup plus ClinVar and gnomAD context directly in the conversation.
 repoUrl: https://github.com/RTrentJones/BAMCP
 status: live
 verifyMode: mcp
@@ -12,18 +12,16 @@ date: 2026-06-23
 
 import BamcpDemo from '../../components/BamcpDemo.astro';
 
-> BAMCP gives an AI assistant eyes on the genome. It's a Model Context Protocol server that browses
-> BAM/CRAM alignment files and renders **IGV-style read pileups inline in the conversation** — so a
-> model reasons over the actual evidence at a locus instead of guessing from a text summary. It
-> exposes 12 genomic tools, including ClinVar and gnomAD lookups, that ground variant interpretation
-> in real data.
+> BAMCP is a Model Context Protocol server for working with genomic alignment data. It browses
+> BAM/CRAM files, renders **IGV-style read pileups inline in the conversation**, and exposes 12
+> genomic tools, including ClinVar and gnomAD lookups.
 
-This is the thread I care about most. Before Amazon I was the second engineer at
+Before Amazon I was the second engineer at
 [Fulgent Genetics](https://www.fulgentgenetics.com/), building the variant-curation platform
-clinical scientists used to call variants. BAMCP is that domain pointed at agents: the bottleneck in
-applying an LLM to genomics is that it can't _look_ at the alignment, so its answer can't be checked.
-Give it the pileup and the population frequencies, and the work changes from plausible-sounding to
-auditable — not guaranteed right, but checkable against the evidence.
+clinical scientists used to inspect evidence and call variants. Years later, I wanted to see what an
+agent interface to that workflow would look like. A text-only assistant cannot inspect an alignment,
+so I started with the thing a curator would want to see: the pileup, alongside coverage, population
+frequency, and clinical context.
 
 ## What it does
 
@@ -106,7 +104,7 @@ A few honest notes:
 - **Bring a file by URL.** BAMCP reads indexed local or remote alignments (HTTP / S3), so you can
   point it at a public BAM/CRAM without uploading anything.
 
-## What I find interesting
+## Keeping it running
 
 - **Liveness as a feature** — a Cloudflare Worker cron health-checks the box and, on an outage,
   fires a `repository_dispatch` that re-applies + redeploys + verifies it. Recover-on-alert keeps it
