@@ -1,5 +1,9 @@
 # Day 0 findings — where the build plan is wrong
 
+> **The spike has since been run.** See `RESULTS.md` for measured behavior on Chrome 151.
+> Every check passed, including the negative control. This document is the *doc review* that
+> preceded the run; where the two disagree, `RESULTS.md` wins.
+
 Sources, all read 2026-08-27:
 [imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api) (updated 2026-08-20),
 [tool security](https://developer.chrome.com/docs/ai/webmcp/secure-tools),
@@ -10,7 +14,10 @@ Per standing instruction 2, the docs win and the disagreements are flagged here.
 
 ## Confirmed — the plan got these right
 
-- `document.modelContext.registerTool(descriptor, options)`. Not `navigator`.
+- `document.modelContext.registerTool(descriptor, options)`. ~~Not `navigator`.~~
+  **Measured false:** `document.modelContext === navigator.modelContext` is `true` in
+  Chrome 151 — the same object under two accessors. Prefer `document.`, but `navigator.`
+  is not an error. See `RESULTS.md`.
 - Descriptor: `{ name, description, inputSchema, execute, annotations }`.
   `execute` receives `(args, { signal })`.
 - Unregistration is `AbortSignal`-based: pass `{ signal }` at registration, call `controller.abort()`.
@@ -145,8 +152,11 @@ more than the original overclaim.
 
 ## Schedule note
 
-The plan dates Day 0 as Aug 26; today is Aug 27, so the calendar is a day in and the spike
-has not yet been run against a real browser — it cannot be run from this environment
-(Chromium 141, no `document.modelContext`). Running it is ~15 minutes on a machine with
-Chrome 149+. Nothing else should be built until `T3` and the manual external-agent check
-have answers.
+~~The spike has not yet been run against a real browser.~~ **Run on 2026-08-26** against
+Chrome 151 on the local Windows host — see `RESULTS.md`. `T3` passed, so the `T3` half of the
+gate is cleared and the build can start.
+
+The **manual external-agent check is still open**, and it is the one that picks architecture
+A (workbench as federating broker) over B (workbench ships its own agent panel). Since the
+two share ~90% of the work and **B is the safe default**, that check no longer blocks
+starting — but it must be answered before any claim that an external agent federates.

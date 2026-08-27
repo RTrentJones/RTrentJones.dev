@@ -42,8 +42,30 @@ document.getElementById('fa').src = `${ORIGIN_A}/?parent=${encodeURIComponent(SE
 document.getElementById('fb').src = `${ORIGIN_B}/?parent=${encodeURIComponent(SELF)}`;
 
 const results = [];
+
+// Opt-in automated reporting (?report=1). Posts the running result set after every
+// check, so a hang mid-run still yields everything recorded up to the hang.
+const REPORT = params.has('report');
+let seq = 0;
+const RUN_ID = (crypto.randomUUID?.() ?? String(Math.random())).slice(0, 8);
+const blob = (extra = {}) => ({
+  runId: RUN_ID, seq: ++seq, userAgent: navigator.userAgent, self: SELF,
+  originA: ORIGIN_A, originB: ORIGIN_B, at: new Date().toISOString(), results, ...extra,
+});
+const send = (payload) => {
+  if (!REPORT) return;
+  try {
+    fetch('/__results', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload), keepalive: true,
+    }).catch(() => {});
+  } catch { /* reporting must never break the run */ }
+};
+const beacon = (extra) => send(blob(extra));
+
 const record = (id, verdict, claim, detail) => {
   results.push({ id, verdict, claim, detail: String(detail ?? '') });
+  beacon();
   document.getElementById('rows').insertAdjacentHTML('beforeend',
     `<tr><td><code>${id}</code></td><td class="v ${verdict}">${verdict}</td><td>${claim}</td><td>${escapeHtml(String(detail ?? ''))}</td></tr>`);
 };
@@ -196,9 +218,10 @@ function finish(pass1) {
   v.innerHTML = pass1
     ? `<strong class="PASS">PASS-1 HOLDS.</strong> The parent saw and executed tools in two independent origins in one session. ${failed.length ? `${failed.length} other check(s) need attention -- see table.` : 'All checks green.'}`
     : `<strong class="FAIL">PASS-1 DID NOT HOLD.</strong> Read the table before deciding anything. If T0 failed this is a browser problem, not a spec answer.`;
-  const blob = { userAgent: navigator.userAgent, self: SELF, originA: ORIGIN_A, originB: ORIGIN_B, at: new Date().toISOString(), results };
-  document.getElementById('raw').textContent = JSON.stringify(blob, null, 2);
-  document.getElementById('copy').onclick = () => navigator.clipboard.writeText(JSON.stringify(blob, null, 2));
+  const final = blob({ done: true, pass1: Boolean(pass1) });
+  document.getElementById('raw').textContent = JSON.stringify(final, null, 2);
+  document.getElementById('copy').onclick = () => navigator.clipboard.writeText(JSON.stringify(final, null, 2));
+  send(final);
 }
 
 addEventListener('load', () => setTimeout(run, 300));

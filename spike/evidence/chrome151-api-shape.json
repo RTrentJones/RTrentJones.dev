@@ -1,0 +1,22 @@
+{
+    "hasDocumentMC": "object",
+    "hasNavigatorMC": "object",
+    "sameObject": true,
+    "registerToolReturn": "undefined",
+    "toolShape": [
+        "description",
+        "inputSchema",
+        "name",
+        "annotations",
+        "origin",
+        "title",
+        "window"
+    ],
+    "toolOrigin": "http://localhost:8802",
+    "toolTitle": "",
+    "execWithString": "ECHO:{\"q\":\"s\"}",
+    "execWithObject": "THREW: UnknownError: Failed to parse input arguments",
+    "execWithNothing": "THREW: TypeError: Failed to execute 'executeTool' on 'ModelContext': 2 arguments required, but only 1 present.",
+    "chromeMajor": 151,
+    "note153": "below 153: abort cancels in-flight executions"
+}

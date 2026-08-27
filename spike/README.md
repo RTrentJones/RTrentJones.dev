@@ -3,6 +3,10 @@
 Answers one question: **can a single agent see and call tools from several independent
 origins embedded in one page?** Everything in the build plan depends on the answer.
 
+> **Already run.** Chrome 151, 2026-08-26 — **all 11 checks passed**, headless and headed.
+> Read `RESULTS.md` for what was measured and what is still open. The rest of this file is
+> how to run it again.
+
 Verified against the Chrome docs on 2026-08-27 (imperative API page last updated 2026-08-20).
 Read `FINDINGS.md` first — the plan's assumption about how federation works was wrong, and
 this harness is built to test the corrected version.
@@ -16,6 +20,14 @@ this harness is built to test the corrected version.
 Chromium 141 — what this repo's Playwright ships — does **not** have WebMCP. `document.modelContext`
 is undefined. The harness detects this and reports `T0 FAIL` rather than pretending.
 
+WebMCP is **not** on by default in 151: with the flag absent, `document.modelContext` is
+`undefined`. To enable it without touching a real Chrome profile, write this into a fresh
+`--user-data-dir` **before** first launch, as the file `Local State`:
+
+```json
+{"browser":{"enabled_labs_experiments":["enable-webmcp-testing@1"]}}
+```
+
 ## Run it locally
 
 ```
@@ -24,6 +36,11 @@ node spike/serve.mjs
 
 Then open <http://localhost:8791> in Chrome 149+. Results render as a table; hit
 **Copy raw JSON** and paste that back into the thread.
+
+For an **unattended** run, load `http://localhost:8791/?report=1`. The parent then POSTs its
+running result set to the server after every check — so even a hang mid-run leaves everything
+recorded up to that point — and the server writes it to `spike/results.json` (gitignored;
+committed evidence lives in `spike/evidence/`).
 
 Three localhost ports are three distinct origins, which is enough to exercise the
 `exposedTo` / `fromOrigins` handshake. It is **not** enough to trust the final answer —
