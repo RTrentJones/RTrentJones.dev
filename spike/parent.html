@@ -1,0 +1,205 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WebMCP federation spike</title>
+<style>
+  body { font: 14px/1.55 ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 20px; background: #11151c; color: #e6edf3; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #8b98a9; margin: 0 0 18px; font-size: 13px; }
+  .frames { display: flex; gap: 12px; margin-bottom: 20px; }
+  iframe { flex: 1; height: 210px; border: 1px solid #2b3648; border-radius: 6px; background: #fff; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid #232c3a; vertical-align: top; }
+  th { color: #8b98a9; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  td.v { font-weight: 700; white-space: nowrap; }
+  .PASS { color: #4ade80; } .FAIL { color: #f87171; } .SKIP { color: #fbbf24; } .ERROR { color: #fb923c; }
+  code { font-family: ui-monospace, monospace; background: #1c2534; padding: 1px 4px; border-radius: 3px; }
+  #verdict { margin: 18px 0; padding: 12px 14px; border-radius: 6px; background: #1c2534; border-left: 3px solid #4b5563; font-size: 14px; }
+  pre { background: #0b0e13; border: 1px solid #232c3a; border-radius: 6px; padding: 12px; overflow: auto; font-size: 11px; color: #9db4d0; max-height: 320px; }
+  button { background: #2563eb; color: #fff; border: 0; padding: 8px 14px; border-radius: 5px; font: inherit; cursor: pointer; }
+</style>
+
+<h1>WebMCP cross-origin federation spike</h1>
+<p class="sub">Parent embeds two independent origins with <code>allow="tools"</code>. Everything below is measured, not assumed.</p>
+
+<div class="frames">
+  <iframe id="fa" allow="tools"></iframe>
+  <iframe id="fb" allow="tools"></iframe>
+</div>
+
+<div id="verdict">Running&hellip;</div>
+<table><thead><tr><th>ID</th><th>Result</th><th>What it establishes</th><th>Detail</th></tr></thead><tbody id="rows"></tbody></table>
+
+<p style="margin-top:18px"><button id="copy">Copy raw JSON</button></p>
+<pre id="raw"></pre>
+
+<script type="module">
+const params   = new URLSearchParams(location.search);
+const ORIGIN_A = params.get('a') ?? 'http://localhost:8792';
+const ORIGIN_B = params.get('b') ?? 'http://localhost:8793';
+const SELF     = location.origin;
+
+document.getElementById('fa').src = `${ORIGIN_A}/?parent=${encodeURIComponent(SELF)}`;
+document.getElementById('fb').src = `${ORIGIN_B}/?parent=${encodeURIComponent(SELF)}`;
+
+const results = [];
+const record = (id, verdict, claim, detail) => {
+  results.push({ id, verdict, claim, detail: String(detail ?? '') });
+  document.getElementById('rows').insertAdjacentHTML('beforeend',
+    `<tr><td><code>${id}</code></td><td class="v ${verdict}">${verdict}</td><td>${claim}</td><td>${escapeHtml(String(detail ?? ''))}</td></tr>`);
+};
+const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Wait for both children to announce themselves.
+const ready = new Set();
+addEventListener('message', (e) => { if (e.data?.ready) ready.add(e.data.ready); });
+
+async function run() {
+  const mc = document.modelContext;
+
+  // ---- T0: environment ----------------------------------------------------
+  if (!mc) {
+    record('T0', 'FAIL', 'WebMCP is available at all', 'document.modelContext is undefined. Needs Chrome 149+ with chrome://flags/#enable-webmcp-testing, or an origin trial token.');
+    finish();
+    return;
+  }
+  record('T0', 'PASS', 'WebMCP is available at all', `originAgentCluster=${window.originAgentCluster}`);
+
+  // ---- T1: same-origin registration ---------------------------------------
+  let sameOrigin = [];
+  try {
+    await mc.registerTool({
+      name: 'parent_ping',
+      description: 'Constant, registered by the workbench itself.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: async () => 'PARENT_OK',
+    });
+    sameOrigin = await mc.getTools();
+    const found = sameOrigin.some((t) => t.name === 'parent_ping');
+    record('T1', found ? 'PASS' : 'FAIL', 'Top-level document can register + see its own tools',
+      `getTools() -> [${sameOrigin.map((t) => t.name).join(', ')}]`);
+  } catch (err) { record('T1', 'ERROR', 'Top-level document can register + see its own tools', err); }
+
+  // Give the children time to finish registering.
+  for (let i = 0; i < 40 && ready.size < 2; i++) await sleep(100);
+  record('T0b', ready.size === 2 ? 'PASS' : 'FAIL', 'Both child frames loaded and reported in', `ready=[${[...ready].join(', ')}]`);
+
+  // ---- T2: cross-origin discovery -----------------------------------------
+  let all = [];
+  try {
+    all = await mc.getTools({ fromOrigins: [ORIGIN_A, ORIGIN_B] });
+    const names = all.map((t) => `${t.origin ?? '?'}::${t.name}`);
+    const hasA = all.some((t) => t.name === 'alpha_ping' && t.origin === ORIGIN_A);
+    const hasB = all.some((t) => t.name === 'betaPing'   && t.origin === ORIGIN_B);
+    record('T2', hasA && hasB ? 'PASS' : 'FAIL',
+      'Parent discovers tools from BOTH cross-origin children',
+      names.join('  |  ') || '(empty)');
+  } catch (err) { record('T2', 'ERROR', 'Parent discovers tools from BOTH cross-origin children', err); }
+
+  // ---- T3: cross-origin execution  === PASS-1 =============================
+  const pick = (name, origin) => all.find((t) => t.name === name && t.origin === origin);
+  let pass1 = false;
+  try {
+    const a = pick('alpha_ping', ORIGIN_A);
+    const b = pick('betaPing', ORIGIN_B);
+    if (!a || !b) {
+      record('T3', 'SKIP', 'PASS-1: parent executes tools in both foreign origins', 'tool(s) not discovered in T2');
+    } else {
+      const ra = await mc.executeTool(a, '{}');
+      const rb = await mc.executeTool(b, '{}');
+      pass1 = ra === 'ALPHA_OK' && rb === 'BETA_OK';
+      record('T3', pass1 ? 'PASS' : 'FAIL', 'PASS-1: parent executes tools in both foreign origins',
+        `alpha_ping -> ${JSON.stringify(ra)}, betaPing -> ${JSON.stringify(rb)}`);
+    }
+  } catch (err) { record('T3', 'ERROR', 'PASS-1: parent executes tools in both foreign origins', err); }
+
+  // ---- T4: attribution  === PASS-2 ========================================
+  try {
+    const a = pick('alpha_ping', ORIGIN_A);
+    if (!a) record('T4', 'SKIP', 'PASS-2: results are attributable to an origin', 'no tool to inspect');
+    else record('T4', a.origin && a.window ? 'PASS' : 'FAIL', 'PASS-2: results are attributable to an origin',
+      `origin=${a.origin}  window=${a.window ? 'present' : 'MISSING'}  title=${JSON.stringify(a.title ?? null)}`);
+  } catch (err) { record('T4', 'ERROR', 'PASS-2: results are attributable to an origin', err); }
+
+  // ---- T5: name collision --------------------------------------------------
+  try {
+    const searches = all.filter((t) => t.name === 'search');
+    const origins = [...new Set(searches.map((t) => t.origin))];
+    record('T5', searches.length === 2 && origins.length === 2 ? 'PASS' : 'FAIL',
+      'Two same-named tools from different origins both survive discovery',
+      `${searches.length} tool(s) named "search" from origins [${origins.join(', ')}]`);
+  } catch (err) { record('T5', 'ERROR', 'Colliding tool names are distinguishable', err); }
+
+  // ---- T6: negative control ------------------------------------------------
+  try {
+    const leaked = all.some((t) => t.name === 'alpha_private');
+    record('T6', leaked ? 'FAIL' : 'PASS',
+      'Origin gating is REAL: an un-exposed child tool stays invisible',
+      leaked ? 'alpha_private was visible to the parent -- exposedTo is not gating!' : 'alpha_private correctly hidden');
+  } catch (err) { record('T6', 'ERROR', 'Origin gating is real', err); }
+
+  // ---- T7: proxy re-registration (the federation bridge) -------------------
+  // The docs imply a built-in agent does NOT see cross-origin iframe tools.
+  // The workaround is for the workbench to re-register them as its own tools.
+  // This test only proves the proxy registers and runs; whether an EXTERNAL
+  // agent then sees it must be checked by hand (see README, step 4).
+  try {
+    const a = pick('alpha_ping', ORIGIN_A);
+    if (!a) {
+      record('T7', 'SKIP', 'Workbench can proxy a foreign tool as its own', 'nothing to proxy');
+    } else {
+      await mc.registerTool({
+        name: 'air__alpha_ping',
+        description: 'Proxy: forwards to alpha_ping inside the childA origin.',
+        inputSchema: { type: 'object', properties: {} },
+        annotations: { readOnlyHint: true },
+        execute: async () => mc.executeTool(a, '{}'),
+      });
+      const local = await mc.getTools();
+      const registered = local.some((t) => t.name === 'air__alpha_ping');
+      const out = registered ? await mc.executeTool(local.find((t) => t.name === 'air__alpha_ping'), '{}') : null;
+      record('T7', registered && out === 'ALPHA_OK' ? 'PASS' : 'FAIL',
+        'Workbench can proxy a foreign tool into its own top-level surface',
+        `registered=${registered} proxy_result=${JSON.stringify(out)}`);
+    }
+  } catch (err) { record('T7', 'ERROR', 'Workbench can proxy a foreign tool into its own surface', err); }
+
+  // ---- T8 + T9: toolchange + unregistration  === PASS-3 ===================
+  let sawToolchange = false;
+  const onChange = () => { sawToolchange = true; };
+  try { mc.addEventListener('toolchange', onChange); } catch { /* no-op */ }
+
+  try {
+    document.getElementById('fa').contentWindow.postMessage({ cmd: 'unregister-alpha' }, ORIGIN_A);
+    let after = [];
+    let gone = false;
+    for (let i = 0; i < 30; i++) {
+      await sleep(100);
+      after = await mc.getTools({ fromOrigins: [ORIGIN_A, ORIGIN_B] });
+      if (!after.some((t) => t.name === 'alpha_ping' && t.origin === ORIGIN_A)) { gone = true; break; }
+    }
+    record('T9', gone ? 'PASS' : 'FAIL', 'PASS-3: a child can unregister a tool live, no reload',
+      gone ? 'alpha_ping disappeared from the parent view'
+           : `still present after 3s: [${after.map((t) => t.name).join(', ')}]`);
+    record('T8', sawToolchange ? 'PASS' : 'FAIL',
+      'Parent gets a toolchange event for a CROSS-ORIGIN change (drives the live inspector)',
+      sawToolchange ? 'toolchange fired on the parent' : 'no toolchange fired -- inspector must poll instead');
+  } catch (err) { record('T9', 'ERROR', 'PASS-3: live unregistration', err); }
+
+  finish(pass1);
+}
+
+function finish(pass1) {
+  const v = document.getElementById('verdict');
+  const failed = results.filter((r) => r.verdict === 'FAIL' || r.verdict === 'ERROR');
+  v.innerHTML = pass1
+    ? `<strong class="PASS">PASS-1 HOLDS.</strong> The parent saw and executed tools in two independent origins in one session. ${failed.length ? `${failed.length} other check(s) need attention -- see table.` : 'All checks green.'}`
+    : `<strong class="FAIL">PASS-1 DID NOT HOLD.</strong> Read the table before deciding anything. If T0 failed this is a browser problem, not a spec answer.`;
+  const blob = { userAgent: navigator.userAgent, self: SELF, originA: ORIGIN_A, originB: ORIGIN_B, at: new Date().toISOString(), results };
+  document.getElementById('raw').textContent = JSON.stringify(blob, null, 2);
+  document.getElementById('copy').onclick = () => navigator.clipboard.writeText(JSON.stringify(blob, null, 2));
+}
+
+addEventListener('load', () => setTimeout(run, 300));
+</script>

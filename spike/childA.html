@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>childA</title>
+<style>
+  body { font: 14px/1.5 ui-monospace, monospace; background: #0f1720; color: #d7e3f4; margin: 0; padding: 14px; }
+  h1 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #6ea8fe; margin: 0 0 10px; }
+  li { margin: 2px 0; }
+  .gone { text-decoration: line-through; opacity: .45; }
+  code { color: #9fe6a0; }
+</style>
+<h1>childA &mdash; alpha</h1>
+<p>origin: <code id="org"></code></p>
+<p>tools registered here:</p>
+<ul id="tools"></ul>
+
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  // The embedding workbench origin, passed down by the parent when it builds the iframe.
+  const PARENT = params.get('parent') ?? 'http://localhost:8791';
+  document.getElementById('org').textContent = location.origin;
+
+  const state = { unregistered: false };
+  const alphaController = new AbortController();
+
+  function render() {
+    document.getElementById('tools').innerHTML = [
+      `<li class="${state.unregistered ? 'gone' : ''}"><code>alpha_ping</code> (exposed to parent)</li>`,
+      `<li><code>search</code> (exposed to parent &mdash; name collides with childB)</li>`,
+      `<li><code>alpha_private</code> (NOT exposed &mdash; negative control)</li>`,
+    ].join('');
+  }
+  render();
+
+  const mc = document.modelContext;
+  if (!mc) {
+    document.body.insertAdjacentHTML('beforeend',
+      '<p style="color:#ff8080">document.modelContext is undefined &mdash; WebMCP unavailable in this browser.</p>');
+  } else {
+    // Exposed to the workbench origin. Without exposedTo, a cross-origin parent
+    // cannot see this tool even with allow="tools" on the iframe.
+    await mc.registerTool({
+      name: 'alpha_ping',
+      description: 'Returns a constant so the workbench can prove it reached childA.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: async () => 'ALPHA_OK',
+    }, { exposedTo: [PARENT], signal: alphaController.signal });
+
+    // Deliberate name collision with childB.search -- the aggregator must
+    // disambiguate by origin, not by name.
+    await mc.registerTool({
+      name: 'search',
+      description: 'Alpha-flavoured search. Collides by name with childB.search.',
+      inputSchema: { type: 'object', properties: { q: { type: 'string' } } },
+      annotations: { readOnlyHint: true },
+      execute: async ({ q }) => `ALPHA_SEARCH:${q ?? ''}`,
+    }, { exposedTo: [PARENT] });
+
+    // Negative control: no exposedTo. Must NOT be visible to the parent.
+    // If the parent can see this, origin gating is not doing what the docs claim.
+    await mc.registerTool({
+      name: 'alpha_private',
+      description: 'Not exposed to any cross-origin document.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: async () => 'ALPHA_PRIVATE_LEAKED',
+    });
+  }
+
+  // Control channel so the parent's test runner can drive PASS-3 (unregistration).
+  addEventListener('message', (e) => {
+    if (e.origin !== PARENT) return;
+    if (e.data?.cmd === 'unregister-alpha') {
+      alphaController.abort();
+      state.unregistered = true;
+      render();
+      e.source.postMessage({ ack: 'unregister-alpha' }, e.origin);
+    }
+  });
+
+  parent.postMessage({ ready: 'childA', origin: location.origin }, PARENT);
+</script>

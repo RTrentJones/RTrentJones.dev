@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>childB</title>
+<style>
+  body { font: 14px/1.6 Georgia, serif; background: #fdf6e3; color: #4a3f2f; margin: 0; padding: 14px; }
+  h1 { font-size: 15px; color: #b5651d; margin: 0 0 10px; }
+  code { font-family: ui-monospace, monospace; background: #f0e6cc; padding: 0 3px; }
+</style>
+<h1>childB &mdash; beta</h1>
+<p>origin: <code id="org"></code></p>
+<p>tools registered here:</p>
+<ul>
+  <li><code>betaPing</code> &mdash; camelCase, deliberately unlike childA's snake_case</li>
+  <li><code>search</code> &mdash; name collides with childA's <code>search</code></li>
+</ul>
+
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const PARENT = params.get('parent') ?? 'http://localhost:8791';
+  document.getElementById('org').textContent = location.origin;
+
+  const mc = document.modelContext;
+  if (!mc) {
+    document.body.insertAdjacentHTML('beforeend',
+      '<p style="color:#b00">document.modelContext is undefined &mdash; WebMCP unavailable in this browser.</p>');
+  } else {
+    await mc.registerTool({
+      name: 'betaPing',
+      description: 'Returns a constant so the workbench can prove it reached childB.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: async () => 'BETA_OK',
+    }, { exposedTo: [PARENT] });
+
+    await mc.registerTool({
+      name: 'search',
+      description: 'Beta-flavoured search. Collides by name with childA.search.',
+      inputSchema: { type: 'object', properties: { q: { type: 'string' } } },
+      annotations: { readOnlyHint: true },
+      execute: async ({ q }) => `BETA_SEARCH:${q ?? ''}`,
+    }, { exposedTo: [PARENT] });
+  }
+
+  parent.postMessage({ ready: 'childB', origin: location.origin }, PARENT);
+</script>
