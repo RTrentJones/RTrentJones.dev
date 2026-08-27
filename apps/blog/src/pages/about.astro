@@ -8,7 +8,7 @@ const person = {
   name: 'Trent Jones',
   url: 'https://rtrentjones.dev/about/',
   jobTitle: 'Senior Software Development Engineer',
-  worksFor: { '@type': 'Organization', name: 'Amazon' },
+  worksFor: { '@type': 'Organization', name: 'Audible' },
   alumniOf: { '@type': 'CollegeOrUniversity', name: 'University of Southern California' },
   sameAs: ['https://github.com/RTrentJones', 'https://www.linkedin.com/in/rtrentjones'],
 };
@@ -16,96 +16,46 @@ const person = {
 
 <Base
   title="About"
-  description="Trent Jones — senior engineer across product and platform: full-stack products, the developer tooling that makes teams faster, and genomics software."
+  description="About Trent Jones, a software engineer in Los Angeles who builds side projects out of curiosity."
   prose
   structuredData={person}
 >
   <h1>About</h1>
 
-  <p class="positioning">
-    Senior engineer across product and platform. I ship user-facing products end to end, and I build
-    the tooling and infrastructure that makes experts deliver faster — whether for fellow engineers,
-    product teams, or the clinical scientists who curate genomes.
+  <p>
+    I'm Trent. I'm a software engineer based in Los Angeles, currently working at Audible on the
+    Creator side of the business.
   </p>
 
-  <h2>What I do</h2>
-  <ul>
-    <li>
-      <strong>Full-stack product</strong> — user-facing apps end to end, from schema and auth to the
-      UI.
-    </li>
-    <li>
-      <strong>Developer platforms &amp; release tooling</strong> — paved-path systems other teams
-      adopt because they make them faster: release pipelines, internal CLIs, agent tooling.
-    </li>
-    <li>
-      <strong>Scientific &amp; clinical software</strong> — genomics tooling built around expert
-      judgment, with the evidence-traceability and correctness expectations clinical workflows carry.
-    </li>
-    <li>
-      <strong>AI-native tooling</strong> — agents and MCP servers with real verification (evals,
-      protocol checks), so a model augments an expert instead of guessing.
-    </li>
-  </ul>
-
-  <h2>Experience</h2>
   <p>
-    I'm a senior full-stack engineer with 11 years in the industry, the last 7 at Amazon on Alexa
-    endpoints, across mobile and web. The work has run the range — shipping product features; building
-    platform systems that cloud-deliver React Native content into the app; breaking a monolith into
-    domain services; owning the release pipeline more than twenty teams across two orgs shipped
-    through. My teams deliver product first, but the work I reach for is the platforms and tooling
-    that make the people around me faster — like Vertex, an internal agent-tooling system that's
-    spread across the org.
+    Before that I spent most of my time at Amazon working on Alexa, across web, mobile, backend
+    services, developer tooling, and the machinery required to actually ship all of it.
   </p>
   <p>
-    Before Amazon I was the second engineer at
-    <a href="https://www.fulgentgenetics.com/">Fulgent Genetics</a>, a clinical genetics lab, where
-    I built the variant-curation platform clinical scientists used to call variants — along with the
-    LIMS (lab information management software) and the FulgentGenetics.com ordering portal.
-  </p>
-  <p>
-    I studied at <strong>USC</strong>, where I earned dual degrees in <strong>neuroscience</strong>
-    and <strong>computer science</strong>. The biology didn't stay in the background — I'm drawn to
-    the seam between software and the life sciences, and some of what I build lives there (see
-    <a href="/bamcp/">BAMCP</a>, which puts genomic evidence in front of an AI agent).
+    I started my career at <a href="https://www.fulgentgenetics.com/">Fulgent Genetics</a>, when the
+    company was still small enough that being a software engineer meant working on whatever the lab
+    needed: the LIMS, tools for variant curation and clinical reporting, and the patient-facing
+    portal. I studied neuroscience and computer science at USC, so that part of my background has
+    never really disappeared. <a href="/bamcp/">BAMCP</a> is probably the most obvious example of it
+    showing back up.
   </p>
 
-  <h2>Selected proof points</h2>
   <p>
-    A thread I keep pulling on is making verification automatic — so everything here ships and
-    re-verifies through my own <a href="https://github.com/RTrentJones/greenlight">Greenlight</a>
-    loop, and this site runs on it too.
+    Outside work, I tend to build things because I want them to exist or because implementing
+    something seems like the best way to understand it.
   </p>
-  <ul>
-    <li>
-      <a href="/greenlight/">Greenlight</a> — a deploy → verify → promote framework spanning
-      Cloudflare, Vercel, Oracle Cloud, and Neon.
-    </li>
-    <li>
-      <a href="/pg_kafka/">pg_kafka</a> — a PostgreSQL extension that speaks the Kafka wire protocol,
-      backed by conformance and benchmark evidence.
-    </li>
-    <li>
-      <a href="/bamcp/">BAMCP</a> — an MCP server that puts genomic alignment evidence in front of an
-      AI agent.
-    </li>
-    <li>
-      <a href="/heistmind/">HeistMind</a> — an authenticated full-stack app, verified against the
-      beta deploy.
-    </li>
-  </ul>
 
-  <h2>Contact</h2>
   <p>
-    Reach me on <a href="https://www.linkedin.com/in/rtrentjones">LinkedIn</a> — best for a first
-    message — or find my work on <a href="https://github.com/RTrentJones">GitHub</a>.
+    <a href="/pg_kafka/">pg_kafka</a> started with me taking an argument about Postgres a little too
+    seriously. <a href="/heistmind/">HeistMind</a> was a tool I wanted for a tabletop game.
+    <a href="/greenlight/">Greenlight</a> came later, after I realized I'd rebuilt essentially the
+    same deployment and verification setup for several different projects.
+  </p>
+  <p>
+    This site is where I keep those things and occasionally write about what I learned building them.
+  </p>
+  <p>
+    You can also find me on <a href="https://github.com/RTrentJones">GitHub</a> and
+    <a href="https://www.linkedin.com/in/rtrentjones">LinkedIn</a>.
   </p>
 </Base>
-
-<style>
-  .positioning {
-    font-size: var(--text-lg);
-    color: var(--fg-muted);
-  }
-</style>

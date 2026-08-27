@@ -1,86 +1,88 @@
 ---
 title: BAMCP
-summary: An MCP server that brings IGV-style genomic alignment visualization into an AI conversation — variant evidence a model can inspect, not infer from text.
+summary: An MCP server for exploring BAM/CRAM files, with an interactive read pileup plus ClinVar and gnomAD context directly in the conversation.
 repoUrl: https://github.com/RTrentJones/BAMCP
 status: live
 verifyMode: mcp
 order: 2
 featured: true
-tagline: Interactive genomic evidence, inline in an AI conversation.
+tagline: An interactive read pileup for BAM and CRAM files, directly inside Claude.
 date: 2026-06-23
 ---
 
 import BamcpDemo from '../../components/BamcpDemo.astro';
 
-> BAMCP gives an AI assistant eyes on the genome. It's a Model Context Protocol server that browses
-> BAM/CRAM alignment files and renders **IGV-style read pileups inline in the conversation** — so a
-> model reasons over the actual evidence at a locus instead of guessing from a text summary. It
-> exposes 12 genomic tools, including ClinVar and gnomAD lookups, that ground variant interpretation
-> in real data.
+I spent the first few years of my career at
+[Fulgent Genetics](https://www.fulgentgenetics.com/), building software for clinical genomics. A lot
+of that work was around variant curation: giving scientists the tools they needed to inspect evidence
+and turn it into a clinical report.
 
-This is the thread I care about most. Before Amazon I was the second engineer at
-[Fulgent Genetics](https://www.fulgentgenetics.com/), building the variant-curation platform
-clinical scientists used to call variants. BAMCP is that domain pointed at agents: the bottleneck in
-applying an LLM to genomics is that it can't _look_ at the alignment, so its answer can't be checked.
-Give it the pileup and the population frequencies, and the work changes from plausible-sounding to
-auditable — not guaranteed right, but checkable against the evidence.
+I've been looking for an excuse to revisit that world.
+
+BAMCP started as an experiment with MCP: what would it look like if a model working with genomic data
+could actually inspect the reads rather than getting a pileup translated into text first?
+
+The result is a small MCP server built around BAM and CRAM files. It can inspect coverage and candidate
+variants, look up external context, and render an interactive pileup directly inside Claude.
 
 ## What it does
 
-- **Sees the reads.** `visualize_region` renders aligned reads as an HTML5 Canvas pileup —
-  color-coded mismatches, indels, and soft-clips, packed to handle 1,000–10,000+ reads per region —
-  delivered inline via the **MCP Apps Extension** (a `text/html+mcp` resource), so it pans and zooms
-  in the chat rather than dumping text.
-- **Grounds the call.** `get_variants`, `get_coverage`, `lookup_clinvar`, `lookup_gnomad`,
-  `get_variant_curation_summary`, and `search_gene` pull non-reference alleles, depth, clinical
-  significance, and population frequency from real sources — the inputs a curator actually weighs.
+The main tool is `visualize_region`, which renders the aligned reads at a locus as an interactive
+pileup. Mismatches, insertions, deletions, and soft clips are visible directly in the conversation, and
+the view can be panned and zoomed without leaving Claude.
 
-## See it
+BAMCP also exposes tools for:
 
-Here's the whole point, in a real Claude conversation: ask about a BAM file at a locus, and BAMCP
-renders the read pileup **inline** — pan and zoom the reads, read the coverage track, and work down
-the variants panel, each row wired to ClinVar and gnomAD. No screenshots pasted in, no text summary
-standing in for the data: the model and the person are looking at the same reads.
+- coverage at a region
+- candidate variants in the reads
+- gene lookup
+- ClinVar annotations
+- gnomAD population frequencies
+- a combined variant-curation summary
+
+Underneath, it's Python and `pysam`/htslib, exposed through FastMCP. It works with indexed local files
+as well as remote BAM/CRAM files over HTTP or S3.
+
+## Looking at a real sample
+
+This is HG00096, one of the 1000 Genomes samples, at a region in BRCA2.
+
+BAMCP finds a homozygous non-reference allele and renders the underlying reads inline. From there
+Claude can pull the gnomAD frequency — roughly 52% — and see that this is a common polymorphism rather
+than something interesting simply because it happens to be in BRCA2.
+
+The useful part isn't Claude producing that conclusion. It's that the reads, coverage, allele balance,
+and external annotations are all available in the same interaction.
 
 <BamcpDemo
   src="/bamcp-demo.mp4"
   poster="/bamcp-demo-poster.png"
-  alt="A real claude.ai session: BAMCP renders an IGV-style read pileup inline — color-coded forward and reverse reads packed across BRCA2 — with a variants table wired to ClinVar and gnomAD, then grounds a homozygous variant against gnomAD population frequency."
+  alt="A claude.ai session where BAMCP renders an interactive read pileup across BRCA2, shows a variants table connected to ClinVar and gnomAD, and looks up the population frequency of a homozygous variant."
 >
-  A real claude.ai session — HG00096 (a 1000 Genomes genome) at BRCA2. The pileup renders inline; a
-  homozygous variant checks out against gnomAD at ~52% — a common, benign polymorphism, not a
-  pathogenic BRCA2 mutation. Evidence the model can check, not a verdict it has to trust.
+  HG00096 at BRCA2, with the pileup, candidate variant, and gnomAD context in one conversation.
 </BamcpDemo>
 
-## The workflow
+## Using it
 
-The path mirrors how a curator actually works: start from a gene, locus, or candidate variant; search
-the gene; look at the aligned reads; check coverage; surface the non-reference alleles; and pull
-ClinVar and gnomAD context. What comes back isn't a verdict — it's a trail of evidence the model _and_
-the human are looking at together, so a summary can be checked against the reads instead of taken on
-faith.
+A typical session is pretty close to the workflow I remember from genomics tools.
 
-## What it does not decide
+Start with a gene, coordinate, or candidate variant. Look at the reads. Check whether coverage is
+reasonable. See what non-reference alleles are actually present. Then pull in ClinVar and
+population-frequency data where it's useful.
 
-BAMCP is not a clinical decision system. It doesn't make a final pathogenicity call or stand in for a
-curator; its job is to put the right evidence in front of the model and the person at the same time.
-That framing is also the guardrail against the failure modes a text-only agent invites — hallucinating
-evidence that isn't in the reads, ignoring low coverage, over-reading a ClinVar entry, missing allele
-balance, or treating a population frequency as more decisive than it is. With the pileup on screen,
-those become checkable rather than plausible.
+BAMCP doesn't try to make a clinical pathogenicity call. That's intentionally outside its scope. It
+exposes the evidence and gives the model tools for navigating it.
 
-## The stack
-
-- **Python** (`pysam` over htslib, **FastMCP**) — BAM/CRAM, including indexed remote files.
-- A **Model Context Protocol** server (streamable HTTP), OAuth-gated.
-- Runs on an **Oracle Cloud Always-Free Ampere A1 Container Instance** — the whole network (VCN +
-  subnet) is Terraform, fronted by a Cloudflare tunnel; the only manual input is the API key.
-- Built + pushed as a container image by its own CI; "deploy" is a restart that re-pulls.
+There are plenty of ways an automated interpretation can still go wrong: low coverage, poor allele
+balance, an over-interpreted ClinVar assertion, or population frequency being treated as more
+meaningful than it is. Having the underlying data available doesn't solve those problems, but it does
+make it much easier to see where an answer came from.
 
 ## Connect it to Claude
 
-BAMCP is a hosted, public **remote MCP server** — adding it to Claude takes about a minute, with
-nothing to install and nothing to run locally. The server URL is:
+BAMCP runs as a hosted remote MCP server, so there's nothing to install locally.
+
+Server URL:
 
 ```
 https://bamcp.rtrentjones.dev/mcp
@@ -88,29 +90,26 @@ https://bamcp.rtrentjones.dev/mcp
 
 In claude.ai:
 
-1. Open **Customize → Connectors**, then click **+ → Add custom connector**.
-2. Paste the URL above and click **Add**.
-3. Complete the **OAuth sign-in** when Claude prompts you — the server registers your client
-   automatically (dynamic client registration), so there's no API key or client ID to configure.
-4. In any chat, open the **+** menu → **Connectors**, toggle the BAMCP connector on, and ask about a
-   BAM file at a locus. The pileup renders inline.
+1. Open **Customize → Connectors**, then **+ → Add custom connector**.
+2. Paste the URL and click **Add**.
+3. Complete the OAuth sign-in.
+4. Enable BAMCP from **+ → Connectors** in a conversation.
+5. Give it a public BAM/CRAM URL and a locus to inspect.
 
-A few honest notes:
+The interactive pileup requires a client with
+[MCP Apps support](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude),
+including claude.ai, Claude Desktop, and the mobile apps. Other MCP clients can still call the
+underlying tools; they just won't render the viewer.
 
-- **The inline viewer needs a client with [interactive-connector](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude)
-  support (MCP Apps)** — claude.ai, Claude Desktop, and the iOS / Android apps. Anywhere else the
-  tools still return their data; you just don't get the interactive pileup.
-- **Public, but auth-gated.** Claude reaches the server from Anthropic's cloud, so it has to be on the
-  public internet — and an unauthenticated request gets a `401`, which is why the OAuth step isn't
-  optional.
-- **Bring a file by URL.** BAMCP reads indexed local or remote alignments (HTTP / S3), so you can
-  point it at a public BAM/CRAM without uploading anything.
+## A few implementation details
 
-## What I find interesting
+The pileup is an HTML5 Canvas MCP App rather than a generated image or screenshot. That matters
+because the interface stays interactive: reads can be inspected, regions can be navigated, and the
+model and user are working from the same view.
 
-- **Liveness as a feature** — a Cloudflare Worker cron health-checks the box and, on an outage,
-  fires a `repository_dispatch` that re-applies + redeploys + verifies it. Recover-on-alert keeps it
-  on the free tier (no pay-as-you-go).
-- **Protocol-level verification** — the deploy gate speaks MCP: initialize → `tools/list` → call a
-  tool and assert the shape → assert auth rejection. A drift-guard pins the exact tool set, so a
-  dropped or renamed tool fails the deploy instead of silently shipping.
+The server runs on an Oracle Cloud Ampere instance behind a Cloudflare Tunnel. The infrastructure is
+Terraform-managed and the deployment has a small MCP-level integration test that connects to the
+deployed server, lists its tools, calls one, and checks authentication behavior.
+
+Mostly, though, this project has been an excuse to work with genomic data again and to see what these
+newer agent interfaces are good for outside the usual coding and productivity examples.

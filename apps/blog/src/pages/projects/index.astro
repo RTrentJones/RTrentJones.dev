@@ -11,9 +11,16 @@ const projects = (await getCollection('projects')).sort(
 const env = envFromSite(Astro.site);
 ---
 
-<Base title="Projects" description="Projects by Trent Jones — developer tooling, protocol-level systems, and life-sciences software, each shipped through the Greenlight loop.">
+<Base title="Projects" description="Things Trent Jones builds outside work: infrastructure experiments, useful tools, and occasional trips back into biology.">
   <h1>Projects</h1>
-  <p class="lede">The things I've built — developer tooling, protocol-level systems, and life-sciences software. Some run live; some publish verification evidence. The common thread: the claims are meant to be checkable.</p>
+  <p class="lede">
+    These are the things I build outside work. They're a mixed bag on purpose: infrastructure
+    experiments, tools I actually wanted to use, and occasional excuses to wander back into biology.
+  </p>
+  <p class="lede">
+    Most of them run somewhere you can actually poke at. Some are finished enough that I consider
+    them live; others are experiments that may stay experiments.
+  </p>
   <div class="grid">
     {projects.map((project) => <ProjectCard project={project} />)}
   </div>
@@ -21,10 +28,8 @@ const env = envFromSite(Astro.site);
   <details class="registry">
     <summary>Deployed tools registry · {registeredTools.length}</summary>
     <p class="registry-note">
-      Every tool registered in the manifest, generated from <code>greenlight.config.ts</code> — the
-      inventory check so nothing deployed slips off the showcase above. <code>muse</code> (a daily
-      cron agent that publishes one Gemini-written tip on deploying safely) and the blog itself have
-      no card but run live.
+      Every tool registered in <code>greenlight.config.ts</code>. <code>muse</code> (a daily cron agent)
+      and the blog itself have no project page but run live.
     </p>
     <div class="registry-scroll">
       <table class="registry-table">
