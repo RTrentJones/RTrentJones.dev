@@ -238,7 +238,18 @@ module "keepalive" {
       kind      = "oci"
       remediate = true
       url       = "https://polyphony.rtrentjones.dev"
-      probePath = "/health" # 200 proves tunnel + container + app (incl. boot migrations) serving
+      # /health/live, NOT /health. Polyphony is backed by NEON, and Neon is the one store here that
+      # must be left alone: its compute autosuspends after ~5 min of connection inactivity and is
+      # billed for every hour it stays awake. /health queries Postgres (DB + pgvector), so probing
+      # it on this cron held the compute open 24/7 and burned the free-tier allowance on an idle
+      # app — the exact opposite of what a keepalive is for. Keepalive means SUPABASE (heistmind),
+      # which really does pause after 7 days; a Neon tool must never be kept warm (provider-neon
+      # SKILL.md "No keepalive"). The oci targets are here for uptime + auto-remediation, so they
+      # keep their probes — just shallow ones. /health/live is DB-free and still proves the tunnel,
+      # the container and the ASGI app are serving, which is all `remediate` acts on: it re-applies
+      # a reclaimed A1 box, it cannot fix a database. Deep checks stay in `greenlight verify` at
+      # deploy time, where reaching Postgres is the point and the cost is one round trip.
+      probePath = "/health/live"
     }
   ])
 }

@@ -23,6 +23,10 @@ dbDescribe('tracer queries (DB-backed, Neon branch)', () => {
     await db.execute(sql`TRUNCATE eval_run, eval_case RESTART IDENTITY CASCADE`);
   });
 
+  // Fixture timestamps are relative to now: the dashboard queries window on recent runs (e.g.
+  // runsWithRegression's 90-day default), so fixed calendar dates silently age out of the results.
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+
   const setStarted = (id: string, iso: string) =>
     db.execute(sql`UPDATE eval_run SET started_at = ${iso}::timestamptz WHERE id = ${id}`);
 
@@ -31,9 +35,9 @@ dbDescribe('tracer queries (DB-backed, Neon branch)', () => {
     const a = await insertRun({ ...base, pass_rate: 0.9 });
     const b = await insertRun({ ...base, pass_rate: 0.95 });
     const c = await insertRun({ ...base, passed: false, pass_rate: 0.6 });
-    await setStarted(a, '2026-06-01T00:00:00Z');
-    await setStarted(b, '2026-06-02T00:00:00Z');
-    await setStarted(c, '2026-06-03T00:00:00Z');
+    await setStarted(a, daysAgo(10));
+    await setStarted(b, daysAgo(9));
+    await setStarted(c, daysAgo(8));
 
     const runs = await q.runsWithRegression({ tool: 'rt-reg' }, 100);
     expect(runs.map((r) => r.id)).toEqual([c, b, a]); // newest-first
@@ -73,9 +77,9 @@ dbDescribe('tracer queries (DB-backed, Neon branch)', () => {
       });
       await setStarted(id, started);
     };
-    await mk('m-old', 0.4, '2026-06-01T00:00:00Z');
-    await mk('m-new', 0.7, '2026-06-01T00:00:00Z');
-    await mk('m-old', 0.8, '2026-06-05T00:00:00Z'); // newer m-old must win the DISTINCT ON
+    await mk('m-old', 0.4, daysAgo(10));
+    await mk('m-new', 0.7, daysAgo(10));
+    await mk('m-old', 0.8, daysAgo(6)); // newer m-old must win the DISTINCT ON
 
     const cells = await q.compareModels('rt-cmp', 'prod', ['m-old', 'm-new']);
     const byModel = Object.fromEntries(cells.map((c) => [c.model, c.pass_rate]));

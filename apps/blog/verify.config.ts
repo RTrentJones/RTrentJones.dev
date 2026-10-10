@@ -3,7 +3,11 @@
 export default {
   mode: 'api',
   checks: [
-    { path: '/', status: 200 },
+    // The social card is referenced by ABSOLUTE url in every page's meta, so if the asset ever
+    // stopped being emitted, every share preview would break silently — nothing else here would
+    // notice. Assert both halves: the file serves as a PNG, and the meta still points at it.
+    { path: '/', status: 200, contains: '/og.png"' },
+    { path: '/og.png', status: 200, header: { name: 'content-type', value: 'image/png' } },
     { path: '/blog/', status: 200 },
     { path: '/projects/', status: 200 },
     { path: '/about/', status: 200 },

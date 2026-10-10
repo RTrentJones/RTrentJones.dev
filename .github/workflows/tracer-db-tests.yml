@@ -61,6 +61,19 @@ jobs:
           PID=$(neonctl projects list --output json 2>/dev/null | jq -r --arg n "$TOOL" '.projects[] | select(.name==$n) | .id' | head -n1 || true)
           PID="${PID:-$TRACER_NEON_PROJECT_ID}"
           echo "Using Neon project: $PID"
+          # Prune leaked throwaway branches first. A run killed before its cleanup step leaves its
+          # ci-<tool>-* branch behind, and enough of them hit the plan's branch cap ("branches limit
+          # exceeded") so every later run fails. Only branches older than an hour are removed, so a
+          # concurrent run on another ref keeps its own.
+          CUTOFF=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+          { neonctl branches list --project-id "$PID" --output json || echo '[]'; } \
+            | jq -r --arg p "ci-${TOOL}-" --arg c "$CUTOFF" \
+                '(if type == "array" then . else .branches end)[] | select((.name | startswith($p)) and .created_at < $c) | .name' \
+            | while read -r stale; do
+                echo "pruning stale branch $stale"
+                neonctl branches delete "$stale" --project-id "$PID" > /dev/null \
+                  || echo "::warning::could not delete stale branch $stale"
+              done
           BRANCH="ci-${TOOL}-${{ github.run_id }}-${{ github.run_attempt }}"
           neonctl branches create --project-id "$PID" --name "$BRANCH" --output json > /dev/null
           # Pooled URL; drizzle.config derives the direct endpoint by stripping `-pooler`. neonctl picks
@@ -81,4 +94,4 @@ jobs:
 
       - name: Delete the throwaway branch
         if: always() && steps.neon.outputs.branch != ''
-        run: neonctl branches delete "${{ steps.neon.outputs.branch }}" --project-id "${{ steps.neon.outputs.pid }}" || true
+        run: neonctl branches delete "${{ steps.neon.outputs.branch }}" --project-id "${{ steps.neon.outputs.pid }}" > /dev/null || echo "::warning::branch cleanup failed — the next run's prune step will retry it"
