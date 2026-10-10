@@ -7,6 +7,11 @@
  * quota; the deploy step uses it to seed the first output before verify).
  *
  * GEMINI_API_KEY + RUN_TOKEN are Worker secrets (`wrangler secret put …`), never in wrangler.toml.
+ *
+ * Failures are RECORDED, not swallowed: a cron run that throws (a retired model, a revoked key, a
+ * quota) writes `lastError` + `lastAttempt` next to the last good output, and `/status` reports
+ * `ok: false` until a run succeeds again. The verify gate asserts `ok` and that `lastRun` is
+ * recent, so a dead cron fails the gate instead of serving yesterday's text behind a green check.
  */
 
 export interface Env {
@@ -15,6 +20,8 @@ export interface Env {
   RUN_TOKEN?: string;
   MODEL: string;
   GREENLIGHT_ENV: string;
+  /** The deployed commit, baked in at deploy (`wrangler deploy --var GREENLIGHT_SHA:<sha>`). */
+  GREENLIGHT_SHA?: string;
 }
 
 interface AgentRecord {
@@ -22,6 +29,14 @@ interface AgentRecord {
   text: string;
   lastRun: string;
   model: string;
+}
+
+/** The latest attempt, success or not — kept apart from the last good output so a failing run
+ * never erases it, but `/status` can still tell a dead cron from a quiet one. */
+interface AttemptRecord {
+  at: string;
+  ok: boolean;
+  error?: string;
 }
 
 const PROMPT =
@@ -48,24 +63,43 @@ function key(env: Env): string {
   return `${env.GREENLIGHT_ENV}:latest`;
 }
 
-async function runOnce(env: Env): Promise<AgentRecord> {
-  const rec: AgentRecord = {
-    ok: true,
-    text: await callGemini(env),
-    lastRun: new Date().toISOString(),
-    model: env.MODEL,
-  };
-  await env.STATE.put(key(env), JSON.stringify(rec));
-  return rec;
+function attemptKey(env: Env): string {
+  return `${env.GREENLIGHT_ENV}:attempt`;
 }
 
-async function latest(env: Env): Promise<AgentRecord | null> {
-  const raw = await env.STATE.get(key(env));
-  return raw ? (JSON.parse(raw) as AgentRecord) : null;
+async function runOnce(env: Env): Promise<AgentRecord> {
+  const at = new Date().toISOString();
+  try {
+    const rec: AgentRecord = {
+      ok: true,
+      text: await callGemini(env),
+      lastRun: at,
+      model: env.MODEL,
+    };
+    await env.STATE.put(key(env), JSON.stringify(rec));
+    await env.STATE.put(attemptKey(env), JSON.stringify({ at, ok: true } satisfies AttemptRecord));
+    return rec;
+  } catch (e) {
+    const error = (e instanceof Error ? e.message : String(e)).slice(0, 300);
+    await env.STATE.put(
+      attemptKey(env),
+      JSON.stringify({ at, ok: false, error } satisfies AttemptRecord),
+    );
+    throw e;
+  }
 }
+
+async function readJson<T>(env: Env, k: string): Promise<T | null> {
+  const raw = await env.STATE.get(k);
+  return raw ? (JSON.parse(raw) as T) : null;
+}
+
+const latest = (env: Env) => readJson<AgentRecord>(env, key(env));
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // runOnce records the failure itself; rethrowing also marks the invocation failed in the
+    // Workers dashboard / `wrangler tail`, so the error is visible there too.
     ctx.waitUntil(runOnce(env));
   },
 
@@ -77,14 +111,31 @@ export default {
       if (!env.RUN_TOKEN || auth !== `Bearer ${env.RUN_TOKEN}`) {
         return new Response('unauthorized', { status: 401 });
       }
-      return Response.json(await runOnce(env));
+      try {
+        return Response.json(await runOnce(env));
+      } catch (e) {
+        // Surface the cause to the caller (the deploy seed step logs it) instead of a bare 500.
+        const error = e instanceof Error ? e.message : String(e);
+        return Response.json({ ok: false, error }, { status: 502 });
+      }
+    }
+
+    if (pathname === '/__version') {
+      return Response.json({ sha: env.GREENLIGHT_SHA ?? null });
     }
 
     if (pathname === '/status') {
-      const rec = await latest(env);
+      const [rec, attempt] = await Promise.all([
+        latest(env),
+        readJson<AttemptRecord>(env, attemptKey(env)),
+      ]);
       return Response.json({
-        ok: Boolean(rec),
+        // ok = there is output AND the most recent recorded attempt SUCCEEDED. No attempt record
+        // (e.g. a Worker upgraded over a pre-attempt KV) is not evidence of health.
+        ok: Boolean(rec) && attempt?.ok === true,
         lastRun: rec?.lastRun ?? null,
+        lastAttempt: attempt?.at ?? null,
+        lastError: attempt?.ok === false ? (attempt.error ?? 'unknown error') : null,
         model: env.MODEL,
         preview: rec ? rec.text.slice(0, 80) : null,
       });

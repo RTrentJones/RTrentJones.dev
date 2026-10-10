@@ -16,12 +16,30 @@ import type { VerifyConfigContext } from '@rtrentjones/greenlight';
 
 const logsOnFailure = 'curl -sS -i "$GREENLIGHT_VERIFY_URL/health" 2>&1 | head -30 || true';
 
-export default (_ctx: VerifyConfigContext) => [
+export default ({ preview }: VerifyConfigContext) => [
   {
     mode: 'api',
     checks: [
       { path: '', status: 200 },
-      { path: '/health', status: 200, contains: '"status"' },
+      // /health reports each dependency. A 200 alone would pass with a degraded vector store, so
+      // assert every component: the DB (Neon) and pgvector search both healthy.
+      {
+        path: '/health',
+        status: 200,
+        json: [
+          { path: 'status', equals: 'healthy' },
+          { path: 'checks.database', equals: 'healthy' },
+          { path: 'checks.vector_search', equals: 'healthy' },
+        ],
+      },
+      // The DB-free liveness probe the keepalive Worker uses — it must stay up or every keepalive
+      // tick would dispatch a self-heal.
+      { path: '/health/live', status: 200, json: [{ path: 'status', equals: 'healthy' }] },
+      // Artifact identity: the image serves the commit it was built from (the deploy's identity
+      // gate waits on it). A local compose build has no sha, so this is deployed-only.
+      ...(preview
+        ? []
+        : [{ path: '/__version', status: 200, json: [{ path: 'sha', matches: '^[0-9a-f]{40}$' }] }]),
       { path: '/../', status: 200 },
       // Was /manuscripts/ (removed in the book-as-root rework — it's /sources/
       // now). The stale check 404'd on the new image and red-failed every deploy.
@@ -30,6 +48,7 @@ export default (_ctx: VerifyConfigContext) => [
       { path: '/../api/v1/books/', status: 401 },
       { path: '/../api/v1/auth/me', status: 401 },
     ],
+    requireIdentity: true,
     // The container runs migrations before serving; give the re-pull + boot time to settle.
     settleRetries: 6,
     settleMs: 5000,
