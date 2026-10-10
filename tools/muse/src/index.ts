@@ -130,8 +130,9 @@ export default {
         readJson<AttemptRecord>(env, attemptKey(env)),
       ]);
       return Response.json({
-        // ok = there is output AND the most recent attempt did not fail.
-        ok: Boolean(rec) && attempt?.ok !== false,
+        // ok = there is output AND the most recent recorded attempt SUCCEEDED. No attempt record
+        // (e.g. a Worker upgraded over a pre-attempt KV) is not evidence of health.
+        ok: Boolean(rec) && attempt?.ok === true,
         lastRun: rec?.lastRun ?? null,
         lastAttempt: attempt?.at ?? null,
         lastError: attempt?.ok === false ? (attempt.error ?? 'unknown error') : null,
