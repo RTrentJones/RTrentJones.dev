@@ -127,8 +127,11 @@ jobs:
             exit 1
           fi
           echo "Neon confirms $BID is gone; dropping it from state"
-          terraform -chdir=infra state rm "$BRANCH"
-          terraform -chdir=infra state rm "$ENDPOINT" || echo "::warning::$ENDPOINT was not in state"
+          # One state rm call for both addresses, so a lock or network error leaves state untouched and
+          # the recovery stays retryable. The endpoint is included only when state actually has it.
+          ADDRS=("$BRANCH")
+          if terraform -chdir=infra state list | grep -qxF "$ENDPOINT"; then ADDRS=("$ENDPOINT" "${ADDRS[@]}"); fi
+          terraform -chdir=infra state rm "${ADDRS[@]}"
       - run: terraform -chdir=infra plan -input=false -out=tf.plan
       # Data-loss backstop (the prevent_destroy substitute): FAIL — before any approval is even
       # requested — if the plan would delete/replace a stateful prod store. Matches by resource TYPE
