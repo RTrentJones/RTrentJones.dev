@@ -56,7 +56,9 @@ jobs:
           fi
           if [ -z "$ID" ] || [ "$ID" = "null" ]; then echo "::error::could not resolve the STATE KV namespace id (token needs Workers KV Storage:Edit?)"; exit 1; fi
           sed -i "s/REPLACE_WITH_KV_NAMESPACE_ID/$ID/g" wrangler.toml
-          pnpm exec wrangler deploy --env prod
+          # Bake the deployed commit into the Worker so it can serve it at /__version and verify
+          # can prove this URL runs THIS build (not just that something answers).
+          pnpm exec wrangler deploy --env prod --var "GREENLIGHT_SHA:$GITHUB_SHA"
           printf '%s' "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --env prod
           printf '%s' "$RUN_TOKEN" | pnpm exec wrangler secret put RUN_TOKEN --env prod
           cd ../..
@@ -70,7 +72,7 @@ jobs:
 
       - name: Verify
         if: steps.creds.outputs.have == '1'
-        run: pnpm exec greenlight verify muse --env prod
+        run: pnpm exec greenlight verify muse --env prod --expect-sha "$GITHUB_SHA"
 
       - name: Skip notice
         if: steps.creds.outputs.have != '1'

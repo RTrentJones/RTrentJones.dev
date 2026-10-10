@@ -1,6 +1,15 @@
 // The blog is a content site, so it asserts more than the generic astro smoke:
 // the RSS feed and sitemap parse, and no internal links are broken.
-export default {
+//
+// Deployed-only depth (skipped under `greenlight preview`):
+//  - /__version carries the shipped sha, and requireIdentity makes a missing one fail the
+//    `ship`/promote identity gate instead of passing as "unverified".
+//  - On PROD, builtAt must be recent: deploy.yml rebuilds prod daily (13:00 UTC) to refresh the
+//    pg_kafka evidence, so a build older than ~30h means that scheduled refresh stopped while the
+//    site kept serving 200s.
+import type { VerifyConfigContext } from '@rtrentjones/greenlight';
+
+export default ({ env }: VerifyConfigContext) => ({
   mode: 'api',
   checks: [
     // The social card is referenced by ABSOLUTE url in every page's meta, so if the asset ever
@@ -26,14 +35,35 @@ export default {
     // dev server's built-in 404 locally; the custom page serves for the canonical slash form).
     { path: '/__greenlight_404_probe__/', status: 404, contains: 'check failed' },
     // RFC 9116 disclosure file — lock it in so it can't silently 404 again. No trailing slash
-    // (it's a file with an extension, not a directory route).
-    { path: '/.well-known/security.txt', status: 200 },
+    // (it's a file with an extension, not a directory route). RFC 9116 also makes the file invalid
+    // once its Expires passes, so fail a month ahead: that's the renewal reminder.
+    {
+      path: '/.well-known/security.txt',
+      status: 200,
+      text: [
+        { regex: '^Contact: (\\S+)', flags: 'm', exists: true },
+        { regex: '^Expires: (\\S+)', flags: 'm', minFutureDays: 30 },
+      ],
+    },
+    ...(env === 'preview'
+      ? []
+      : [
+          {
+            path: '/__version',
+            status: 200,
+            json: [
+              { path: 'sha', matches: '^[0-9a-f]{40}$' },
+              ...(env === 'prod' ? [{ path: 'builtAt', maxAgeHours: 30 }] : []),
+            ],
+          },
+        ]),
   ],
   rssValid: true,
   sitemapValid: true,
   noBrokenInternalLinks: true,
   // Cloudflare Workers Static Assets serve some paths before others for a few seconds right after a
   // deploy — re-run the checks until they settle (or fail for real). Needs @rtrentjones/greenlight ≥ 0.2.21.
+  requireIdentity: true,
   settleRetries: 8,
   settleMs: 5000,
-};
+});
