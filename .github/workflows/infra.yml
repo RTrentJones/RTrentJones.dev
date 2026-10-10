@@ -13,6 +13,14 @@ on:
     branches: [main]
     paths: ['infra/**']
   workflow_dispatch:
+    inputs:
+      forget_neon_env:
+        description: >-
+          Recovery only: "<module>:<env>" (e.g. tracer_neon:beta) for a non-prod Neon branch that was
+          deleted outside Terraform. Its branch + endpoint are dropped from state ONLY if Neon confirms
+          the branch is gone (404); the plan then recreates them. Leave empty for a normal run.
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -92,6 +100,35 @@ jobs:
           terraform_version: '~1.10'
           terraform_wrapper: false
       - run: terraform -chdir=infra init -input=false
+      # A Neon branch deleted by hand 404s on refresh and fails every plan (the provider doesn't drop
+      # vanished branches from state). This forgets exactly one non-prod env's branch + endpoint, and
+      # only after Neon itself confirms the recorded branch id no longer exists, so it can never orphan
+      # a live branch or touch prod. The plan below then shows the recreate for review as usual.
+      - name: Forget a Neon branch deleted outside Terraform (manual recovery)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.forget_neon_env != '' }}
+        env:
+          FORGET: ${{ inputs.forget_neon_env }}
+        run: |
+          set -euo pipefail
+          [[ "$FORGET" =~ ^([a-z0-9_]+):([a-z0-9-]+)$ ]] || { echo "::error::expected <module>:<env>, got '$FORGET'"; exit 1; }
+          MOD="${BASH_REMATCH[1]}"; ENV="${BASH_REMATCH[2]}"
+          [ "$ENV" != prod ] || { echo "::error::refusing to forget prod (it is the project's default branch)"; exit 1; }
+          BRANCH="module.${MOD}.neon_branch.env[\"${ENV}\"]"
+          ENDPOINT="module.${MOD}.neon_endpoint.env[\"${ENV}\"]"
+          # state show of the branch alone (it holds no secrets), not a full state dump.
+          SHOW=$(terraform -chdir=infra state show -no-color "$BRANCH") || { echo "::error::$BRANCH is not in state"; exit 1; }
+          BID=$(awk -F'"' '/^ *id *=/ {print $2; exit}' <<<"$SHOW")
+          PID=$(awk -F'"' '/^ *project_id *=/ {print $2; exit}' <<<"$SHOW")
+          [[ "$BID" =~ ^br- && -n "$PID" ]] || { echo "::error::could not read branch/project id from state"; exit 1; }
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$PID/branches/$BID")
+          if [ "$CODE" != 404 ]; then
+            echo "::error::Neon returned $CODE for branch $BID (expected 404) — it may still exist; not forgetting it"
+            exit 1
+          fi
+          echo "Neon confirms $BID is gone; dropping it from state"
+          terraform -chdir=infra state rm "$BRANCH"
+          terraform -chdir=infra state rm "$ENDPOINT" || echo "::warning::$ENDPOINT was not in state"
       - run: terraform -chdir=infra plan -input=false -out=tf.plan
       # Data-loss backstop (the prevent_destroy substitute): FAIL — before any approval is even
       # requested — if the plan would delete/replace a stateful prod store. Matches by resource TYPE
