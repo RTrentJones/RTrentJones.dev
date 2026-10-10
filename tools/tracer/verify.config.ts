@@ -12,7 +12,10 @@ export default [
     mode: 'api',
     checks: [
       { path: '/api/health', status: 200, contains: '"ok":true' },
-      { path: '/', status: 200, contains: 'claude-opus-4-8' },
+      // A heading rendered only after the page's live queries resolve (a DB failure renders error.tsx
+      // instead). Not a model name: those come from ingested data, and the old 'claude-opus-4-8'
+      // marker went stale when the seeded demo runs were removed (#45).
+      { path: '/', status: 200, contains: 'Latest run per tool' },
       { path: '/runs', status: 200 },
       { path: '/compare', status: 200 },
       // POST-only routes → GET is 405. Confirms they're mounted; bearer/zod behaviour is covered by the
