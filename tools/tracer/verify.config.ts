@@ -1,10 +1,10 @@
 // verifyAll: an array so CI and the agent loop gate on the same harness (allPass).
 //  - api: the deployed dashboard renders AND reads Neon, and the write routes stay locked.
 //      /api/health proves DATABASE_URL is wired + the schema is present (ok, runs ≥ 1), and on prod
-//      that ingest is still flowing: latestRunAt must be recent, because dogfood-tracer and
-//      pg-kafka-tracer both feed prod daily, and a stalled feed otherwise looks perfectly healthy.
-//      (Beta gets no scheduled ingest, so freshness is prod-only.) `/` runs live queries, so a broken
-//      DB renders error.tsx instead of the heading. An UNAUTHENTICATED POST to /api/ingest and
+//      that EACH daily feed is still flowing: latestRunAtByTool.tracer (dogfood-tracer) and
+//      .pg_kafka (pg-kafka-tracer) must be recent, since a stalled feed otherwise looks perfectly
+//      healthy. Beta gets no scheduled ingest, so freshness is prod-only. `/` runs live queries, so
+//      a broken DB renders error.tsx instead of the heading. An UNAUTHENTICATED POST to /api/ingest and
 //      /api/run must be rejected with 401 — the bearer guard is what stops anonymous visitors
 //      writing runs or spending provider tokens, so a regression there fails the gate.
 //      /__version serves the deployed commit (VERCEL_GIT_COMMIT_SHA); with --expect-sha (promote)
@@ -26,7 +26,14 @@ export default ({ env }: VerifyConfigContext) => [
         json: [
           { path: 'ok', equals: true },
           { path: 'runs', gte: 1 },
-          ...(env === 'prod' ? [{ path: 'latestRunAt', maxAgeHours: 50 }] : []),
+          // Each daily feed must be alive on its own: the global latestRunAt stays fresh while ANY
+          // producer runs (incl. the blog's ship events), so assert per producer.
+          ...(env === 'prod'
+            ? [
+                { path: 'latestRunAtByTool.tracer', maxAgeHours: 50 }, // dogfood-tracer
+                { path: 'latestRunAtByTool.pg_kafka', maxAgeHours: 50 }, // pg-kafka-tracer
+              ]
+            : []),
         ],
       },
       // A heading rendered only after the page's live queries resolve (a DB failure renders error.tsx
