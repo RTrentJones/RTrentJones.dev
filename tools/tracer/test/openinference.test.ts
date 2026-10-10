@@ -92,9 +92,11 @@ describe('fromOpenInference', () => {
 // `duration_ms`/`attempts` keys — null for this settle-free fixture, and ignored by our adapter
 // (`fromOpenInference` reads none of them) — the v1 contract is otherwise unchanged since v0.6.0).
 // Re-verified at v0.9.0: packages/verify/src (export.ts + types.ts) and the CLI's --json path are
-// unchanged from v0.8.0, so the fixture stands as-is.
+// unchanged from v0.8.0, so the fixture stands as-is. Re-verified at v0.10.0: export.ts is
+// unchanged and types.ts only adds SPEC fields (json/text/method/... assertions); VerifyCheck and
+// VerifyReport, the shapes the export reads, are untouched.
 // The guard below fails loudly when the installed dep moves to a new minor/major, forcing a re-verify + bump.
-const FIXTURE_VERIFIED = '0.9';
+const FIXTURE_VERIFIED = '0.10';
 // Read the installed version straight off disk (the package doesn't export ./package.json). The pnpm
 // symlink for a tool-declared dep always lands in the tool's local node_modules.
 const installedGreenlight = JSON.parse(
