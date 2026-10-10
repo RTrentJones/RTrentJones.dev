@@ -8,8 +8,10 @@
 //  - prod: api 401 (server up + OAuth enforced) + the OAuth metadata advertises a
 //    registration_endpoint (interactive MCP clients — claude.ai's connector — onboard via OAuth
 //    Dynamic Client Registration; if it's disabled they can't connect, and the static M2M token
-//    below never exercises that path, so this check is the regression guard) + an authenticated
-//    tools/list (when the M2M token is set). Telemetry-into-verify attaches the response on failure.
+//    below never exercises that path, so this check is the regression guard; the endpoint must also
+//    answer an empty registration with 400, not 404) + the RFC 9728 protected-resource metadata + an
+//    authenticated tools/list AND a real search_gene call (when the M2M token is set).
+//    Telemetry-into-verify attaches the response on failure.
 //
 // exactTools is the DRIFT GUARD: tools/list must equal TOOLS exactly — a tool added in code but not
 // listed here (or removed) FAILS the gate, so a new capability is forced into the verify loop.
@@ -53,7 +55,23 @@ export default ({ preview }: VerifyConfigContext) =>
             {
               path: '/../.well-known/oauth-authorization-server',
               status: 200,
-              contains: 'registration_endpoint',
+              json: [
+                { path: 'registration_endpoint', matches: '^https://bamcp\\.rtrentjones\\.dev/register$' },
+                { path: 'issuer', equals: 'https://bamcp.rtrentjones.dev/' },
+                { path: 'scopes_supported[0]', equals: 'bamcp:read' },
+              ],
+            },
+            // The advertised endpoint must actually be live: an empty registration is rejected as
+            // invalid (400). A disabled DCR answers 404, and an empty body can never create a client.
+            { path: '/../register', method: 'POST', body: {}, status: 400 },
+            // RFC 9728 protected-resource metadata — how a client discovers which auth server to use.
+            {
+              path: '/../.well-known/oauth-protected-resource',
+              status: 200,
+              json: [
+                { path: 'resource', equals: 'https://bamcp.rtrentjones.dev/' },
+                { path: 'authorization_servers[0]', equals: 'https://bamcp.rtrentjones.dev/' },
+              ],
             },
           ],
           logsOnFailure,
@@ -65,6 +83,15 @@ export default ({ preview }: VerifyConfigContext) =>
                 expectTools: TOOLS,
                 exactTools: true,
                 headers: { Authorization: `Bearer ${token}` },
+                // Functional, not just protocol: a real tool computes a real answer. search_gene
+                // resolves a symbol through NCBI, so this also proves the container's outbound
+                // egress works (the remote-fetch allow-list includes NCBI). BRCA1 is stable.
+                call: {
+                  name: 'search_gene',
+                  args: { symbol: 'BRCA1', build: 'GRCh38' },
+                  expectText: '"symbol": "BRCA1"',
+                },
+                timeoutMs: 30_000,
               },
             ]
           : []),

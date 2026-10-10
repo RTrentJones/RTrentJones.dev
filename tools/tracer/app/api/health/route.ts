@@ -17,10 +17,21 @@ export async function GET() {
   try {
     const db = getDb();
     // One query proves both: a successful count over eval_run means the connection works AND the
-    // schema + migrations are present (a missing table throws here, caught below).
-    const res = await db.execute(sql`SELECT count(*)::int AS runs FROM eval_run`);
-    const runs = (res.rows[0] as { runs: number } | undefined)?.runs ?? 0;
-    return NextResponse.json({ ok: true, databaseUrlSet, directUrlSet, runs });
+    // schema + migrations are present (a missing table throws here, caught below). latestRunAt is
+    // the freshness signal: ingest is fed daily (dogfood-tracer + pg-kafka-tracer), so the verify
+    // gate can assert it is recent — a stalled ingest otherwise looks perfectly healthy here.
+    const res = await db.execute(
+      sql`SELECT count(*)::int AS runs, max(started_at) AS latest FROM eval_run`,
+    );
+    const row = res.rows[0] as { runs: number; latest: Date | string | null } | undefined;
+    const latest = row?.latest ?? null;
+    return NextResponse.json({
+      ok: true,
+      databaseUrlSet,
+      directUrlSet,
+      runs: row?.runs ?? 0,
+      latestRunAt: latest === null ? null : new Date(latest).toISOString(),
+    });
   } catch (e) {
     // Real cause to the logs (where the operator can see it); generic message to the public response.
     console.error('health: db check failed', e);
