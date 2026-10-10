@@ -25,15 +25,16 @@ export async function GET() {
     );
     const row = res.rows[0] as { runs: number; latest: Date | string | null } | undefined;
     const latest = row?.latest ?? null;
-    // Per-tool latest run: each scheduled feed writes as its own tool (dogfood-tracer → `tracer`,
-    // pg-kafka-tracer → `pg_kafka`), so the gate can assert EACH feed is alive. The global max alone
-    // stays fresh while any one producer runs, hiding a stalled one.
-    const byTool = await db.execute(
-      sql`SELECT tool, max(started_at) AS latest FROM eval_run GROUP BY tool`,
+    // Latest run per PRODUCER, keyed `tool:mode`, so the gate can assert each scheduled feed is
+    // alive on its own: dogfood-tracer writes `tracer:api+test`, pg-kafka-tracer writes
+    // `pg_kafka:benchmark`, and a manual /api/run writes `tracer:eval`. A global (or per-tool) max
+    // stays fresh while any other producer runs, hiding a stalled feed.
+    const bySource = await db.execute(
+      sql`SELECT tool, mode, max(started_at) AS latest FROM eval_run GROUP BY tool, mode`,
     );
-    const latestRunAtByTool = Object.fromEntries(
-      (byTool.rows as { tool: string; latest: Date | string }[]).map((r) => [
-        r.tool,
+    const latestRunAtBySource = Object.fromEntries(
+      (bySource.rows as { tool: string; mode: string; latest: Date | string }[]).map((r) => [
+        `${r.tool}:${r.mode}`,
         new Date(r.latest).toISOString(),
       ]),
     );
@@ -43,7 +44,7 @@ export async function GET() {
       directUrlSet,
       runs: row?.runs ?? 0,
       latestRunAt: latest === null ? null : new Date(latest).toISOString(),
-      latestRunAtByTool,
+      latestRunAtBySource,
     });
   } catch (e) {
     // Real cause to the logs (where the operator can see it); generic message to the public response.
