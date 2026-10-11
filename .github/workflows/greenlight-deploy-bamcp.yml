@@ -33,6 +33,9 @@ jobs:
           oci-region: ${{ secrets.TF_VAR_OCI_REGION }}
           oci-compartment: ${{ secrets.TF_VAR_OCI_COMPARTMENT_ID }}
           verify-token: ${{ secrets.BAMCP_VERIFY_TOKEN }}
+          # Identity gate: wait for /__version to serve the dispatched image's sha before verifying,
+          # so a slow re-pull can't verify the still-running old container. Empty on a manual run.
+          expected-sha: ${{ github.event.client_payload.sha }}
       - name: Report status back to RTrentJones/BAMCP
         if: ${{ always() && github.event.client_payload.sha != '' }}
         env:
