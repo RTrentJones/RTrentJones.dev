@@ -28,7 +28,7 @@ export const PROVIDERS: Provider[] = [
     label: 'Google Gemini',
     kind: 'openai',
     envKey: 'GEMINI_API_KEY',
-    defaultModel: 'gemini-2.5-flash',
+    defaultModel: 'gemini-3.8-flash',
     baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
     rate: { in: 0, out: 0 }, // AI Studio free tier
   },
