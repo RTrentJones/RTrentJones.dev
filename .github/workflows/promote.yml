@@ -45,6 +45,16 @@ jobs:
         id: sha
         run: echo "sha=$(git rev-parse origin/develop)" >> "$GITHUB_OUTPUT"
 
+      # Work from the promoted commit from here on: the dispatch checkout is pre-promotion main, so
+      # gating on it would verify beta against the OLD manifest + verify specs (and classify a tool
+      # the promotion adopts by its old entry). `promote` itself is ref-based (it pushes
+      # <sha>:refs/heads/main), so the detached checkout doesn't affect the fast-forward. The FF
+      # also never moves this working tree, which is why prod ships from here too.
+      - name: Check out the promoted commit
+        run: |
+          git checkout --detach "${{ steps.sha.outputs.sha }}"
+          pnpm install --frozen-lockfile
+
       - name: Validate tool name (allow-list ↔ manifest)
         run: |
           # Allow-list mirrors greenlight.config.ts (blog + the tools[] array). The CLI also validates,
@@ -52,6 +62,23 @@ jobs:
           case "$NAME" in
             blog | heistmind | bamcp | tracer | muse | polyphony) ;;
             *) echo "::error::unknown tool '$NAME' (allowed: blog heistmind bamcp tracer muse polyphony)"; exit 1 ;;
+          esac
+
+      # External tools (manifest `external: true`: heistmind, bamcp, polyphony) ship from their own
+      # repos: their /__version reports THEIR commit, never this wrapper's develop sha, and their
+      # deploys run from their own pipelines (bamcp/polyphony via repository_dispatch with OCI creds,
+      # heistmind via Vercel), which `ship` here can't drive. So they get no sha pin and a prod
+      # VERIFY instead of a ship; their identity is enforced by their own deploy gates and the
+      # specs' /__version checks. Read from the promoted manifest (checked out above), not a second
+      # hand-kept list, so adopting a tool can't drift. Anything unreadable fails the step.
+      - name: Resolve external tools (no sha pin, verify-only prod)
+        id: pin
+        run: |
+          ext=$(pnpm -s exec greenlight config 2>/dev/null | sed -n '/^{/,$p' \
+            | jq -r --arg n "$NAME" '[.tools[] | select(.name == $n) | (.external // false)][0] // false')
+          case "$ext" in
+            true | false) echo "external=$ext" >> "$GITHUB_OUTPUT"; echo "$NAME: external=$ext" ;;
+            *) echo "::error::could not read '$NAME' from the manifest (got '$ext')"; exit 1 ;;
           esac
 
       - name: Check Cloudflare creds
@@ -74,7 +101,11 @@ jobs:
       - name: Verify beta (gate, sha-pinned)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec greenlight verify "$NAME" --env beta --expect-sha "${{ steps.sha.outputs.sha }}"
+          EXTERNAL: ${{ steps.pin.outputs.external }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          pin=(); [ "$EXTERNAL" = true ] || pin=(--expect-sha "$SHA")
+          pnpm exec greenlight verify "$NAME" --env beta "${pin[@]}"
 
       - name: Promote (gated fast-forward)
         run: |
@@ -82,16 +113,15 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           pnpm exec greenlight promote "$NAME" --perform --push --commit "${{ steps.sha.outputs.sha }}"
 
-      # The FF moved origin/main, but this job's working tree still holds the DISPATCH ref (main
-      # as of dispatch time) — building prod from it ships the PRE-promotion code, and the
-      # GITHUB_TOKEN push above never re-triggers deploy.yml, so promoted code would never
-      # actually reach prod. Check out exactly the promoted sha (already local — it's develop's tip).
-      - name: Check out the promoted commit
-        run: |
-          git checkout --detach "${{ steps.sha.outputs.sha }}"
-          pnpm install --frozen-lockfile
-
-      - name: Ship prod (build -> deploy -> SHA-gated verify -> rollback on failure)
+      - name: Ship prod (build -> deploy -> SHA-gated verify -> rollback; verify-only for external tools)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec greenlight ship "$NAME" --env prod --expect-sha "${{ steps.sha.outputs.sha }}"
+          EXTERNAL: ${{ steps.pin.outputs.external }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          if [ "$EXTERNAL" = true ]; then
+            # Ships from its own repo/pipeline: gate on prod rather than deploying from here.
+            pnpm exec greenlight verify "$NAME" --env prod
+          else
+            pnpm exec greenlight ship "$NAME" --env prod --expect-sha "$SHA"
+          fi
