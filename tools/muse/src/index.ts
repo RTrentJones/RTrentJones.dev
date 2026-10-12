@@ -19,6 +19,8 @@ export interface Env {
   GEMINI_API_KEY: string;
   RUN_TOKEN?: string;
   MODEL: string;
+  /** Optional second model, tried once MODEL is still overloaded after its retries. */
+  FALLBACK_MODEL?: string;
   GREENLIGHT_ENV: string;
   /** The deployed commit, baked in at deploy (`wrangler deploy --var GREENLIGHT_SHA:<sha>`). */
   GREENLIGHT_SHA?: string;
@@ -43,20 +45,80 @@ const PROMPT =
   'In one or two sentences, share a single concrete, non-obvious tip about deploying software ' +
   'safely. Vary the topic each time. Plain text, no preamble, no markdown.';
 
-async function callGemini(env: Env): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT }] }] }),
-  });
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!text) throw new Error('Gemini returned no text');
-  return text;
+// Transient failures (rate limit, request timeout, overloaded/unavailable model, a network drop
+// while sending or while reading the body) are retried with a short backoff so one bad second
+// doesn't fail the whole day's run. Anything else (a bad key, an unknown or retired model) fails
+// immediately: retrying can't fix it, and verify must see it.
+const RETRY_DELAYS_MS = [2_000, 8_000];
+const isTransient = (status: number) => status === 408 || status === 429 || status >= 500;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type Attempt = { text: string } | { error: string; transient: boolean };
+
+async function attemptGemini(env: Env, model: string): Promise<Attempt> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT }] }] }),
+    });
+    if (!res.ok) return { error: `Gemini HTTP ${res.status}`, transient: isTransient(res.status) };
+    // Read the body inside the try: a connection dropped mid-body is as transient as one dropped
+    // before the headers arrived.
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return text ? { text } : { error: 'Gemini returned no text', transient: false };
+  } catch (e) {
+    // Network/IO failure. Report only the error class — never the message, which can echo the
+    // request URL, and the URL carries the API key.
+    return { error: `Gemini unreachable: ${(e as Error).name}`, transient: true };
+  }
+}
+
+class GeminiError extends Error {
+  constructor(
+    message: string,
+    readonly transient: boolean,
+  ) {
+    super(message);
+  }
+}
+
+async function callModel(env: Env, model: string): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const r = await attemptGemini(env, model);
+    if ('text' in r) return r.text;
+    if (r.transient && attempt < RETRY_DELAYS_MS.length) {
+      // Full jitter on top of the base delay: agents sharing a key (and the same cron minute) would
+      // otherwise retry in lockstep and re-hit the same per-minute rate window together.
+      const base = RETRY_DELAYS_MS[attempt] as number;
+      await sleep(base + Math.random() * base);
+      continue;
+    }
+    const msg = attempt > 0 ? `${r.error} (after ${attempt + 1} attempts)` : r.error;
+    throw new GeminiError(msg, r.transient);
+  }
+}
+
+// A once-a-day run can't wait out a model overload that lasts minutes, so when MODEL is still
+// failing transiently after its retries, FALLBACK_MODEL (a different model, with its own capacity)
+// gets one round of its own. A non-transient failure (bad key, unknown model) never falls back:
+// that's a misconfiguration verify must surface, not paper over.
+async function callGemini(env: Env): Promise<{ text: string; model: string }> {
+  try {
+    return { text: await callModel(env, env.MODEL), model: env.MODEL };
+  } catch (e) {
+    const fallback = env.FALLBACK_MODEL;
+    if (!(e instanceof GeminiError) || !e.transient || !fallback || fallback === env.MODEL) throw e;
+    try {
+      return { text: await callModel(env, fallback), model: fallback };
+    } catch (f) {
+      throw new Error(`${env.MODEL}: ${e.message}; fallback ${fallback}: ${(f as Error).message}`);
+    }
+  }
 }
 
 function key(env: Env): string {
@@ -70,12 +132,8 @@ function attemptKey(env: Env): string {
 async function runOnce(env: Env): Promise<AgentRecord> {
   const at = new Date().toISOString();
   try {
-    const rec: AgentRecord = {
-      ok: true,
-      text: await callGemini(env),
-      lastRun: at,
-      model: env.MODEL,
-    };
+    const { text, model } = await callGemini(env);
+    const rec: AgentRecord = { ok: true, text, lastRun: at, model };
     await env.STATE.put(key(env), JSON.stringify(rec));
     await env.STATE.put(attemptKey(env), JSON.stringify({ at, ok: true } satisfies AttemptRecord));
     return rec;
@@ -137,6 +195,8 @@ export default {
         lastAttempt: attempt?.at ?? null,
         lastError: attempt?.ok === false ? (attempt.error ?? 'unknown error') : null,
         model: env.MODEL,
+        // The model that produced the latest output: FALLBACK_MODEL on a day MODEL was overloaded.
+        lastModel: rec?.model ?? null,
         preview: rec ? rec.text.slice(0, 80) : null,
       });
     }

@@ -8,9 +8,13 @@
 //  - the Discord interactions endpoint has its public key configured: an UNSIGNED POST must be
 //    rejected as a bad signature (401). A missing key answers 503 instead, which is exactly the
 //    misconfiguration this catches. Nothing signed is ever sent, so it can't trigger a command.
-// The Supabase database's liveness is the keepalive Worker's job (it queries `profiles` daily);
-// /__version would need a route in the HeistMind repo, so identity stays "unverified" here.
-export default {
+//  - `/__version` serves the deployed commit (VERCEL_GIT_COMMIT_SHA, let through the holding-page
+//    gate), and requireIdentity makes a missing sha fail under --expect-sha instead of reading as
+//    "unverified". Local previews have no commit, so the check is skipped there.
+// The Supabase database's liveness is the keepalive Worker's job (it queries `profiles` daily).
+import type { VerifyConfigContext } from '@rtrentjones/greenlight';
+
+export default ({ env }: VerifyConfigContext) => ({
   mode: 'api',
   checks: [
     {
@@ -28,8 +32,12 @@ export default {
       status: 401,
       contains: 'invalid request signature',
     },
+    ...(env === 'preview'
+      ? []
+      : [{ path: '/__version', status: 200, json: [{ path: 'sha', matches: '^[0-9a-f]{40}$' }] }]),
   ],
+  requireIdentity: true,
   // Vercel deployments can take a moment to alias after a promote — absorb it.
   settleRetries: 3,
   settleMs: 5000,
-};
+});

@@ -10,7 +10,8 @@
 //    Dynamic Client Registration; if it's disabled they can't connect, and the static M2M token
 //    below never exercises that path, so this check is the regression guard; the endpoint must also
 //    answer an empty registration with 400, not 404) + the RFC 9728 protected-resource metadata + an
-//    authenticated tools/list AND a real search_gene call (when the M2M token is set).
+//    authenticated tools/list AND a real search_gene call (when the M2M token is set), plus
+//    /__version (the image's build sha) with requireIdentity.
 //    Telemetry-into-verify attaches the response on failure.
 //
 // exactTools is the DRIFT GUARD: tools/list must equal TOOLS exactly — a tool added in code but not
@@ -73,7 +74,11 @@ export default ({ preview }: VerifyConfigContext) =>
                 { path: 'authorization_servers[0]', equals: 'https://bamcp.rtrentjones.dev/' },
               ],
             },
+            // Artifact identity: the image's build commit (GREENLIGHT_SHA build-arg), served
+            // unauthenticated at /mcp/__version — the same path the harness probes for --expect-sha.
+            { path: '/__version', status: 200, json: [{ path: 'sha', matches: '^[0-9a-f]{40}$' }] },
           ],
+          requireIdentity: true,
           logsOnFailure,
         },
         ...(token
