@@ -43,46 +43,48 @@ const PROMPT =
   'In one or two sentences, share a single concrete, non-obvious tip about deploying software ' +
   'safely. Vary the topic each time. Plain text, no preamble, no markdown.';
 
-// Transient failures (rate limit, overloaded/unavailable model, network blips) are retried with a
-// short backoff so one bad second doesn't fail the whole day's run. Anything else (a bad key, an
-// unknown or retired model) fails immediately: retrying can't fix it, and verify must see it.
+// Transient failures (rate limit, request timeout, overloaded/unavailable model, a network drop
+// while sending or while reading the body) are retried with a short backoff so one bad second
+// doesn't fail the whole day's run. Anything else (a bad key, an unknown or retired model) fails
+// immediately: retrying can't fix it, and verify must see it.
 const RETRY_DELAYS_MS = [2_000, 8_000];
-const isTransient = (status: number) => status === 429 || status >= 500;
-
+const isTransient = (status: number) => status === 408 || status === 429 || status >= 500;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function callGemini(env: Env): Promise<string> {
+type Attempt = { text: string } | { error: string; transient: boolean };
+
+async function attemptGemini(env: Env): Promise<Attempt> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
-  for (let attempt = 0; ; attempt++) {
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT }] }] }),
-      });
-    } catch (e) {
-      // Network error: transient by nature. Never echo the URL — it carries the API key.
-      if (attempt < RETRY_DELAYS_MS.length) {
-        await sleep(RETRY_DELAYS_MS[attempt] as number);
-        continue;
-      }
-      throw new Error(`Gemini unreachable after ${attempt + 1} attempts: ${(e as Error).name}`);
-    }
-    if (!res.ok) {
-      if (isTransient(res.status) && attempt < RETRY_DELAYS_MS.length) {
-        await sleep(RETRY_DELAYS_MS[attempt] as number);
-        continue;
-      }
-      const tries = attempt > 0 ? ` after ${attempt + 1} attempts` : '';
-      throw new Error(`Gemini HTTP ${res.status}${tries}`);
-    }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT }] }] }),
+    });
+    if (!res.ok) return { error: `Gemini HTTP ${res.status}`, transient: isTransient(res.status) };
+    // Read the body inside the try: a connection dropped mid-body is as transient as one dropped
+    // before the headers arrived.
     const data = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
     };
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!text) throw new Error('Gemini returned no text');
-    return text;
+    return text ? { text } : { error: 'Gemini returned no text', transient: false };
+  } catch (e) {
+    // Network/IO failure. Report only the error class — never the message, which can echo the
+    // request URL, and the URL carries the API key.
+    return { error: `Gemini unreachable: ${(e as Error).name}`, transient: true };
+  }
+}
+
+async function callGemini(env: Env): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const r = await attemptGemini(env);
+    if ('text' in r) return r.text;
+    if (r.transient && attempt < RETRY_DELAYS_MS.length) {
+      await sleep(RETRY_DELAYS_MS[attempt] as number);
+      continue;
+    }
+    throw new Error(attempt > 0 ? `${r.error} (after ${attempt + 1} attempts)` : r.error);
   }
 }
 
