@@ -81,7 +81,10 @@ async function callGemini(env: Env): Promise<string> {
     const r = await attemptGemini(env);
     if ('text' in r) return r.text;
     if (r.transient && attempt < RETRY_DELAYS_MS.length) {
-      await sleep(RETRY_DELAYS_MS[attempt] as number);
+      // Full jitter on top of the base delay: agents sharing a key (and the same cron minute) would
+      // otherwise retry in lockstep and re-hit the same per-minute rate window together.
+      const base = RETRY_DELAYS_MS[attempt] as number;
+      await sleep(base + Math.random() * base);
       continue;
     }
     throw new Error(attempt > 0 ? `${r.error} (after ${attempt + 1} attempts)` : r.error);
