@@ -61,9 +61,12 @@ module "bamcp_instance" {
       "ftp.ncbi.nlm.nih.gov",        # NCBI
       "ftp-trace.ncbi.nlm.nih.gov",  # GIAB / NIST truth + sample data
       "ftp.1000genomes.ebi.ac.uk",   # 1000 Genomes (EBI)
-      "1000genomes.s3.amazonaws.com" # 1000 Genomes (S3, virtual-hosted HTTPS)
+      "1000genomes.s3.amazonaws.com", # 1000 Genomes (S3, virtual-hosted HTTPS)
+      "ftp.ensembl.org"               # Ensembl FASTA BAMCP suggests for '1'-style (no chr) BAMs
     ])
-    BAMCP_RATE_LIMIT = "60"
+    # Every MCP JSON-RPC message (initialize, list, call, notifications) is its own request,
+    # and the viewer issues its own tool calls on pan/zoom: matches BAMCP's 120/min default.
+    BAMCP_RATE_LIMIT = "120"
     # cloudflared tunnel sidecar is co-located → the immediate proxy is loopback. XFF is trusted
     # only from here, so an external client cannot spoof its IP to bypass per-IP rate limits.
     BAMCP_RATE_LIMIT_TRUSTED_PROXIES = "127.0.0.1,::1"
