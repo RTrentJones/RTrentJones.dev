@@ -30,7 +30,7 @@ cost **$0** (Gemini Flash). Generation is scored by `autoevals` deterministic sc
 
 | Provider | env key | default model | free tier |
 |---|---|---|---|
-| Google Gemini | `GEMINI_API_KEY` | `gemini-2.5-flash` | ✅ (AI Studio) |
+| Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | ✅ (AI Studio) |
 | xAI Grok | `XAI_API_KEY` | `grok-4` | where available |
 | Anthropic | `ANTHROPIC_API_KEY` | `claude-opus-4-8` | paid |
 
@@ -99,7 +99,7 @@ curl -s -XPOST localhost:3000/api/run -H "authorization: Bearer devtoken"
 
 # /api/ingest accepts the native shape OR an OTel-GenAI/OpenInference result:
 curl -s -XPOST localhost:3000/api/ingest -H "authorization: Bearer devtoken" -H 'content-type: application/json' \
-  -d '{"tool":"tracer","passed":true,"attributes":{"gen_ai.request.model":"gemini-2.5-flash"},
+  -d '{"tool":"tracer","passed":true,"attributes":{"gen_ai.request.model":"gemini-3.8-flash"},
        "checks":[{"name":"smoke","eval.score":1,"eval.explanation":"ok","passed":true}]}'
 ```
 
