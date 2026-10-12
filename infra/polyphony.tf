@@ -54,6 +54,13 @@ module "polyphony_instance" {
     # baseline creates the extension + voice_chunks table) — no separate store.
     DATABASE_URL    = module.polyphony_neon.direct_url["prod"]
     LLM_PROVIDER    = "gemini"
+    # The capability tier is the ONE graduation switch (Polyphony BRD R7.6): it sets pacing,
+    # the per-user token cap, local requests-per-day tracking and the ensemble gate.
+    LLM_TIER = "free"
+    # Rate limits key on Cloudflare's CF-Connecting-IP only when the request arrives from a
+    # trusted peer (Polyphony SPEC-05). cloudflared reaches the container through the docker
+    # bridge on this instance, so trust loopback + the docker range and nothing broader.
+    TRUSTED_PROXY_CIDRS = "127.0.0.0/8,::1/128,172.16.0.0/12"
     GEMINI_API_KEY  = var.polyphony_gemini_api_key
     SECRET_KEY      = var.polyphony_secret_key
     ALLOWED_ORIGINS = "https://polyphony.rtrentjones.dev"
