@@ -15,7 +15,7 @@ compatibility_date = "2025-06-01"
 crons = ["0 13 * * *"]
 
 [vars]
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 GREENLIGHT_ENV = "prod"
 
 # Output store. `wrangler kv namespace create STATE` → paste the id here (and per-env below).
@@ -30,7 +30,7 @@ name = "muse"
 routes = [{ pattern = "muse.rtrentjones.dev", custom_domain = true }]
 
 [env.prod.vars]
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 GREENLIGHT_ENV = "prod"
 
 [[env.prod.kv_namespaces]]
@@ -42,7 +42,7 @@ name = "muse-beta"
 routes = [{ pattern = "beta.muse.rtrentjones.dev", custom_domain = true }]
 
 [env.beta.vars]
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 GREENLIGHT_ENV = "beta"
 
 [[env.beta.kv_namespaces]]
