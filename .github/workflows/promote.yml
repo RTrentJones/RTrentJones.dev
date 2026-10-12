@@ -57,17 +57,30 @@ jobs:
       # External tools (manifest `external: true`: heistmind, bamcp, polyphony) ship from their own
       # repos, so their /__version reports THEIR commit, never this wrapper's develop sha. Pinning
       # them to it would fail every promotion on a sha mismatch; their identity is enforced by their
-      # own deploy gates (and the specs' /__version checks) instead. Read from the manifest, not a
-      # second hand-kept list, so a newly adopted tool can't drift. Anything but true/false fails.
-      - name: Resolve the identity pin (wrapper-built tools only)
+      # own deploy gates (and the specs' /__version checks) instead. An external tool on a target the
+      # wrapper can't deploy (vercel: `ship` refuses it) gets a prod verify instead of a ship.
+      # Read from the manifest AT THE PROMOTED SHA (this checkout is still pre-promotion main), not
+      # a second hand-kept list, so adopting a tool can't drift. Anything unreadable fails.
+      - name: Resolve the identity pin + prod step (from the promoted manifest)
         id: pin
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
         run: |
-          ext=$(pnpm -s exec greenlight config 2>/dev/null | sed -n '/^{/,$p' \
-            | jq -r --arg n "$NAME" '[.tools[] | select(.name == $n) | (.external // false)][0] // false')
+          git show "$SHA:greenlight.config.ts" > greenlight.config.ts
+          entry=$(pnpm -s exec greenlight config 2>/dev/null | sed -n '/^{/,$p' \
+            | jq -c --arg n "$NAME" '[.tools[] | select(.name == $n)][0] // {}')
+          git checkout -- greenlight.config.ts
+          ext=$(jq -r '.external // false' <<<"$entry")
+          target=$(jq -r '.target // "none"' <<<"$entry")
           case "$ext" in
-            true | false) echo "external=$ext" >> "$GITHUB_OUTPUT" ;;
+            true | false) ;;
             *) echo "::error::could not read '$NAME' from the manifest (got '$ext')"; exit 1 ;;
           esac
+          prod=ship
+          if [ "$ext" = true ] && [ "$target" != oci ] && [ "$target" != docker ]; then prod=verify; fi
+          echo "external=$ext" >> "$GITHUB_OUTPUT"
+          echo "prod=$prod" >> "$GITHUB_OUTPUT"
+          echo "$NAME: external=$ext target=$target prod=$prod"
 
       - name: Check Cloudflare creds
         id: creds
@@ -110,11 +123,17 @@ jobs:
           git checkout --detach "${{ steps.sha.outputs.sha }}"
           pnpm install --frozen-lockfile
 
-      - name: Ship prod (build -> deploy -> SHA-gated verify -> rollback on failure)
+      - name: Ship prod (build -> deploy -> SHA-gated verify -> rollback; verify-only for external vercel)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           EXTERNAL: ${{ steps.pin.outputs.external }}
+          PROD: ${{ steps.pin.outputs.prod }}
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
           pin=(); [ "$EXTERNAL" = true ] || pin=(--expect-sha "$SHA")
-          pnpm exec greenlight ship "$NAME" --env prod "${pin[@]}"
+          if [ "$PROD" = verify ]; then
+            # External tool the wrapper can't deploy: it ships from its own repo, so gate on prod.
+            pnpm exec greenlight verify "$NAME" --env prod
+          else
+            pnpm exec greenlight ship "$NAME" --env prod "${pin[@]}"
+          fi
