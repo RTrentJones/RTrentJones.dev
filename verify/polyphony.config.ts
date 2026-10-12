@@ -30,6 +30,8 @@ export default ({ preview }: VerifyConfigContext) => [
           { path: 'status', equals: 'healthy' },
           { path: 'checks.database', equals: 'healthy' },
           { path: 'checks.vector_search', equals: 'healthy' },
+          // /health names the build it serves (SPEC-15 15c) — deployed images only.
+          ...(preview ? [] : [{ path: 'sha', matches: '^[0-9a-f]{7}$' }]),
         ],
       },
       // The DB-free liveness probe the keepalive Worker uses — it must stay up or every keepalive
@@ -47,6 +49,13 @@ export default ({ preview }: VerifyConfigContext) => [
       { path: '/../api/v1/scenes/', status: 401 },
       { path: '/../api/v1/books/', status: 401 },
       { path: '/../api/v1/auth/me', status: 401 },
+      // Surfaces added by the 2026-10 spec work (docs/specs in the Polyphony repo): the jobs
+      // lifecycle (SPEC-07), usage/cost (SPEC-12) and the book cast — all JWT-gated.
+      { path: '/../api/v1/jobs', status: 401 },
+      { path: '/../api/v1/usage', status: 401 },
+      { path: '/../api/v1/characters/', status: 401 },
+      // The static frontend ships the Usage page (SPEC-12).
+      { path: '/../usage/', status: 200 },
     ],
     requireIdentity: true,
     // The container runs migrations before serving; give the re-pull + boot time to settle.
