@@ -121,19 +121,22 @@ underlying tools; they just won't render the viewer.
 
 ## Does the picture actually help?
 
-I wanted to know whether showing a model the pileup changes its answers, so I ran a small
-pre-registered evaluation: 26 synthetic sites, real variants mixed with common sequencing artifacts,
-shown to three model sizes as raw read text, as BAMCP's structured evidence, as the rendered pileup,
-or as the pileup plus the text.
+I wanted to know whether showing a model the pileup changes its answers, so I ran a
+pre-registered evaluation in three rounds. Sites were shown to three model sizes as raw read
+text, as BAMCP's structured evidence, as the rendered pileup, or as the pileup plus the text.
+The sites included synthetic variants and artifacts, and in the last round 36 real sites from
+the GIAB HG002 sample, with truth from the GIAB benchmark and the coordinates disguised.
 
-With text alone the models were already right about 95% of the time, and adding the image didn't
-move that by a measurable amount. The image on its own did worse, and the failures traced back to my
-renderer: every base was coloured, so a column of identical mismatches didn't stand out. After
-redrawing the reads in grey with colour only on mismatches, the image-only score went from 82% to
-91%, and the largest model got every site right from the picture alone. That second round reused
-the same sites, so I'm treating it as a lead rather than a result. The
+It doesn't, at least not on these sites. The reads as text were the best evidence every time (99% right on the
+real sites), and adding the picture to them changed nothing. The picture on its own was a usable
+but weaker substitute: 87–89%, about as good as the structured summary, and overconfident when it
+was wrong. The largest model did read pictures almost perfectly; the smallest did not.
+
+The evaluation did change the viewer. An early round showed that colouring every base hid
+homozygous variants, so reads are now grey with only the mismatches coloured. The
 [write-up](https://github.com/RTrentJones/BAMCP/blob/main/docs/eval/visual-results.md) has the
-numbers and the caveats.
+numbers and the caveats. For BAMCP, that means the viewer is for the person, and the model keeps
+getting the reads as text.
 
 ## A few implementation details
 
