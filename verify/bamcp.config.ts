@@ -98,6 +98,21 @@ export default ({ preview }: VerifyConfigContext) =>
                 },
                 timeoutMs: 30_000,
               },
+              {
+                mode: 'mcp',
+                expectTools: TOOLS,
+                exactTools: true,
+                headers: { Authorization: `Bearer ${token}` },
+                // The newcomer path the project page advertises: the demo:HG002 alias resolves to the
+                // public GIAB BAM, its header is read over the allow-listed remote, and the build is
+                // detected. Header-only, so it stays fast even on a cold container.
+                call: {
+                  name: 'list_contigs',
+                  args: { file_path: 'demo:HG002' },
+                  expectText: 'GRCh38',
+                },
+                timeoutMs: 60_000,
+              },
             ]
           : []),
       ];
