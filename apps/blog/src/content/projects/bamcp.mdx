@@ -107,8 +107,8 @@ If you don't have a BAM handy, these prompts work against the demo datasets as-i
   chr17:43099900-43099930 and tell me what variant is there."* A heterozygous G>A in BRCA1 at
   43,099,914, with the reads to back it up.
 - *"With BAMCP, check whether the T>G at chr17:43096151 in demo:HG002 is real."* This site is
-  filtered out of the default calls; the curation summary explains why, flagging it as a high
-  artifact risk driven by low base quality.
+  filtered out of the default calls; the curation summary explains why, rating it a high artifact
+  risk because every supporting read is on one strand and most of their bases are low quality.
 - *"Find BRCA2 in demo:HG00096 with BAMCP and summarize its coverage."* The gene lookup detects that
   this sample is on GRCh37 and that its contigs are named `13` rather than `chr13`.
 
