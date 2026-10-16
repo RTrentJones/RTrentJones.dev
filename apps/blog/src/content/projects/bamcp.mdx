@@ -96,12 +96,44 @@ In claude.ai:
 2. Paste the URL and click **Add**.
 3. Complete the OAuth sign-in.
 4. Enable BAMCP from **+ → Connectors** in a conversation.
-5. Give it a public BAM or CRAM URL and a locus to inspect.
+5. Give it a public BAM or CRAM URL and a locus to inspect, or use one of the built-in demo
+   datasets: `demo:HG002` (GIAB, GRCh38) or `demo:HG00096` (1000 Genomes, GRCh37).
+
+### Try this
+
+If you don't have a BAM handy, these prompts work against the demo datasets as-is:
+
+- *"Using BAMCP, list the contigs in demo:HG002, then show me the reads at
+  chr17:43099900-43099930 and tell me what variant is there."* A heterozygous G>A in BRCA1 at
+  43,099,914, with the reads to back it up.
+- *"With BAMCP, check whether the T>G at chr17:43096151 in demo:HG002 is real."* This site is
+  filtered out of the default calls; the curation summary explains why, flagging it as a high
+  artifact risk driven by low base quality.
+- *"Find BRCA2 in demo:HG00096 with BAMCP and summarize its coverage."* The gene lookup detects that
+  this sample is on GRCh37 and that its contigs are named `13` rather than `chr13`.
+
+BAMCP also ships an `explore_demo` prompt that walks through the same ground step by step.
 
 The interactive pileup requires a client with
 [MCP Apps support](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude),
 including claude.ai, Claude Desktop, and the mobile apps. Other MCP clients can still call the
 underlying tools; they just won't render the viewer.
+
+## Does the picture actually help?
+
+I wanted to know whether showing a model the pileup changes its answers, so I ran a small
+pre-registered evaluation: 26 synthetic sites, real variants mixed with common sequencing artifacts,
+shown to three model sizes as raw read text, as BAMCP's structured evidence, as the rendered pileup,
+or as the pileup plus the text.
+
+With text alone the models were already right about 95% of the time, and adding the image didn't
+move that by a measurable amount. The image on its own did worse, and the failures traced back to my
+renderer: every base was coloured, so a column of identical mismatches didn't stand out. After
+redrawing the reads in grey with colour only on mismatches, the image-only score went from 82% to
+91%, and the largest model got every site right from the picture alone. That second round reused
+the same sites, so I'm treating it as a lead rather than a result. The
+[write-up](https://github.com/RTrentJones/BAMCP/blob/main/docs/eval/visual-results.md) has the
+numbers and the caveats.
 
 ## A few implementation details
 
