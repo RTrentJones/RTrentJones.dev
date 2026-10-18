@@ -122,15 +122,25 @@ underlying tools; they just won't render the viewer.
 ## Does the picture actually help?
 
 I wanted to know whether showing a model the pileup changes its answers, so I ran a
-pre-registered evaluation in three rounds. Sites were shown to three model sizes as raw read
+pre-registered evaluation in four rounds. Sites were shown to three model sizes as raw read
 text, as BAMCP's structured evidence, as the rendered pileup, or as the pileup plus the text.
-The sites included synthetic variants and artifacts, and in the last round 36 real sites from
-the GIAB HG002 sample, with truth from the GIAB benchmark and the coordinates disguised.
+The sites included synthetic variants and artifacts and, from the third round on, real sites
+from the GIAB HG002 sample, with truth from the GIAB benchmarks and the coordinates disguised.
 
-It doesn't, at least not on these sites. The reads as text were the best evidence every time (99% right on the
+It doesn't, at least not on these sites. In the third round the reads as text were the best evidence (99% right on the
 real sites), and adding the picture to them changed nothing. The picture on its own was a usable
 but weaker substitute: 87–89%, about as good as the structured summary, and overconfident when it
 was wrong. The largest model did read pictures almost perfectly; the smallest did not.
+
+A fourth round went looking for harder cases, where text alone would get only about 70% right,
+so a gain would have room to show. Real sites from the classes that trip up short-read callers
+(low-fraction variants, caller false positives, duplicated genes) did not produce them: the
+models were at 94–96% even from raw `samtools mpileup` output. Only one kind of site was hard:
+insertions and deletions inside long single-letter repeats, where the sequencer's own slips look
+like a real variant. On 60 fresh sites of that kind, neither BAMCP's text tools nor the picture
+raised overall accuracy, and both made the smallest model miss more real variants. The picture
+did one thing the text did not: the larger models were about twice as likely to call the
+genotype (one copy or two) correctly when they could see the reads.
 
 The evaluation did change the viewer. An early round showed that colouring every base hid
 homozygous variants, so reads are now grey with only the mismatches coloured. The
