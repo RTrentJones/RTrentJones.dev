@@ -78,6 +78,7 @@ env:
   # creds-guarded (503) on that target.
   TF_VAR_heistmind_discord_public_key: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_PUBLIC_KEY }}
   TF_VAR_heistmind_discord_dev_public_key: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_DEV_PUBLIC_KEY }}
+  TF_VAR_heistmind_discord_dev_client_id: ${{ secrets.TF_VAR_HEISTMIND_DISCORD_DEV_CLIENT_ID }}
   # BAMCP — OCI provider auth (API-key signing). The VCN/subnet/AD are IaC (oci-network
   # module + AD data source), so only the auth values + optional compartment are secrets.
   TF_VAR_oci_tenancy_ocid: ${{ secrets.TF_VAR_OCI_TENANCY_OCID }}
