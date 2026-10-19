@@ -43,6 +43,12 @@ variable "heistmind_discord_client_id" {
   description = "Discord OAuth Client ID for HeistMind (secret TF_VAR_HEISTMIND_DISCORD_CLIENT_ID). Empty = Discord auth disabled."
 }
 
+variable "heistmind_discord_dev_client_id" {
+  type        = string
+  default     = ""
+  description = "Application (client) ID of the DEV Discord app that beta's bot endpoint serves (secret TF_VAR_HEISTMIND_DISCORD_DEV_CLIENT_ID). Empty = no 'Add the bot' links on beta."
+}
+
 variable "heistmind_discord_client_secret" {
   type        = string
   sensitive   = true
@@ -136,7 +142,10 @@ module "heistmind_vercel" {
 
   # One project shared by both envs (schema-per-env happens in the app); Supabase creds
   # flow straight from the supabase module (no manual copy — the old fragility).
-  environment = {
+  # The bot-install links (HeistMind DiscordInstallLinks) read NEXT_PUBLIC_DISCORD_APP_ID at build
+  # time and render nothing without it; each env points at ITS Discord app (prod app / dev app),
+  # matching the public keys below. Only set when the app id is known (Vercel rejects empty values).
+  environment = merge({
     site_url_prod     = { key = "SITE_URL", target = ["production"], sensitive = false }
     site_url_beta     = { key = "SITE_URL", target = ["preview"], sensitive = false }
     supa_url_prod     = { key = "NEXT_PUBLIC_SUPABASE_URL", target = ["production"], sensitive = false }
@@ -155,7 +164,14 @@ module "heistmind_vercel" {
     # (prod app / dev app — one interactions URL per Discord application). Empty = endpoint 503s.
     discord_pubkey_prod = { key = "DISCORD_PUBLIC_KEY", target = ["production"], sensitive = false }
     discord_pubkey_beta = { key = "DISCORD_PUBLIC_KEY", target = ["preview"], sensitive = false }
-  }
+    },
+    var.heistmind_discord_client_id != "" ? {
+      discord_app_prod = { key = "NEXT_PUBLIC_DISCORD_APP_ID", target = ["production"], sensitive = false }
+    } : {},
+    var.heistmind_discord_dev_client_id != "" ? {
+      discord_app_beta = { key = "NEXT_PUBLIC_DISCORD_APP_ID", target = ["preview"], sensitive = false }
+    } : {},
+  )
   environment_values = {
     site_url_prod     = "https://www.heistmind.com" # canonical served domain (beta stays on subdomain)
     site_url_beta     = "https://beta.heistmind.rtrentjones.dev"
@@ -172,6 +188,8 @@ module "heistmind_vercel" {
 
     discord_pubkey_prod = var.heistmind_discord_public_key
     discord_pubkey_beta = var.heistmind_discord_dev_public_key
+    discord_app_prod    = var.heistmind_discord_client_id
+    discord_app_beta    = var.heistmind_discord_dev_client_id
   }
 }
 
@@ -214,10 +232,11 @@ module "keepalive" {
       # run `select ... limit 1`, a query that actually reaches Postgres. Supabase counts DATABASE
       # activity, so the old root ping (/rest/v1/, answered from PostgREST's schema cache) never
       # reset the 7-day timer — heistmind-db was paused in 2026-08 (keepalive alerted on the 530, but had never kept it up).
-      # `public.profiles` is the right table here: 00003_schema_grants GRANTs SELECT to `anon` and
-      # its RLS is "viewable by everyone", so the query returns 200 (zero rows would be fine too —
-      # what matters is that it executed). It sits in `public`, so no probeSchema is needed.
-      probeTable  = "profiles"
+      # `public.keepalive_probe` (HeistMind migration 00022): a one-row, non-PII table that anon may
+      # SELECT, created for exactly this probe. It replaced `public.profiles`, which 00022 closed to
+      # anon (it exposed every user's name and Discord id). PostgREST answers 200 with the row;
+      # it sits in `public`, so no probeSchema is needed.
+      probeTable  = "keepalive_probe"
       probeSelect = "id"
     },
     {
