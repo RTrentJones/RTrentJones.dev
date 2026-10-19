@@ -142,6 +142,15 @@ raised overall accuracy, and both made the smallest model miss more real variant
 did one thing the text did not: the larger models were about twice as likely to call the
 genotype (one copy or two) correctly when they could see the reads.
 
+That round also showed why BAMCP's text was not helping. It raised a homopolymer warning on
+every indel in a repeat, real or not, and it counted the variant against every read at the site,
+including the many reads that end partway through the repeat and so cannot show its length. Both
+now depend on the reads that cross the whole repeat: the warning appears only when the called
+length is rare among them, and the variant's share is measured among them. Re-run on the same 60
+sites, BAMCP's text took accuracy from 84% to 91%, with all three models better, and the number
+of real variants given the right genotype rose from 13 of 90 to 42 of 90. Those are the sites
+that prompted the change, so this result is exploratory until a fresh round confirms it.
+
 The evaluation did change the viewer. An early round showed that colouring every base hid
 homozygous variants, so reads are now grey with only the mismatches coloured. The
 [write-up](https://github.com/RTrentJones/BAMCP/blob/main/docs/eval/visual-results.md) has the
