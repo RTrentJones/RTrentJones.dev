@@ -151,6 +151,14 @@ sites, BAMCP's text took accuracy from 84% to 91%, with all three models better,
 of real variants given the right genotype rose from 13 of 90 to 42 of 90. Those are the sites
 that prompted the change, so this result is exploratory until a fresh round confirms it.
 
+A fifth round, registered before any site was drawn, repeated the comparison on 90 sites that no
+earlier round had seen, from new scans of four more chromosomes. BAMCP's text took accuracy from
+83% to 89%, and real variants given the right genotype rose from 30 of 135 to 54 of 135. Both
+results were the ones the plan named in advance, and both held. The gain comes from
+heterozygous variants, which the models no longer mistake for low-fraction ones; homozygous
+variants in long repeats are still usually called heterozygous, and that is the next thing to
+fix.
+
 The evaluation did change the viewer. An early round showed that colouring every base hid
 homozygous variants, so reads are now grey with only the mismatches coloured. The
 [write-up](https://github.com/RTrentJones/BAMCP/blob/main/docs/eval/visual-results.md) has the
