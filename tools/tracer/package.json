@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "pnpm run db:migrate && next build",
     "start": "next start",
+    "preview": "sh -c 'next start -p \"${PORT:-4321}\"' preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "greenlight migrations scan && drizzle-kit migrate",
     "test": "vitest run"

@@ -151,6 +151,7 @@ export GEMINI_API_KEY=...       # any one provider key enables /api/run (Gemini 
 pnpm db:migrate && pnpm dev     # http://localhost:3000
 pnpm test                       # vitest: regression / signals / pass-rate / judge parse / cost / OI mapper / badge
 TEST_DATABASE_URL=1 pnpm test   # + the DB-backed query suite (TRUNCATEs — point it at a scratch database)
+pnpm greenlight preview tracer  # from the repo root: build + serve on :4321 + verify (the local gate)
 ```
 
 ```
