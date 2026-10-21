@@ -44,15 +44,16 @@ export default ({ env }: VerifyConfigContext) => [
       { path: '/', status: 200, contains: 'Projects' },
       { path: '/runs', status: 200 },
       { path: '/compare', status: 200 },
-      // Per-project page + its public status surfaces. `tracer` always has runs on prod and beta
-      // (the dogfood feed), so these exercise the signal/regression/matrix queries end to end.
-      ...(env === 'preview'
-        ? []
-        : [
+      // Per-project page + its public status surfaces. Only prod is guaranteed `tracer` runs (the
+      // daily dogfood feed; beta gets no scheduled ingest), so the data-dependent checks are
+      // prod-only. The badge renders (200, "no data") even for an empty project.
+      ...(env === 'prod'
+        ? [
             { path: '/projects/tracer', status: 200, contains: 'Pass rate per run' },
             { path: '/api/summary/tracer', status: 200, json: [{ path: 'tool', equals: 'tracer' }] },
-            { path: '/api/badge/tracer', status: 200, contains: '<svg' },
-          ]),
+          ]
+        : []),
+      ...(env === 'preview' ? [] : [{ path: '/api/badge/tracer', status: 200, contains: '<svg' }]),
       { path: '/projects/__no_such_project__', status: 404 },
       // Write guards: no credentials sent, so these can never write or spend tokens.
       {
