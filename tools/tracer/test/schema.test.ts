@@ -49,9 +49,16 @@ describe('evalRunInput', () => {
 // Bounds: every field is length/range-capped so a leaked-token producer can't wedge unbounded text
 // into free-tier Neon rows or overflow the numeric(10,4) cost column into a 500.
 describe('evalRunInput bounds', () => {
-  it('rejects an over-long label field (tool > 255)', () => {
-    expect(evalRunInput.safeParse({ ...valid, tool: 'a'.repeat(256) }).success).toBe(false);
-    expect(evalRunInput.safeParse({ ...valid, tool: 'a'.repeat(255) }).success).toBe(true);
+  it('rejects an over-long label field (model > 255)', () => {
+    expect(evalRunInput.safeParse({ ...valid, model: 'a'.repeat(256) }).success).toBe(false);
+    expect(evalRunInput.safeParse({ ...valid, model: 'a'.repeat(255) }).success).toBe(true);
+  });
+
+  it('accepts a case name up to 16384 chars (clipped on insert), rejects longer', () => {
+    const long = (n: number) => ({ ...valid, cases: [{ name: 'n'.repeat(n), passed: true }] });
+    expect(evalRunInput.safeParse(long(300)).success).toBe(true);
+    expect(evalRunInput.safeParse(long(16_384)).success).toBe(true);
+    expect(evalRunInput.safeParse(long(16_385)).success).toBe(false);
   });
 
   it('rejects an over-long case text field (output > 16384)', () => {
@@ -109,5 +116,32 @@ describe('evalRunInput — provenance and metrics', () => {
     expect(evalRunInput.safeParse({ ...prov, metrics: { 'bad key': 1 } }).success).toBe(false);
     const big = Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`m${i}`, i]));
     expect(evalRunInput.safeParse({ ...prov, metrics: big }).success).toBe(false);
+  });
+});
+
+// `tool` is a URL/key slug; the other identifiers stay free-form because live producers rely on it.
+describe('evalRunInput — identifiers and gating', () => {
+  it('requires tool to be an ASCII slug of at most 64 chars', () => {
+    for (const tool of ['bamcp', 'pg_kafka', 'greenlight.dev', 'tool-1', 'a'.repeat(64)])
+      expect(evalRunInput.safeParse({ ...valid, tool }).success).toBe(true);
+    for (const tool of ['50%', 'a b', '', 'a'.repeat(65), 'tool/x', 'café'])
+      expect(evalRunInput.safeParse({ ...valid, tool }).success).toBe(false);
+  });
+
+  it('keeps mode, suite, env and model free-form', () => {
+    const live = {
+      ...valid,
+      mode: 'api+test',
+      suite: 'indel_v1',
+      env: 'ci-spec-merge-cel',
+      model: 'gemini-2.5-flash (judge: groq/llama-3.3)',
+    };
+    expect(evalRunInput.safeParse(live).success).toBe(true);
+  });
+
+  it('accepts an optional boolean gating and rejects other types', () => {
+    expect(evalRunInput.parse(valid).gating).toBeUndefined();
+    expect(evalRunInput.parse({ ...valid, gating: false }).gating).toBe(false);
+    expect(evalRunInput.safeParse({ ...valid, gating: 'no' }).success).toBe(false);
   });
 });

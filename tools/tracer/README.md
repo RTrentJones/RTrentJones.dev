@@ -11,22 +11,26 @@ the LLM judge's rationale. **`next` lane · `vercel` target · `neon` data.**
 
 ## Surface
 
-- `/` — overview: one card per project with every **signal** (a `tool · mode · suite · env` feed), its
-  pass-rate sparkline, latest verdict and freshness; a *needs attention* list of signals whose latest
-  run failed or regressed; summary tiles; recent runs. Delivery-pipeline stages (Greenlight `ship`
-  build/deploy/verify/rollback) are shown apart from quality signals (evals, checks, benchmarks).
-- `/projects/[tool]` — a project's signals, then for the selected signal: pass rate per run (one line
+- `/` — overview: one card per project with every live **signal** (a `tool · mode · suite · env` feed),
+  its sparkline (pass rate, or the headline metric for a benchmark), latest verdict and freshness; stale
+  signals fold into a "+ N stale" link. A *needs attention* list of gating, fresh signals whose latest
+  run failed or regressed; summary tiles; recent runs (eval, check and benchmark runs; `?pipeline=1`
+  adds the delivery pipeline). Delivery-pipeline stages (Greenlight `ship` build/deploy/verify/rollback)
+  are shown apart from quality signals (evals, checks, benchmarks). The operator "Run provider eval"
+  control sits at the bottom.
+- `/projects/[tool]` — a project's signals (stale ones folded below the table), then for the selected signal: pass rate per run (one line
   per model), **metric trends** (one small chart per numeric metric the producer reports, e.g. F1,
   MRR, msgs/sec), and a **case × run matrix** over the last 15 runs that marks **flaky** cases (verdict
-  flipped twice or more on the same suite).
+  flipped twice or more on the same suite). Reported cases show their score on a neutral cell.
 - `/runs` — every run in 90 days, filterable by project, mode, suite, model, env, regressions-only
   and failures-only.
-- `/runs/[id]` — provenance (commit link, branch, CI run, labels), metrics with the previous run's
-  values, a **diff against the previous run in the series** (newly failing, newly passing, score
+- `/runs/[id]` — provenance (commit link, branch, CI run, labels), metrics with the baseline run's
+  values, a **diff against the baseline run in the series** (newly failing, newly passing, score
   moves, cases added or removed, and a code-diff link), and the cases grouped by category with the
-  judge's rationale.
-- `/compare` — latest run per model on one project/mode/suite/env, aligned case by case, with the
-  cases the models disagree on first.
+  judge's rationale. The baseline is the one the lists use (see *Signal states*).
+- `/compare` — latest run per model on exactly one project/mode/suite/env (never across suites; it
+  defaults to the newest suite with cases), aligned case by case, with the cases the models disagree on
+  first. Each column is headed `model · MM-DD · sha7`, so a stale arm is visible.
 - `GET /api/summary/[tool]` and `GET /api/badge/[tool]` — public JSON status and an SVG badge
   (`?signal=<key>` narrows to one signal), cached for five minutes. Embed in a README:
   `![tracer](https://tracer.rtrentjones.dev/api/badge/bamcp)`.
@@ -42,37 +46,82 @@ the LLM judge's rationale. **`next` lane · `vercel` target · `neon` data.**
 
 | field | required | meaning |
 |---|---|---|
-| `tool` | ✓ | project key (`bamcp`, `polyphony`, …) |
+| `tool` | ✓ | project key (`bamcp`, `polyphony`, …): a slug matching `^[\w.-]{1,64}$` (ASCII), else 422 |
 | `mode` | ✓ | signal type (`truthset`, `eval`, `llm-eval`, `benchmark`, `api+test`, `deploy`, …) |
 | `model` | ✓ | model or system under test (`gemini-3.5-flash-lite`, `deterministic`, …) |
 | `env` | ✓ | where it ran (`ci`, `prod`, `beta`, or an experiment label) |
 | `passed` | ✓ | the run's own verdict |
+| `gating` | | default `true`. `false` = *trended, not gated*: the signal keeps its trend but is labelled *tracked* and never makes the project, badge or attention list red |
 | `pass_rate` | | 0..1; drives trends and regressions |
 | `suite` | | dataset/benchmark within the mode (`synthetic_v1`, `dracula`); its own series |
 | `git_sha`, `repo`, `branch` | | `repo` is `owner/name`; with a hex sha it becomes a commit link |
 | `source_url` | | http(s) link to the CI run or report |
 | `metrics` | | `{ key: number }`, ≤64 keys (`[\w.:/-]`), charted per run |
-| `labels` | | `{ key: string }`, ≤64 keys (judge, trigger, dataset version, …) |
+| `labels` | | `{ key: string }`, ≤64 keys (judge, trigger, dataset version, …); see *Label conventions* |
 | `duration_ms`, `cost_usd`, `tokens_in`, `tokens_out` | | run cost/latency |
-| `cases[]` | | ≤1000 × `{ name, passed, score?, input?, expected?, output?, judge_rationale?, category?, metrics? }` |
+| `cases[]` | | ≤1000 × `{ name, passed, score?, input?, expected?, output?, judge_rationale?, category?, metrics? }`. `name` may be up to 16 384 chars but is stored clipped to 255 (254 + `…`); keep the full text in `expected`/`output`. `category: "reported"` marks a measurement rather than a check (below) |
 
 A **series** is `(tool, mode, suite, model, env)`: a run is a regression when its `pass_rate` drops
-below the previous run in its series. A **signal** is `(tool, mode, suite, env)` — the same feed
-across model changes — and is what the overview and project pages group by.
+below its baseline, the latest earlier run in the series that has a `pass_rate` and is not incomplete.
+A **signal** is `(tool, mode, suite, env)` — the same feed across model changes — and is what the
+overview and project pages group by.
+
+### Label conventions
+
+Labels are free-form, but these keys change how Tracer reads a run:
+
+| label | effect |
+|---|---|
+| `cadence` | `weekly` or `on-demand`; anything else (or absent) is `daily`. Sets the freshness windows: daily is fresh ≤48 h, aging ≤8 d, stale beyond; weekly is fresh ≤8 d, aging ≤15 d; on-demand is fresh ≤48 h and otherwise aging, never stale |
+| `headline_metric` | a key of the run's `metrics`. A benchmark shows that value (and its sparkline) instead of the pass rate |
+| `headline_unit` | display unit for the headline, e.g. `msgs/s` |
+| `errored` / `skipped` | comma lists of step names. Either marks the run *incomplete* |
+| `judge_provider` / `judge_model` | the grader. A change against the baseline marks the run *not comparable* |
+| `version` | the producer's own version string (pg_kafka's bench version lives here) |
+| `legacy_env` / `legacy_model` | the original value of a row relabelled by migration `0004` |
+
+### Signal states
+
+Every surface (overview, project page, run page, `/api/summary`, `/api/badge`) uses one status function
+over the same window (the newest 20 runs per signal, 180 days), so they always agree:
+
+- **failing** — the latest run's `passed` is false.
+- **regressed** — it passed, but its `pass_rate` is below the baseline's.
+- **incomplete** — a step errored or was skipped (`labels.errored`/`skipped`), or a non-pipeline run has
+  no scored cases. Neutral: it is neither a failure nor a regression, and it is never used as a baseline.
+- **tracked** — the run was ingested with `gating: false`. Its pass rate is shown, but it never makes
+  the project, badge or attention list failing or regressed.
+- **stale** — no run within the signal's cadence. Stale signals fold away and don't count toward
+  health; a project whose every signal is stale reads as stale.
+- **not comparable** — the judge (`judge_provider`/`judge_model`) differs from the baseline's, so no
+  regression is claimed.
+
+A case with `category: "reported"` is a measurement, not a check: it shows its score on a neutral
+cell and is left out of pass rates, flaky detection, failure counts and the newly failing/passing diff.
 
 ## Producers
 
 | project | producer | signal(s) |
 |---|---|---|
-| tracer | [`dogfood-tracer.yml`](../../.github/workflows/dogfood-tracer.yml) (daily `greenlight verify --json`) | `api+test · prod` |
-| pg_kafka | [`pg-kafka-tracer.yml`](../../.github/workflows/pg-kafka-tracer.yml) (daily, from pg_kafka's evidence branch) | `benchmark · ci` |
-| blog | `greenlight ship` stage events | `build`/`deploy`/`verify`/`rollback` · `prod`/`beta` |
-| bamcp | `bamcp.eval.tracer` in BAMCP's `ci.yml` (push to main) and `eval-nightly.yml` | `truthset · synthetic_v1` / `indel_v1 · ci`, `llm-eval · test_cases`, `llm-eval · comparison` |
-| polyphony | `evals.run --tracer` in Polyphony's `evals.yml` (dispatch / `evals/.run-eval`) | `eval · <book> · ci` |
+| project | producer | signal(s) | notes |
+|---|---|---|---|
+| tracer | [`dogfood-tracer.yml`](../../.github/workflows/dogfood-tracer.yml) (daily `greenlight verify --json`) | `api+test · prod` | model `greenlight-verify` |
+| pg_kafka | [`pg-kafka-tracer.yml`](../../.github/workflows/pg-kafka-tracer.yml) (daily, from pg_kafka's evidence branch) | `benchmark · ci` | model `pg_kafka` (bench version in `labels.version`); posts only when bench.json changes (commit + throughput), `cadence: weekly`; headline `msgs/s` |
+| blog | `greenlight ship` stage events | `build`/`deploy`/`verify`/`rollback` · `prod`/`beta` | delivery pipeline |
+| bamcp | `bamcp.eval.tracer` in BAMCP's `ci.yml` (push to main) and `eval-nightly.yml` | `truthset · synthetic_v1` / `indel_v1 · ci`, `llm-eval · test_cases`, `llm-eval · comparison` | truthset gates; `llm-eval` is published with `gating: false` (tracked) |
+| polyphony | `evals.run --tracer` in Polyphony's `evals.yml` (dispatch / `evals/.run-eval`) | `eval · <book> · ci` | `cadence: on-demand`; attribution is a `reported` case |
 
-BAMCP and Polyphony POST from their own CI, so each repo needs a `TRACER_INGEST_TOKEN` Actions
-secret with the same value as this repo's `TF_VAR_TRACER_INGEST_TOKEN`. Both publish best-effort:
-without the secret they skip, and a failed POST never fails their eval jobs.
+BAMCP and Polyphony POST from their own CI, so each repo needs a `TRACER_INGEST_TOKEN` Actions secret
+with the same value as this repo's `TF_VAR_TRACER_INGEST_TOKEN`:
+
+```
+gh secret set TRACER_INGEST_TOKEN -R RTrentJones/BAMCP        # paste the TF_VAR_TRACER_INGEST_TOKEN value
+gh secret set TRACER_INGEST_TOKEN -R RTrentJones/Polyphony
+```
+
+To confirm a producer is wired, check its CI log or step summary for `tracer ingest -> 201` (Polyphony)
+or `Tracer: published … (201)` (BAMCP), then open `/projects/<tool>`. Both publish best-effort: without
+the secret they skip with a warning, and a failed POST never fails their eval jobs.
 
 ## Multi-provider `/api/run`
 
@@ -119,7 +168,7 @@ Nothing here is bespoke, so production can swap Tracer for a maintained backend:
 
 ## Data (Neon)
 
-Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)). Migrations are schema/cleanup only: `0001_seed.sql` is intentionally empty, `0002_remove_seeded_demo_data.sql` removes the legacy portfolio fixtures so only real ingested runs are visible, and `0003_provenance.sql` adds the nullable provenance/metrics columns (`suite`, `repo`, `branch`, `source_url`, `metrics`, `labels`, case `category`/`metrics`).
+Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)). Migrations are schema/cleanup only: `0001_seed.sql` is intentionally empty, `0002_remove_seeded_demo_data.sql` removes the legacy portfolio fixtures so only real ingested runs are visible, and `0003_provenance.sql` adds the nullable provenance/metrics columns (`suite`, `repo`, `branch`, `source_url`, `metrics`, `labels`, case `category`/`metrics`), and `0004` adds `eval_run.gating` (default `true`) and relabels legacy rows in place (old values kept in `labels.legacy_env` / `legacy_model` / `version`; no scores or verdicts change, nothing is deleted).
 **Regressions, signals, diffs and flaky cases are derived on read in TypeScript** — `deriveRegressions`
 ([lib/regression.ts](lib/regression.ts)) and [lib/signals.ts](lib/signals.ts), applied by
 [lib/queries.ts](lib/queries.ts). They are pure and unit-tested without a DB; there is no SQL mirror.
@@ -149,7 +198,7 @@ export DATABASE_URL=postgres://postgres:postgres@localhost:5432/tracer   # or a 
 export TRACER_INGEST_TOKEN=devtoken
 export GEMINI_API_KEY=...       # any one provider key enables /api/run (Gemini = free)
 pnpm db:migrate && pnpm dev     # http://localhost:3000
-pnpm test                       # vitest: regression / signals / pass-rate / judge parse / cost / OI mapper / badge
+pnpm test                       # vitest: regression / signals / pass-rate / judge parse / cost / OI mapper / badge / public routes
 TEST_DATABASE_URL=1 pnpm test   # + the DB-backed query suite (TRUNCATEs — point it at a scratch database)
 pnpm greenlight preview tracer  # from the repo root: build + serve on :4321 + verify (the local gate)
 ```

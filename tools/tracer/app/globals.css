@@ -192,6 +192,11 @@ table.data tr:hover td { background: var(--surface-2); }
 .pill.neutral { background: var(--neutral-wash); color: var(--ink-2); }
 .pill.info { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border); }
 
+/* Stale signals: kept for reference, visibly receded. */
+table.data tr.stale td { color: var(--muted); }
+table.data tr.stale svg { opacity: 0.55; }
+details.stale-signals > summary { padding: 0.1rem 0; }
+
 .banner {
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -200,6 +205,8 @@ table.data tr:hover td { background: var(--surface-2); }
   font-size: 0.9rem;
   color: var(--ink-2);
 }
+
+.banner.warn { background: var(--warning-wash); color: var(--warning-ink); border-color: transparent; }
 
 select, input[type='text'] {
   padding: 0.35rem 0.5rem;
@@ -224,7 +231,7 @@ select, input[type='text'] {
 .btn:disabled { opacity: 0.55; cursor: default; }
 .btn.ghost { background: transparent; color: var(--accent-ink); }
 
-.project-card { display: grid; gap: 0.75rem; }
+.project-card { display: grid; gap: 0.75rem; align-content: start; }
 .project-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
 .project-card h2 { margin: 0; font-size: 1.1rem; }
 .project-card h2 a { color: var(--ink); text-decoration: none; }
@@ -247,6 +254,8 @@ select, input[type='text'] {
 
 .case { border-left: 4px solid var(--good); }
 .case.fail { border-left-color: var(--critical); }
+/* A reported case is a measurement, not a verdict: neutral edge, never the fail colour. */
+.case.reported { border-left-color: var(--axis); }
 .field { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 pre.block { margin: 0.25rem 0 0; white-space: pre-wrap; word-break: break-word; font-size: 0.86rem; max-height: 22rem; overflow: auto; }
 .two-col { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
@@ -262,6 +271,8 @@ table.matrix td.cell a { display: block; text-decoration: none; color: inherit; 
 td.cell.pass { background: var(--good-wash); color: var(--good-ink); }
 td.cell.fail { background: var(--critical-wash); color: var(--critical-ink); }
 td.cell.none { background: transparent; color: var(--axis); }
+td.cell.reported { background: var(--neutral-wash); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+table.matrix td.cell.reported { width: auto; min-width: 2.4rem; padding: 0 0.2rem; font-size: 0.72rem; }
 table.matrix td.name { padding-right: 0.75rem; white-space: nowrap; max-width: min(22rem, 45vw); overflow: hidden; text-overflow: ellipsis; }
 
 details > summary { cursor: pointer; }

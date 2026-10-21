@@ -192,3 +192,13 @@ describe('fromOpenInference — provenance passthrough', () => {
     expect(r.metrics).toBeNull();
   });
 });
+
+describe('fromOpenInference — gating passthrough', () => {
+  it('passes gating through and leaves it absent (default true) when not sent', async () => {
+    const { evalRunInput } = await import('../lib/schema');
+    const tracked = fromOpenInference({ tool: 'bamcp', passed: true, gating: false, checks: [] });
+    expect(evalRunInput.parse(tracked).gating).toBe(false);
+    const plain = fromOpenInference({ tool: 'bamcp', passed: true, checks: [] });
+    expect(evalRunInput.parse(plain).gating).toBeUndefined();
+  });
+});

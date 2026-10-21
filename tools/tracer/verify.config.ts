@@ -33,7 +33,9 @@ export default ({ env }: VerifyConfigContext) => [
           ...(env === 'prod'
             ? [
                 { path: 'latestRunAtBySource.tracer:api+test', maxAgeHours: 50 }, // dogfood-tracer
-                { path: 'latestRunAtBySource.pg_kafka:benchmark', maxAgeHours: 50 }, // pg-kafka-tracer
+                // pg-kafka-tracer runs daily but posts only when pg_kafka's bench.json changes (de-dup),
+                // and the bench itself is refreshed weekly: 9 days covers a full week plus a missed run.
+                { path: 'latestRunAtBySource.pg_kafka:benchmark', maxAgeHours: 216 },
               ]
             : []),
         ],

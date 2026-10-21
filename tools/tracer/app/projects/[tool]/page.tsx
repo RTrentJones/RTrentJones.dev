@@ -2,22 +2,28 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { casesForRuns, recentSignalRuns, signalRuns } from '../../../lib/queries';
 import {
+  NO_SUITE,
+  type Signal,
   caseMatrix,
+  isReportedCase,
   commitUrl,
   groupSignals,
+  headlineMetric,
   metricSeries,
   projectHealth,
   relativeTime,
   signalLabel,
+  signalStatus,
 } from '../../../lib/signals';
+import type { RunWithRegression } from '../../../lib/types';
 import { LineChart } from '../../components/LineChart';
 import {
   Card,
   FreshnessPill,
   HealthPill,
-  PassBadge,
   RegressionBadge,
   Sparkline,
+  VerdictPill,
   fmtDate,
   fmtMetric,
   pct,
@@ -43,8 +49,8 @@ export default async function ProjectPage({
   params: Promise<{ tool: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { tool: rawTool } = await params;
-  const tool = decodeURIComponent(rawTool);
+  // Route params arrive decoded; decoding again would throw on a literal `%` (and mangle `%25`).
+  const { tool } = await params;
   const sp = await searchParams;
   const now = Date.now();
 
@@ -52,9 +58,16 @@ export default async function ProjectPage({
   if (runs.length === 0) notFound();
   const signals = groupSignals(runs, now);
   const health = projectHealth(tool, signals);
+  // Stale signals (no run within their cadence) don't count toward health; they fold away below the table.
+  const live = signals.filter((s) => !signalStatus(s).stale);
+  const stale = signals.filter((s) => signalStatus(s).stale);
   const wanted = one(sp.signal);
   const selected =
-    signals.find((s) => s.key === wanted) ?? signals.find((s) => s.kind !== 'pipeline') ?? signals[0];
+    signals.find((s) => s.key === wanted) ??
+    live.find((s) => s.kind !== 'pipeline') ??
+    live[0] ??
+    signals.find((s) => s.kind !== 'pipeline') ??
+    signals[0];
 
   // Trend: one row per run, one column per model (a model switch inside a feed shows as a new line).
   const models = [...new Set(selected.history.map((r) => r.model))].sort();
@@ -68,6 +81,13 @@ export default async function ProjectPage({
   );
   const flaky = matrix.filter((r) => r.flaky);
   const repo = runs.find((r) => r.repo)?.repo ?? null;
+  // The suite always rides along (NO_SUITE for a suite-less signal), so the links never widen the scope.
+  const scopeQs = new URLSearchParams({
+    tool,
+    mode: selected.mode,
+    suite: selected.suite ?? NO_SUITE,
+    env: selected.env,
+  }).toString();
 
   return (
     <div className="stack">
@@ -102,76 +122,33 @@ export default async function ProjectPage({
       </div>
 
       <Card className="flush">
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Signal</th>
-              <th>Kind</th>
-              <th>Latest model</th>
-              <th>Trend</th>
-              <th>Latest</th>
-              <th>Freshness</th>
-              <th>Commit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {signals.map((s) => {
-              const href = commitUrl(s.latest.repo, s.latest.git_sha);
-              return (
-                <tr key={s.key} style={s.key === selected.key ? { background: 'var(--surface-2)' } : undefined}>
-                  <td>
-                    <Link href={`?signal=${encodeURIComponent(s.key)}`} scroll={false}>
-                      {signalLabel(s)}
-                    </Link>
-                  </td>
-                  <td className="muted small">{s.kind}</td>
-                  <td className="secondary">{s.latest.model}</td>
-                  <td>
-                    <Sparkline points={s.history} />
-                  </td>
-                  <td>
-                    <span className="row" style={{ gap: '0.35rem' }}>
-                      <Link href={`/runs/${s.latest.id}`} style={{ textDecoration: 'none' }}>
-                        <PassBadge passed={s.latest.passed} />
-                      </Link>
-                      <span className="num">{pct(s.latest.pass_rate)}</span>
-                      <RegressionBadge run={s.latest} />
-                    </span>
-                  </td>
-                  <td>
-                    <FreshnessPill freshness={s.freshness} when={relativeTime(s.latest.started_at, now)} />
-                  </td>
-                  <td className="mono small">
-                    {href ? <a href={href}>{shortSha(s.latest.git_sha)}</a> : shortSha(s.latest.git_sha)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <SignalTable signals={live} selected={selected.key} now={now} />
+        {live.length === 0 && (
+          <p className="small muted" style={{ padding: '0 0.75rem 0.75rem', margin: 0 }}>
+            No signal has reported within its cadence.
+          </p>
+        )}
       </Card>
+      {stale.length > 0 && (
+        <details className="stale-signals">
+          <summary className="small secondary">
+            {stale.length} stale signal{stale.length === 1 ? '' : 's'} (no recent run; not counted in health)
+          </summary>
+          <Card className="flush" style={{ marginTop: '0.5rem' }}>
+            <SignalTable signals={stale} selected={selected.key} now={now} />
+          </Card>
+        </details>
+      )}
 
       <h2 style={{ margin: 0 }}>
         {signalLabel(selected)}{' '}
         <span className="muted small" style={{ fontWeight: 400 }}>
           ({selected.history.length} recent runs ·{' '}
-          <Link
-            href={`/runs?tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(selected.mode)}${
-              selected.suite ? `&suite=${encodeURIComponent(selected.suite)}` : ''
-            }&env=${encodeURIComponent(selected.env)}`}
-          >
-            all runs
-          </Link>
-          {models.length > 1 && (
+          <Link href={`/runs?${scopeQs}`}>all runs</Link>
+          {matrix.length > 0 && (
             <>
               {' · '}
-              <Link
-                href={`/compare?tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(selected.mode)}${
-                  selected.suite ? `&suite=${encodeURIComponent(selected.suite)}` : ''
-                }&env=${encodeURIComponent(selected.env)}`}
-              >
-                compare models
-              </Link>
+              <Link href={`/compare?${scopeQs}`}>compare models</Link>
             </>
           )}
           )
@@ -255,20 +232,28 @@ export default async function ProjectPage({
                       {row.flaky && <span title={`verdict flipped ${row.flips}× in this window`}>⚠ </span>}
                       {row.name}
                     </td>
-                    {row.cells.map((c, i) => (
-                      <td
-                        key={matrixRuns[i].id}
-                        className={`cell ${c == null ? 'none' : c.passed ? 'pass' : 'fail'}`}
-                        title={
-                          c == null
-                            ? 'not in this run'
-                            : `${c.passed ? 'pass' : 'fail'}${c.score != null ? ` · score ${c.score.toFixed(2)}` : ''} · ${fmtDate(matrixRuns[i].started_at)}`
-                        }
-                      >
-                        <Link href={`/runs/${matrixRuns[i].id}`}>{c == null ? '·' : c.passed ? '✓' : '✗'}</Link>
-                      </td>
-                    ))}
-                    <td className="small num secondary">{pct(row.passRate)}</td>
+                    {row.cells.map((c, i) => {
+                      const reported = c != null && isReportedCase(c);
+                      const when = fmtDate(matrixRuns[i].started_at);
+                      return (
+                        <td
+                          key={matrixRuns[i].id}
+                          className={`cell ${c == null ? 'none' : reported ? 'reported' : c.passed ? 'pass' : 'fail'}`}
+                          title={
+                            c == null
+                              ? 'not in this run'
+                              : reported
+                                ? `reported (not scored)${c.score != null ? ` · ${c.score.toFixed(2)}` : ''} · ${when}`
+                                : `${c.passed ? 'pass' : 'fail'}${c.score != null ? ` · score ${c.score.toFixed(2)}` : ''} · ${when}`
+                          }
+                        >
+                          <Link href={`/runs/${matrixRuns[i].id}`}>
+                            {c == null ? '·' : reported ? (c.score != null ? c.score.toFixed(2) : '○') : c.passed ? '✓' : '✗'}
+                          </Link>
+                        </td>
+                      );
+                    })}
+                    <td className="small num secondary">{row.reported ? 'reported' : pct(row.passRate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -278,5 +263,65 @@ export default async function ProjectPage({
         )}
       </Card>
     </div>
+  );
+}
+
+/** The project's signal table: one row per signal, status from signalStatus (as the overview and the
+ * public summary use), the headline metric for benchmarks, and the latest commit. */
+function SignalTable({ signals, selected, now }: { signals: Signal<RunWithRegression>[]; selected: string; now: number }) {
+  if (signals.length === 0) return null;
+  return (
+    <table className="data">
+      <thead>
+        <tr>
+          <th>Signal</th>
+          <th>Kind</th>
+          <th>Latest model</th>
+          <th>Trend</th>
+          <th>Latest</th>
+          <th>Freshness</th>
+          <th>Commit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {signals.map((s) => {
+          const st = signalStatus(s);
+          const h = headlineMetric(s.latest);
+          const href = commitUrl(s.latest.repo, s.latest.git_sha);
+          return (
+            <tr
+              key={s.key}
+              className={st.stale ? 'stale' : undefined}
+              style={s.key === selected ? { background: 'var(--surface-2)' } : undefined}
+            >
+              <td>
+                <Link href={`?signal=${encodeURIComponent(s.key)}`} scroll={false}>
+                  {signalLabel(s)}
+                </Link>
+              </td>
+              <td className="muted small">{s.kind}</td>
+              <td className="secondary">{s.latest.model}</td>
+              <td>
+                <Sparkline points={s.history} metric={h ? { key: h.key, unit: h.unit } : null} />
+              </td>
+              <td>
+                <span className="row" style={{ gap: '0.35rem' }}>
+                  <Link href={`/runs/${s.latest.id}`} style={{ textDecoration: 'none' }}>
+                    <VerdictPill run={s.latest} status={st} detail />
+                  </Link>
+                  <RegressionBadge run={s.latest} />
+                </span>
+              </td>
+              <td>
+                <FreshnessPill freshness={s.freshness} when={relativeTime(s.latest.started_at, now)} />
+              </td>
+              <td className="mono small">
+                {href ? <a href={href}>{shortSha(s.latest.git_sha)}</a> : shortSha(s.latest.git_sha)}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

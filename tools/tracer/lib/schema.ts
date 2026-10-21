@@ -13,6 +13,10 @@ const TEXT_MAX = 16_384; // ~16 KB per stored text field (input/expected/output/
 const LABEL_MAX = 255; // short identifier columns (tool/model/mode/env)
 const URL_MAX = 2048;
 const MAP_KEYS = 64; // metrics/labels maps: enough for a report's headline numbers, not a data dump
+// `tool` keys URLs (/projects/<tool>, /api/badge/<tool>) and signal keys, so it is a slug (ASCII \w, '.'
+// and '-'). mode/suite/env/model stay free-form: live producers send `api+test`, model labels with
+// spaces and parentheses, and free-text env labels.
+const TOOL_RE = /^[\w.-]{1,64}$/;
 
 // Numeric metrics (`{ f1: 0.97, msgs_per_sec: 41000 }`): finite numbers only, bounded key count, so a
 // producer can't wedge a giant object into jsonb. Keys are short identifiers (dots allowed for
@@ -32,7 +36,9 @@ const httpUrl = z
   .refine((u) => /^https?:\/\//i.test(u), 'must be an http(s) URL');
 
 export const evalCaseInput = z.object({
-  name: z.string().min(1).max(LABEL_MAX),
+  // Accepted up to TEXT_MAX; lib/insert-run clips the stored name to LABEL_MAX (never rejected — a long
+  // generated case name must not 422 a whole run).
+  name: z.string().min(1).max(TEXT_MAX),
   input: z.string().max(TEXT_MAX).nullish(),
   expected: z.string().max(TEXT_MAX).nullish(),
   output: z.string().max(TEXT_MAX).nullish(),
@@ -44,7 +50,7 @@ export const evalCaseInput = z.object({
 });
 
 export const evalRunInput = z.object({
-  tool: z.string().min(1).max(LABEL_MAX),
+  tool: z.string().regex(TOOL_RE, 'tool must match [A-Za-z0-9_.-]{1,64}'),
   model: z.string().min(1).max(LABEL_MAX),
   mode: z.string().min(1).max(LABEL_MAX),
   env: z.string().min(1).max(LABEL_MAX),
@@ -67,6 +73,8 @@ export const evalRunInput = z.object({
   source_url: httpUrl.nullish(),
   metrics: metricsMap.nullish(),
   labels: labelsMap.nullish(),
+  // false = "trended, not gated" (shown and trended, never fails the project/badge). Default true.
+  gating: z.boolean().optional(),
   cases: z.array(evalCaseInput).max(1000).default([]),
 });
 

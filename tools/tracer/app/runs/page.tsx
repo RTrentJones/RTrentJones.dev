@@ -1,7 +1,19 @@
 import Link from 'next/link';
 import { filterOptions, runsWithRegression } from '../../lib/queries';
-import { relativeTime } from '../../lib/signals';
-import { Card, EvidenceBanner, PassBadge, RegressionBadge, Select, fmtCost, fmtDate, fmtDuration, pct, shortSha } from '../components/ui';
+import { NO_SUITE, relativeTime } from '../../lib/signals';
+import {
+  Card,
+  EvidenceBanner,
+  RegressionBadge,
+  Select,
+  VerdictPill,
+  fmtCost,
+  fmtDate,
+  fmtDuration,
+  runStatus,
+  shortSha,
+  suiteLabel,
+} from '../components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +46,7 @@ export default async function RunsPage({
         <form method="get" className="row">
           <Select name="tool" value={filters.tool} options={opts.tools} all="all projects" />
           <Select name="mode" value={filters.mode} options={opts.modes} all="all modes" />
-          <Select name="suite" value={filters.suite} options={opts.suites} all="all suites" />
+          <Select name="suite" value={filters.suite} options={[...opts.suites, NO_SUITE]} all="all suites" label={suiteLabel} />
           <Select name="model" value={filters.model} options={opts.models} all="all models" />
           <Select name="env" value={filters.env} options={opts.envs} all="all envs" />
           <label className="small secondary row" style={{ gap: '0.3rem' }}>
@@ -84,7 +96,7 @@ export default async function RunsPage({
                 <td className="secondary">{r.env}</td>
                 <td className="num">
                   <span className="row" style={{ gap: '0.35rem' }}>
-                    <PassBadge passed={r.passed} /> {pct(r.pass_rate)} <RegressionBadge run={r} />
+                    <VerdictPill run={r} status={runStatus(r)} detail /> <RegressionBadge run={r} />
                   </span>
                 </td>
                 <td className="muted nowrap">{fmtDuration(r.duration_ms)}</td>

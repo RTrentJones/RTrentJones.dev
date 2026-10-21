@@ -33,6 +33,7 @@ export interface OpenInferenceResult {
   source_url?: string | null;
   metrics?: Record<string, number> | null;
   labels?: Record<string, string> | null;
+  gating?: boolean;
   // OTel-GenAI span attributes for the run:
   attributes?: {
     'gen_ai.request.model'?: string;
@@ -91,6 +92,7 @@ export function fromOpenInference(r: OpenInferenceResult): EvalRunInput {
     source_url: r.source_url ?? null,
     metrics: r.metrics ?? null,
     labels: r.labels ?? null,
+    gating: r.gating, // validated downstream (evalRunInput); absent = gating
     cases,
   };
 }

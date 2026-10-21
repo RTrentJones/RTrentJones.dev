@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   type SignalRun,
+  cadenceOf,
   caseMatrix,
   commitUrl,
   diffCases,
   freshness,
   groupSignals,
+  headlineMetric,
+  isReportedCase,
   metricSeries,
+  needsAttention,
   projectHealth,
+  signalStatus,
   relativeTime,
   safeHref,
   signalKind,
@@ -130,7 +135,7 @@ describe('diffCases', () => {
 describe('caseMatrix', () => {
   it('aligns cases to runs, counts flips, and marks flaky cases', () => {
     const runs = ['r1', 'r2', 'r3', 'r4'];
-    const cell = (run_id: string, name: string, passed: boolean) => ({ run_id, name, passed, score: null });
+    const cell = (run_id: string, name: string, passed: boolean) => ({ run_id, name, passed, score: null, category: null });
     const rows = caseMatrix(runs, [
       cell('r1', 'stable', true),
       cell('r2', 'stable', true),
@@ -188,5 +193,180 @@ describe('links', () => {
     expect(safeHref('https://github.com/x/y/actions/runs/1')).toBe('https://github.com/x/y/actions/runs/1');
     expect(safeHref('javascript:alert(1)')).toBeNull();
     expect(safeHref(null)).toBeNull();
+  });
+});
+
+describe('cadence-aware freshness', () => {
+  it('reads cadence from labels, defaulting to daily', () => {
+    expect(cadenceOf({ cadence: 'weekly' })).toBe('weekly');
+    expect(cadenceOf({ cadence: 'on-demand' })).toBe('on-demand');
+    expect(cadenceOf({ cadence: 'hourly' })).toBe('daily');
+    expect(cadenceOf(null)).toBe('daily');
+  });
+
+  it('gives weekly feeds a longer window and never lets on-demand go stale', () => {
+    expect(freshness(hoursAgo(24 * 7), NOW, 'weekly')).toBe('fresh');
+    expect(freshness(hoursAgo(24 * 9), NOW, 'weekly')).toBe('aging');
+    expect(freshness(hoursAgo(24 * 16), NOW, 'weekly')).toBe('stale');
+    expect(freshness(hoursAgo(24), NOW, 'on-demand')).toBe('fresh');
+    expect(freshness(hoursAgo(24 * 30), NOW, 'on-demand')).toBe('aging');
+    expect(freshness(hoursAgo(24 * 9), NOW, 'daily')).toBe('stale');
+  });
+
+  it('groupSignals applies the latest run cadence and gating', () => {
+    const [s] = groupSignals([run({ started_at: hoursAgo(24 * 9), labels: { cadence: 'weekly' }, gating: false })], NOW);
+    expect(s.cadence).toBe('weekly');
+    expect(s.freshness).toBe('aging');
+    expect(s.gating).toBe(false);
+    expect(groupSignals([run()], NOW)[0].gating).toBe(true); // absent = gating
+  });
+});
+
+describe('signalStatus', () => {
+  const status = (over: Partial<SignalRun>) => signalStatus(groupSignals([run(over)], NOW)[0]);
+
+  it('applies the rules in order: incomplete, failing, regressed, passing', () => {
+    expect(status({ incomplete_reason: 'outline errored' }).state).toBe('incomplete');
+    expect(status({ incomplete_reason: 'no scored cases', passed: false, gated_cases: 0 }).state).toBe('incomplete');
+    expect(status({ incomplete_reason: 'x errored', passed: false, gated_cases: 3 }).state).toBe('failing');
+    expect(status({ passed: false, is_regression: true }).state).toBe('failing');
+    expect(status({ is_regression: true }).state).toBe('regressed');
+    expect(status({}).state).toBe('passing');
+  });
+
+  it('counts only gating, non-stale signals', () => {
+    expect(status({})).toMatchObject({ gating: true, stale: false, counted: true });
+    expect(status({ gating: false })).toMatchObject({ gating: false, counted: false });
+    expect(status({ started_at: hoursAgo(24 * 30) })).toMatchObject({ stale: true, counted: false });
+  });
+});
+
+describe('projectHealth — gating and freshness', () => {
+  it('a stale failing signal does not fail the project and needs no attention', () => {
+    const sigs = groupSignals(
+      [run({ suite: 'old', passed: false, pass_rate: 0.2, started_at: hoursAgo(24 * 30) }), run({ suite: 'new' })],
+      NOW,
+    );
+    const h = projectHealth('bamcp', sigs);
+    expect(h.health).toBe('passing');
+    expect(h.failing).toBe(0);
+    expect(h.stale).toBe(1);
+    expect(needsAttention(sigs)).toEqual([]);
+  });
+
+  it('an all-stale project is stale, even when failing', () => {
+    const sigs = groupSignals([run({ passed: false, started_at: hoursAgo(24 * 30) })], NOW);
+    expect(projectHealth('bamcp', sigs).health).toBe('stale');
+  });
+
+  it('a non-gating signal is tracked, never failing', () => {
+    const sigs = groupSignals(
+      [
+        run({ mode: 'truthset' }),
+        run({ mode: 'llm-eval', suite: 'arms', gating: false, passed: false, pass_rate: 0.8, is_regression: true }),
+      ],
+      NOW,
+    );
+    const h = projectHealth('bamcp', sigs);
+    expect(h).toMatchObject({ health: 'passing', tracked: 1, failing: 0, regressed: 0 });
+    expect(needsAttention(sigs)).toEqual([]);
+  });
+
+  it('explicit narrowing counts a non-gating signal', () => {
+    const sigs = groupSignals([run({ gating: false, passed: false, pass_rate: 0.5 })], NOW);
+    expect(projectHealth('bamcp', sigs).health).toBe('passing');
+    expect(projectHealth('bamcp', sigs, { explicit: true })).toMatchObject({ health: 'failing', failing: 1 });
+  });
+
+  it('needsAttention lists counted failing/regressed quality signals, never pipeline ones', () => {
+    const sigs = groupSignals(
+      [
+        run({ suite: 'a', passed: false }),
+        run({ suite: 'b', is_regression: true }),
+        run({ suite: 'c' }),
+        run({ suite: 'd', incomplete_reason: 'x errored' }),
+        run({ mode: 'deploy', suite: null, passed: false }),
+      ],
+      NOW,
+    );
+    expect(needsAttention(sigs).map((s) => s.suite).sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('reported cases', () => {
+  it('isReportedCase matches the category only', () => {
+    expect(isReportedCase({ category: 'reported' })).toBe(true);
+    expect(isReportedCase({ category: 'floors' })).toBe(false);
+    expect(isReportedCase({})).toBe(false);
+  });
+
+  it('a reported matrix row has no pass rate, is not flaky and is not failing now', () => {
+    const cell = (run_id: string, name: string, passed: boolean, category: string | null) => ({
+      run_id,
+      name,
+      passed,
+      score: null,
+      category,
+    });
+    const rows = caseMatrix(
+      ['r1', 'r2', 'r3'],
+      [
+        cell('r1', 'info', true, 'reported'),
+        cell('r2', 'info', false, 'reported'),
+        cell('r3', 'info', true, 'reported'),
+        cell('r1', 'mixed', true, null),
+        cell('r2', 'mixed', false, 'reported'),
+        cell('r3', 'mixed', true, null),
+        cell('r3', 'zz-gate', true, null),
+      ],
+    );
+    const info = rows.find((r) => r.name === 'info')!;
+    expect(info).toMatchObject({ reported: true, passRate: null, flaky: false, flips: 0 });
+    const mixed = rows.find((r) => r.name === 'mixed')!;
+    expect(mixed).toMatchObject({ reported: false, passRate: 1, flips: 0, flaky: false });
+    const last = caseMatrix(['r1'], [cell('r1', 'a', false, 'reported'), cell('r1', 'b', false, null)]);
+    expect(last.map((r) => r.name)).toEqual(['b', 'a']); // only the gated failure is failing now
+  });
+
+  it('diffCases keeps reported cases out of newly failing/passing but lists their score moves', () => {
+    const d = diffCases(
+      [
+        { name: 'r', passed: true, score: 0.9, category: 'reported' },
+        { name: 'p', passed: false, score: 0.1, category: 'reported' },
+        { name: 'g', passed: true, score: 1, category: null },
+      ],
+      [
+        { name: 'r', passed: false, score: 0.2, category: 'reported' },
+        { name: 'p', passed: true, score: 0.1, category: 'reported' },
+        { name: 'g', passed: false, score: 0, category: null },
+      ],
+    );
+    expect(d.newlyFailing.map((x) => x.name)).toEqual(['g']);
+    expect(d.newlyPassing).toEqual([]);
+    expect(d.scoreMoves.map((x) => x.name)).toEqual(['r']);
+    expect(d.unchanged).toBe(1);
+  });
+});
+
+describe('headlineMetric', () => {
+  it('returns the declared metric with its unit', () => {
+    expect(
+      headlineMetric({
+        metrics: { best_msgs_per_sec: 20626, other: 1 },
+        labels: { headline_metric: 'best_msgs_per_sec', headline_unit: 'msgs/s' },
+      }),
+    ).toEqual({ key: 'best_msgs_per_sec', value: 20626, unit: 'msgs/s' });
+    expect(headlineMetric({ metrics: { f1: 0.9 }, labels: { headline_metric: 'f1' } })).toEqual({
+      key: 'f1',
+      value: 0.9,
+      unit: null,
+    });
+  });
+
+  it('has no fallback: undeclared, missing or non-finite is null', () => {
+    expect(headlineMetric({ metrics: { f1: 0.9 }, labels: null })).toBeNull();
+    expect(headlineMetric({ metrics: { f1: 0.9 }, labels: { headline_metric: 'nope' } })).toBeNull();
+    expect(headlineMetric({ metrics: { f1: Number.NaN }, labels: { headline_metric: 'f1' } })).toBeNull();
+    expect(headlineMetric({ metrics: null, labels: { headline_metric: 'f1' } })).toBeNull();
   });
 });

@@ -5,11 +5,29 @@
 // TF_VAR_TRACER_INGEST_TOKEN for dogfood-tracer), so pg_kafka's own CI doesn't need a copy of it.
 // Throughput is normalized against the real-broker figure into a 0..1 score; absolute numbers ride
 // along in each case's judge_rationale. Inert without TRACER_INGEST_TOKEN.
+//
+// The cron re-reads the same bench.json until pg_kafka publishes new evidence, so a bench Tracer
+// already holds is skipped: the feed stays one point per published bench. Identity is the commit AND
+// the headline throughput, not the sha alone: pg_kafka's weekly refresh re-benchmarks the same commit,
+// and that fresh evidence must still land. If Tracer's summary can't be read, it posts anyway (a
+// duplicate does less harm than a gap).
+import { appendFileSync } from 'node:fs';
 const BENCH_URL =
   process.env.BENCH_URL ||
   'https://raw.githubusercontent.com/RTrentJones/pg_kafka/evidence/bench.json';
 const baseUrl = process.env.TRACER_URL || 'https://tracer.rtrentjones.dev';
 const token = process.env.TRACER_INGEST_TOKEN;
+const SIGNAL = 'pg_kafka|benchmark||ci'; // tool|mode|suite|env; suite is null
+
+// One Markdown line per outcome in the Actions job summary (no-op outside Actions).
+const summary = (line) => {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+  try {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
+  } catch {
+    // best-effort
+  }
+};
 
 if (!token) {
   console.log('TRACER_INGEST_TOKEN unset — skipping Tracer ingest.');
@@ -58,9 +76,32 @@ const sourceUrl = gh.GITHUB_RUN_ID
   ? `${gh.GITHUB_SERVER_URL || 'https://github.com'}/${gh.GITHUB_REPOSITORY}/actions/runs/${gh.GITHUB_RUN_ID}`
   : undefined;
 
+// Skip a bench Tracer already has. The unique `ts` bypasses the summary's edge cache.
+if (bench.gitSha) {
+  const sha7 = String(bench.gitSha).slice(0, 7);
+  try {
+    const url = `${baseUrl}/api/summary/pg_kafka?signal=${encodeURIComponent(SIGNAL)}&ts=${Date.now()}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (r.ok) {
+      const latest = (await r.json()).signals_detail?.[0];
+      if (latest?.git_sha === bench.gitSha && latest?.headline?.value === best) {
+        console.log(`unchanged bench (${sha7}) — skipping`);
+        summary(`⏭️ Tracer: pg_kafka bench unchanged (${sha7}), skipped duplicate`);
+        process.exit(0);
+      }
+    } else {
+      console.warn(`Tracer summary → ${r.status}; posting without the duplicate check`);
+    }
+  } catch (err) {
+    console.warn(`Tracer summary unreadable (${err.message}); posting without the duplicate check`);
+  }
+}
+
 const payload = {
   tool: 'pg_kafka',
-  model: bench.version || 'main',
+  // The system under test is pg_kafka itself; its release rides in labels.version so one series
+  // trends across versions instead of splitting per release.
+  model: 'pg_kafka',
   mode: 'benchmark',
   env: 'ci',
   git_sha: bench.gitSha,
@@ -69,13 +110,33 @@ const payload = {
   repo: 'RTrentJones/pg_kafka', // git_sha is pg_kafka's commit, so the link targets that repo
   source_url: sourceUrl,
   metrics,
+  labels: {
+    version: String(bench.version ?? 'unknown'),
+    headline_metric: 'best_msgs_per_sec',
+    headline_unit: 'msgs/s',
+    cadence: 'weekly',
+  },
   cases,
 };
 
-const res = await fetch(`${baseUrl}/api/ingest`, {
-  method: 'POST',
-  headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-  body: JSON.stringify(payload),
-});
-console.log(`Tracer ingest → ${res.status}: ${await res.text()}`);
+let res;
+try {
+  res = await fetch(`${baseUrl}/api/ingest`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(30000),
+  });
+} catch (err) {
+  console.error(`Tracer ingest failed: ${err.message}`);
+  summary(`⚠️ Tracer: pg_kafka ingest failed (${err.message})`);
+  process.exit(1);
+}
+const body = await res.text();
+console.log(`Tracer ingest → ${res.status}: ${body}`);
+summary(
+  res.ok
+    ? `✅ Tracer: posted pg_kafka bench (${res.status})`
+    : `⚠️ Tracer: pg_kafka ingest failed (HTTP ${res.status})`,
+);
 if (!res.ok) process.exit(1);

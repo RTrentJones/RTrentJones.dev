@@ -57,6 +57,12 @@ if (gh.GITHUB_REPOSITORY) {
     result.source_url ??= `${gh.GITHUB_SERVER_URL || 'https://github.com'}/${gh.GITHUB_REPOSITORY}/actions/runs/${gh.GITHUB_RUN_ID}`;
 }
 
+// Name the system under test: without a model attribute Tracer files the run under 'unknown'.
+result.attributes = {
+  ...result.attributes,
+  'gen_ai.request.model': result.attributes?.['gen_ai.request.model'] ?? 'greenlight-verify',
+};
+
 const res = await fetch(`${baseUrl}/api/ingest`, {
   method: 'POST',
   headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },

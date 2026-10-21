@@ -16,6 +16,10 @@ const MAX_OUTPUT = 16_384;
 const cap = (s: string | null | undefined): string | null =>
   s == null ? null : s.length > MAX_OUTPUT ? `${s.slice(0, MAX_OUTPUT)}… [truncated]` : s;
 
+// Case names are accepted long (schema) but stored clipped to the identifier width the UI renders.
+const NAME_MAX = 255;
+const clipName = (s: string): string => (s.length > NAME_MAX ? `${s.slice(0, NAME_MAX - 1)}…` : s);
+
 // An empty map stores as NULL so "no metrics" has one representation on read.
 const nonEmpty = <T extends Record<string, unknown>>(m: T | null | undefined): T | null =>
   m && Object.keys(m).length > 0 ? m : null;
@@ -43,11 +47,12 @@ export async function insertRun(run: EvalRunInput): Promise<string> {
     sourceUrl: run.source_url ?? null,
     metrics: nonEmpty(run.metrics),
     labels: nonEmpty(run.labels),
+    gating: run.gating ?? true,
   };
 
   const caseValues: (typeof evalCase.$inferInsert)[] = run.cases.map((c) => ({
     runId,
-    name: c.name,
+    name: clipName(c.name),
     input: cap(c.input),
     expected: cap(c.expected),
     output: cap(c.output),

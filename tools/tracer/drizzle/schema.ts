@@ -39,6 +39,8 @@ export const evalRun = pgTable(
     sourceUrl: text('source_url'), // the CI run (or report) that produced this row
     metrics: jsonb('metrics').$type<Record<string, number>>(), // run-level numeric metrics (f1, msgs/s…)
     labels: jsonb('labels').$type<Record<string, string>>(), // free-form string labels (judge, label…)
+    // false = "trended, not gated": trended on the dashboard, never fails the project/badge (0004).
+    gating: boolean('gating').notNull().default(true),
   },
   (t) => [
     index('idx_eval_run_tool_model_started').on(t.tool, t.model, t.startedAt.desc()),

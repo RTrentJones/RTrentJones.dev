@@ -21,6 +21,9 @@ import * as schema from '../drizzle/schema';
 export type Db = NeonHttpDatabase<typeof schema> | NodePgDatabase<typeof schema>;
 
 let _db: Db | null = null;
+// Which driver getDb() chose — recorded at construction so isNeonHttp never has to sniff the instance
+// (drizzle may grow a `batch` on other drivers; the choice, not the shape, decides the write path).
+let driver: 'neon' | 'pg' | null = null;
 
 /** True when the URL should use node-postgres (local/stock Postgres) rather than Neon's HTTP driver. */
 export function usesPgDriver(url: string, driver = process.env.TRACER_DB_DRIVER): boolean {
@@ -43,13 +46,15 @@ export function getDb(): Db {
         '(Vercel project → Settings → Environment Variables, or the Greenlight `neon` module).',
     );
   }
-  _db = usesPgDriver(url)
-    ? drizzlePg(new pg.Pool({ connectionString: url, max: 5 }), { schema })
-    : drizzleNeon(neon(url), { schema });
+  driver = usesPgDriver(url) ? 'pg' : 'neon';
+  _db =
+    driver === 'pg'
+      ? drizzlePg(new pg.Pool({ connectionString: url, max: 5 }), { schema })
+      : drizzleNeon(neon(url), { schema });
   return _db;
 }
 
 /** True for the Neon HTTP driver (supports atomic batch(), not interactive transactions). */
 export function isNeonHttp(db: Db): db is NeonHttpDatabase<typeof schema> {
-  return typeof (db as NeonHttpDatabase<typeof schema>).batch === 'function';
+  return db === _db && driver === 'neon';
 }
