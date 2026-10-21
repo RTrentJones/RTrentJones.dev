@@ -162,3 +162,33 @@ describe('Greenlight --json export parity', () => {
     expect(r.cases[2]).toMatchObject({ name: 'GET /missing', score: 0, passed: false });
   });
 });
+
+describe('fromOpenInference — provenance passthrough', () => {
+  it('carries suite/repo/branch/source_url/metrics/labels to the native shape', () => {
+    const r = fromOpenInference({
+      tool: 'bamcp',
+      passed: true,
+      suite: 'indel_v1',
+      repo: 'RTrentJones/BAMCP',
+      branch: 'main',
+      source_url: 'https://github.com/RTrentJones/BAMCP/actions/runs/9',
+      metrics: { f1: 1 },
+      labels: { trigger: 'push' },
+      checks: [{ name: 'c', passed: true }],
+    });
+    expect(r).toMatchObject({
+      suite: 'indel_v1',
+      repo: 'RTrentJones/BAMCP',
+      branch: 'main',
+      source_url: 'https://github.com/RTrentJones/BAMCP/actions/runs/9',
+      metrics: { f1: 1 },
+      labels: { trigger: 'push' },
+    });
+  });
+
+  it('defaults provenance to null when absent', () => {
+    const r = fromOpenInference({ tool: 't', passed: true, checks: [] });
+    expect(r.suite).toBeNull();
+    expect(r.metrics).toBeNull();
+  });
+});

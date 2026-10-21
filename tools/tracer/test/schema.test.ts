@@ -78,3 +78,36 @@ describe('evalRunInput bounds', () => {
     expect(evalRunInput.safeParse({ ...valid, duration_ms: -10 }).success).toBe(false);
   });
 });
+
+describe('evalRunInput — provenance and metrics', () => {
+  const prov = {
+    ...valid,
+    suite: 'synthetic_v1',
+    repo: 'RTrentJones/BAMCP',
+    branch: 'main',
+    source_url: 'https://github.com/RTrentJones/BAMCP/actions/runs/123',
+    metrics: { f1: 0.97, 'detection.tp': 12 },
+    labels: { trigger: 'schedule' },
+    cases: [{ name: 'floor:recall', passed: true, category: 'floors', metrics: { value: 1 } }],
+  };
+
+  it('accepts the full provenance shape', () => {
+    expect(evalRunInput.safeParse(prov).success).toBe(true);
+  });
+
+  it('rejects a non-http source_url (rendered as a link)', () => {
+    expect(evalRunInput.safeParse({ ...prov, source_url: 'javascript:alert(1)' }).success).toBe(false);
+  });
+
+  it('rejects a repo that is not owner/name', () => {
+    expect(evalRunInput.safeParse({ ...prov, repo: 'https://github.com/x/y' }).success).toBe(false);
+    expect(evalRunInput.safeParse({ ...prov, repo: '../x' }).success).toBe(false);
+  });
+
+  it('rejects non-finite or non-numeric metrics, odd keys, and oversized maps', () => {
+    expect(evalRunInput.safeParse({ ...prov, metrics: { f1: 'high' } }).success).toBe(false);
+    expect(evalRunInput.safeParse({ ...prov, metrics: { 'bad key': 1 } }).success).toBe(false);
+    const big = Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`m${i}`, i]));
+    expect(evalRunInput.safeParse({ ...prov, metrics: big }).success).toBe(false);
+  });
+});

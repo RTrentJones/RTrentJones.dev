@@ -6,6 +6,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   real,
@@ -31,8 +32,18 @@ export const evalRun = pgTable(
     tokensOut: integer('tokens_out'),
     passed: boolean('passed').notNull(), // run-level rollup
     passRate: real('pass_rate'), // 0..1, derived from cases
+    // Provenance (0003). All optional so older producers keep ingesting unchanged.
+    suite: text('suite'), // dataset / benchmark id within a tool+mode, e.g. 'synthetic_v1', 'dracula'
+    repo: text('repo'), // 'owner/name' — git_sha links to https://github.com/<repo>/commit/<sha>
+    branch: text('branch'),
+    sourceUrl: text('source_url'), // the CI run (or report) that produced this row
+    metrics: jsonb('metrics').$type<Record<string, number>>(), // run-level numeric metrics (f1, msgs/s…)
+    labels: jsonb('labels').$type<Record<string, string>>(), // free-form string labels (judge, label…)
   },
-  (t) => [index('idx_eval_run_tool_model_started').on(t.tool, t.model, t.startedAt.desc())],
+  (t) => [
+    index('idx_eval_run_tool_model_started').on(t.tool, t.model, t.startedAt.desc()),
+    index('idx_eval_run_tool_started').on(t.tool, t.startedAt.desc()),
+  ],
 );
 
 // One case/assertion within a run.
@@ -50,6 +61,8 @@ export const evalCase = pgTable(
     score: real('score'), // 0..1 (judge score) or null for boolean cases
     passed: boolean('passed').notNull(),
     judgeRationale: text('judge_rationale'), // the LLM judge's reasoning — SURFACE THIS in the UI
+    category: text('category'), // grouping within a run (step, stratum, floor…) (0003)
+    metrics: jsonb('metrics').$type<Record<string, number>>(), // per-case numeric metrics (0003)
   },
   (t) => [index('idx_eval_case_run').on(t.runId)],
 );

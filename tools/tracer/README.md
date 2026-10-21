@@ -11,13 +11,68 @@ the LLM judge's rationale. **`next` lane · `vercel` target · `neon` data.**
 
 ## Surface
 
-- `/` — dashboard: pass-rate over time (per model), latest run per tool, recent runs with regression flags.
-- `/runs` · `/runs/[id]` — filterable run list + per-case detail with the **judge rationale**.
-- `/compare` — latest run per model on the same suite, aligned case by case (cross-provider).
-- `POST /api/ingest` — accept one eval run + its cases. Bearer-authed, zod-validated. Accepts **either**
+- `/` — overview: one card per project with every **signal** (a `tool · mode · suite · env` feed), its
+  pass-rate sparkline, latest verdict and freshness; a *needs attention* list of signals whose latest
+  run failed or regressed; summary tiles; recent runs. Delivery-pipeline stages (Greenlight `ship`
+  build/deploy/verify/rollback) are shown apart from quality signals (evals, checks, benchmarks).
+- `/projects/[tool]` — a project's signals, then for the selected signal: pass rate per run (one line
+  per model), **metric trends** (one small chart per numeric metric the producer reports, e.g. F1,
+  MRR, msgs/sec), and a **case × run matrix** over the last 15 runs that marks **flaky** cases (verdict
+  flipped twice or more on the same suite).
+- `/runs` — every run in 90 days, filterable by project, mode, suite, model, env, regressions-only
+  and failures-only.
+- `/runs/[id]` — provenance (commit link, branch, CI run, labels), metrics with the previous run's
+  values, a **diff against the previous run in the series** (newly failing, newly passing, score
+  moves, cases added or removed, and a code-diff link), and the cases grouped by category with the
+  judge's rationale.
+- `/compare` — latest run per model on one project/mode/suite/env, aligned case by case, with the
+  cases the models disagree on first.
+- `GET /api/summary/[tool]` and `GET /api/badge/[tool]` — public JSON status and an SVG badge
+  (`?signal=<key>` narrows to one signal), cached for five minutes. Embed in a README:
+  `![tracer](https://tracer.rtrentjones.dev/api/badge/bamcp)`.
+- `POST /api/ingest` — accept one run + its cases. Bearer-authed, zod-validated. Accepts **either**
   the native shape **or** a standard OTel-GenAI/OpenInference verify result ([lib/openinference.ts](lib/openinference.ts)).
 - `POST /api/run` — optional: run the demo suite against every enabled provider, store the results.
   Bearer-authed, fails closed.
+
+## Ingest contract
+
+`POST /api/ingest` with `Authorization: Bearer $TRACER_INGEST_TOKEN` and a JSON body
+([lib/schema.ts](lib/schema.ts) is the source of truth):
+
+| field | required | meaning |
+|---|---|---|
+| `tool` | ✓ | project key (`bamcp`, `polyphony`, …) |
+| `mode` | ✓ | signal type (`truthset`, `eval`, `llm-eval`, `benchmark`, `api+test`, `deploy`, …) |
+| `model` | ✓ | model or system under test (`gemini-3.5-flash-lite`, `deterministic`, …) |
+| `env` | ✓ | where it ran (`ci`, `prod`, `beta`, or an experiment label) |
+| `passed` | ✓ | the run's own verdict |
+| `pass_rate` | | 0..1; drives trends and regressions |
+| `suite` | | dataset/benchmark within the mode (`synthetic_v1`, `dracula`); its own series |
+| `git_sha`, `repo`, `branch` | | `repo` is `owner/name`; with a hex sha it becomes a commit link |
+| `source_url` | | http(s) link to the CI run or report |
+| `metrics` | | `{ key: number }`, ≤64 keys (`[\w.:/-]`), charted per run |
+| `labels` | | `{ key: string }`, ≤64 keys (judge, trigger, dataset version, …) |
+| `duration_ms`, `cost_usd`, `tokens_in`, `tokens_out` | | run cost/latency |
+| `cases[]` | | ≤1000 × `{ name, passed, score?, input?, expected?, output?, judge_rationale?, category?, metrics? }` |
+
+A **series** is `(tool, mode, suite, model, env)`: a run is a regression when its `pass_rate` drops
+below the previous run in its series. A **signal** is `(tool, mode, suite, env)` — the same feed
+across model changes — and is what the overview and project pages group by.
+
+## Producers
+
+| project | producer | signal(s) |
+|---|---|---|
+| tracer | [`dogfood-tracer.yml`](../../.github/workflows/dogfood-tracer.yml) (daily `greenlight verify --json`) | `api+test · prod` |
+| pg_kafka | [`pg-kafka-tracer.yml`](../../.github/workflows/pg-kafka-tracer.yml) (daily, from pg_kafka's evidence branch) | `benchmark · ci` |
+| blog | `greenlight ship` stage events | `build`/`deploy`/`verify`/`rollback` · `prod`/`beta` |
+| bamcp | `bamcp.eval.tracer` in BAMCP's `ci.yml` (push to main) and `eval-nightly.yml` | `truthset · synthetic_v1` / `indel_v1 · ci`, `llm-eval · test_cases`, `llm-eval · comparison` |
+| polyphony | `evals.run --tracer` in Polyphony's `evals.yml` (dispatch / `evals/.run-eval`) | `eval · <book> · ci` |
+
+BAMCP and Polyphony POST from their own CI, so each repo needs a `TRACER_INGEST_TOKEN` Actions
+secret with the same value as this repo's `TF_VAR_TRACER_INGEST_TOKEN`. Both publish best-effort:
+without the secret they skip, and a failed POST never fails their eval jobs.
 
 ## Multi-provider `/api/run`
 
@@ -64,11 +119,12 @@ Nothing here is bespoke, so production can swap Tracer for a maintained backend:
 
 ## Data (Neon)
 
-Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)). Migrations are schema/cleanup only: `0001_seed.sql` is intentionally empty, and `0002_remove_seeded_demo_data.sql` removes the legacy portfolio fixtures so only real ingested runs are visible.
-**Regressions are derived on read in TypeScript** — `deriveRegressions` ([lib/regression.ts](lib/regression.ts)),
-applied by [lib/queries.ts](lib/queries.ts) `runsWithRegression`; it's the single implementation
-(unit-tested without a DB, there is no SQL mirror) and the read scan is bounded to ~90 days. Runtime
-reads use the pooled
+Two append-heavy tables — `eval_run` and `eval_case` ([drizzle/schema.ts](drizzle/schema.ts)). Migrations are schema/cleanup only: `0001_seed.sql` is intentionally empty, `0002_remove_seeded_demo_data.sql` removes the legacy portfolio fixtures so only real ingested runs are visible, and `0003_provenance.sql` adds the nullable provenance/metrics columns (`suite`, `repo`, `branch`, `source_url`, `metrics`, `labels`, case `category`/`metrics`).
+**Regressions, signals, diffs and flaky cases are derived on read in TypeScript** — `deriveRegressions`
+([lib/regression.ts](lib/regression.ts)) and [lib/signals.ts](lib/signals.ts), applied by
+[lib/queries.ts](lib/queries.ts). They are pure and unit-tested without a DB; there is no SQL mirror.
+Reads are bounded (90 days for run lists, the newest 20–40 runs per signal for the overview and
+project pages). Runtime reads use the pooled
 `DATABASE_URL` (neon-http); migrations use the **direct** form of `DATABASE_URL` (`drizzle.config.ts`)
 so they hit the same branch the runtime reads. The build runs `drizzle-kit migrate`; Greenlight's only
 DB role is `migrations scan`.
@@ -85,12 +141,16 @@ booleans + the logs are enough to diagnose; in the logs you'll see e.g.:
 
 ## Local dev
 
+A `localhost` `DATABASE_URL` uses node-postgres instead of Neon's HTTP driver (or force it with
+`TRACER_DB_DRIVER=pg|neon`), so a stock Postgres is enough:
+
 ```
-export DATABASE_URL=...        # pooled Neon branch URL (migrations derive the direct endpoint)
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/tracer   # or a pooled Neon branch URL
 export TRACER_INGEST_TOKEN=devtoken
 export GEMINI_API_KEY=...       # any one provider key enables /api/run (Gemini = free)
 pnpm db:migrate && pnpm dev     # http://localhost:3000
-pnpm test                       # vitest: regression / pass-rate / judge parse / cost / OI mapper
+pnpm test                       # vitest: regression / signals / pass-rate / judge parse / cost / OI mapper / badge
+TEST_DATABASE_URL=1 pnpm test   # + the DB-backed query suite (TRUNCATEs — point it at a scratch database)
 ```
 
 ```

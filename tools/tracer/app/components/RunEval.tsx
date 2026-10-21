@@ -39,25 +39,12 @@ export function RunEval() {
   }
 
   return (
-    <span style={{ display: 'inline-flex', gap: '0.6rem', alignItems: 'center' }}>
-      <button
-        type="button"
-        onClick={run}
-        disabled={busy}
-        style={{
-          padding: '0.4rem 0.8rem',
-          borderRadius: 6,
-          border: '1px solid #4338ca',
-          background: busy ? '#c7d2fe' : '#4338ca',
-          color: '#fff',
-          cursor: busy ? 'default' : 'pointer',
-          fontSize: '0.85rem',
-        }}
-      >
-        {busy ? 'Running…' : 'Run eval'}
+    <span className="row" style={{ gap: '0.6rem' }}>
+      <button type="button" onClick={run} disabled={busy} className="btn ghost" title="Operator only: needs the ingest token">
+        {busy ? 'Running…' : 'Run provider eval'}
       </button>
       {status && (
-        <span role="status" aria-live="polite" style={{ fontSize: '0.8rem', color: '#64748b' }}>
+        <span role="status" aria-live="polite" className="small secondary">
           {status}
         </span>
       )}

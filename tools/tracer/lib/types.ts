@@ -15,6 +15,12 @@ export interface EvalRun {
   tokens_out: number | null;
   passed: boolean;
   pass_rate: number | null;
+  suite: string | null;
+  repo: string | null;
+  branch: string | null;
+  source_url: string | null;
+  metrics: Record<string, number> | null;
+  labels: Record<string, string> | null;
 }
 
 export interface EvalCase {
@@ -27,9 +33,11 @@ export interface EvalCase {
   score: number | null;
   passed: boolean;
   judge_rationale: string | null;
+  category: string | null;
+  metrics: Record<string, number> | null;
 }
 
-// A run annotated with the previous run's pass_rate in its (tool, model, env) series and whether it
+// A run annotated with the previous run's pass_rate in its (tool, mode, suite, model, env) series and whether it
 // regressed. DERIVED on read — never stored (design §5).
 export interface RunWithRegression extends EvalRun {
   prev_pass_rate: number | null;
@@ -46,6 +54,8 @@ export interface PassRatePoint {
 
 export interface RunFilters {
   tool?: string;
+  mode?: string;
+  suite?: string;
   model?: string;
   env?: string;
 }

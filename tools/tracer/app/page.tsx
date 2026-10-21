@@ -1,47 +1,80 @@
 import Link from 'next/link';
-import { latestRunPerTool, passRateOverTime, runsWithRegression } from '../lib/queries';
-import { LineChart } from './components/LineChart';
+import { recentSignalRuns } from '../lib/queries';
+import { type Signal, type SignalKind, groupSignals, projectHealth, relativeTime, signalLabel } from '../lib/signals';
+import type { RunWithRegression } from '../lib/types';
 import { RunEval } from './components/RunEval';
-import { Card, EmptyState, EvidenceBanner, PassBadge, RegressionBadge, fmtCost, fmtDate, pct } from './components/ui';
+import {
+  Card,
+  EmptyState,
+  EvidenceBanner,
+  FreshnessPill,
+  HealthPill,
+  PassBadge,
+  RegressionBadge,
+  Sparkline,
+  Stat,
+  fmtDate,
+  pct,
+} from './components/ui';
 
 // Read fresh each request so the dashboard reflects the DB and the verify gate exercises a live query
 // (a broken connection / missing table 500s instead of hiding behind stale content).
 export const dynamic = 'force-dynamic';
 
-// Pivot the long (bucket, model, pass_rate) rows into one row per day with a column per model — the
-// shape Recharts wants for multiple lines.
-function pivot(points: { bucket: string; model: string; pass_rate: number }[]) {
-  const byBucket = new Map<string, Record<string, number | string>>();
-  const models = new Set<string>();
-  for (const p of points) {
-    models.add(p.model);
-    const row = byBucket.get(p.bucket) ?? { bucket: p.bucket };
-    row[p.model] = p.pass_rate;
-    byBucket.set(p.bucket, row);
-  }
-  // Sort the model list so each model maps to a stable chart-line color across requests (the order the
-  // Set yields is insertion order — nondeterministic across runs, which would shuffle the colors).
-  return { data: [...byBucket.values()], models: [...models].sort() };
+const KIND_LABEL: Record<SignalKind, string> = {
+  quality: 'Evals & checks',
+  benchmark: 'Benchmarks',
+  pipeline: 'Delivery pipeline',
+};
+
+const signalHref = (s: Signal) => `/projects/${encodeURIComponent(s.tool)}?signal=${encodeURIComponent(s.key)}`;
+
+function SignalRow({ s, now }: { s: Signal<RunWithRegression>; now: number }) {
+  return (
+    <li>
+      <span className="signal-name" title={`${signalLabel(s)} — latest model ${s.latest.model}`}>
+        <Link href={signalHref(s)}>{signalLabel(s)}</Link>
+      </span>
+      <Sparkline points={s.history} width={96} height={24} />
+      <span className="row" style={{ gap: '0.35rem', justifyContent: 'flex-end' }}>
+        <Link href={`/runs/${s.latest.id}`} className="num" style={{ textDecoration: 'none' }}>
+          {s.latest.passed ? (
+            <span className="pill good">✓ {pct(s.latest.pass_rate)}</span>
+          ) : (
+            <span className="pill critical">✗ {pct(s.latest.pass_rate)}</span>
+          )}
+        </Link>
+        <FreshnessPill freshness={s.freshness} when={relativeTime(s.latest.started_at, now)} />
+      </span>
+    </li>
+  );
 }
 
-const th = { textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#64748b' } as const;
-const td = { padding: '0.5rem 0.75rem', borderTop: '1px solid #f1f5f9', fontSize: '0.9rem' } as const;
-
 export default async function Page() {
-  const [series, latest, recent] = await Promise.all([
-    passRateOverTime(30),
-    latestRunPerTool(),
-    runsWithRegression({}, 12),
-  ]);
-  const { data, models } = pivot(series);
+  const runs = await recentSignalRuns({}, 20, 180);
+  const now = Date.now();
+  const signals = groupSignals(runs, now);
+  const tools = [...new Set(signals.map((s) => s.tool))];
+  const projects = tools
+    .map((t) => ({ ...projectHealth(t, signals), signals: signals.filter((s) => s.tool === t) }))
+    // Problems first, then most recently active.
+    .sort((a, b) => {
+      const rank = { failing: 0, regressed: 1, passing: 2, stale: 3, empty: 4 } as const;
+      return rank[a.health] - rank[b.health] || (b.latestAt ?? '').localeCompare(a.latestAt ?? '');
+    });
+  const attention = signals.filter((s) => s.kind !== 'pipeline' && (!s.latest.passed || s.latest.is_regression));
+  const recent = [...runs].sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 12);
+  const lastIngest = recent[0]?.started_at;
+  const week = runs.filter((r) => now - new Date(r.started_at).getTime() < 7 * 86_400_000).length;
 
   return (
-    <div style={{ display: 'grid', gap: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+    <div className="stack">
+      <div className="spread">
         <div>
-          <h1 style={{ margin: '0 0 0.25rem' }}>Project signals</h1>
-          <p style={{ margin: 0, color: '#64748b' }}>
-            Real verification history for LLM evals, agent runs, API checks, and project pipelines like <code>pg_kafka</code> — pass rate, regressions, and comparisons.
+          <h1>Project signals</h1>
+          <p className="lede">
+            Evals, CI checks, benchmarks and deploy pipelines for each project, with pass-rate trends,
+            regressions against the previous run, and the evidence behind every verdict.
           </p>
         </div>
         <RunEval />
@@ -50,91 +83,143 @@ export default async function Page() {
       <EvidenceBanner />
 
       <Card>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Pass rate over time (30d)</h2>
-        {data.length > 0 ? (
-          <LineChart data={data} models={models} />
-        ) : (
-          <EmptyState title="No real runs yet">Post an authenticated ingest payload or run an enabled provider suite; Tracer leaves the dashboard empty until real data arrives.</EmptyState>
-        )}
+        <div className="grid-stats">
+          <Stat label="Projects">{tools.length}</Stat>
+          <Stat label="Signals">{signals.length}</Stat>
+          <Stat label="Failing now">
+            {signals.filter((s) => s.kind !== 'pipeline' && !s.latest.passed).length}
+          </Stat>
+          <Stat label="Regressed">{signals.filter((s) => s.kind !== 'pipeline' && s.latest.is_regression).length}</Stat>
+          <Stat label="Runs, last 7d">{week}</Stat>
+          <Stat label="Last ingest">{lastIngest ? relativeTime(lastIngest, now) : '—'}</Stat>
+        </div>
       </Card>
 
-      <Card>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Latest run per tool</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={th}>Tool</th>
-              <th style={th}>Model</th>
-              <th style={th}>Env</th>
-              <th style={th}>Pass rate</th>
-              <th style={th}>Result</th>
-              <th style={th}>When</th>
-            </tr>
-          </thead>
-          <tbody>
-            {latest.length === 0 ? (
-              <tr>
-                <td style={{ ...td, color: '#94a3b8' }} colSpan={6}>
-                  No real ingested runs yet.
-                </td>
-              </tr>
-            ) : (
-              latest.map((r) => (
-                <tr key={r.id}>
-                  <td style={td}>
-                    <strong>{r.tool}</strong>
+      {attention.length > 0 && (
+        <Card>
+          <h2>Needs attention</h2>
+          <table className="data">
+            <tbody>
+              {attention.map((s) => (
+                <tr key={s.key}>
+                  <td>
+                    <Link href={signalHref(s)}>
+                      <strong>{s.tool}</strong> · {signalLabel(s)}
+                    </Link>
                   </td>
-                  <td style={td}>{r.model}</td>
-                  <td style={td}>{r.env}</td>
-                  <td style={td}>{pct(r.pass_rate)}</td>
-                  <td style={td}>
-                    <PassBadge passed={r.passed} />
+                  <td className="secondary">{s.latest.model}</td>
+                  <td>
+                    <span className="row" style={{ gap: '0.35rem' }}>
+                      <PassBadge passed={s.latest.passed} />
+                      <RegressionBadge run={s.latest} />
+                    </span>
                   </td>
-                  <td style={{ ...td, color: '#64748b' }}>{fmtDate(r.started_at)}</td>
+                  <td className="muted nowrap">{relativeTime(s.latest.started_at, now)}</td>
+                  <td>
+                    <Link href={`/runs/${s.latest.id}`} className="small">
+                      what changed →
+                    </Link>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </Card>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
-      <Card>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Recent runs</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <section className="stack" aria-labelledby="projects-h">
+        <h2 id="projects-h" style={{ margin: 0 }}>
+          Projects
+        </h2>
+        {projects.length === 0 ? (
+          <Card>
+            <EmptyState title="No real runs yet">
+              Post an authenticated payload to <code>/api/ingest</code> from a CI job. Tracer leaves the
+              dashboard empty until real data arrives.
+            </EmptyState>
+          </Card>
+        ) : (
+          <div className="grid-cards">
+            {projects.map((p) => {
+              const kinds = (['quality', 'benchmark', 'pipeline'] as SignalKind[]).filter((k) =>
+                p.signals.some((s) => s.kind === k),
+              );
+              return (
+                <Card key={p.tool} className="project-card">
+                  <header>
+                    <h2>
+                      <Link href={`/projects/${encodeURIComponent(p.tool)}`}>{p.tool}</Link>
+                    </h2>
+                    <HealthPill health={p.health} />
+                  </header>
+                  {kinds.map((k) => (
+                    <div key={k}>
+                      <div className="kind-label">{KIND_LABEL[k]}</div>
+                      <ul className="signal-list">
+                        {p.signals
+                          .filter((s) => s.kind === k)
+                          .slice(0, 6)
+                          .map((s) => (
+                            <SignalRow key={s.key} s={s} now={now} />
+                          ))}
+                      </ul>
+                      {p.signals.filter((s) => s.kind === k).length > 6 && (
+                        <Link href={`/projects/${encodeURIComponent(p.tool)}`} className="small">
+                          + {p.signals.filter((s) => s.kind === k).length - 6} more
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <Card className="flush">
+        <div style={{ padding: '1rem 1rem 0' }} className="spread">
+          <h2>Recent runs</h2>
+          <Link href="/runs" className="small">
+            all runs →
+          </Link>
+        </div>
+        <table className="data">
           <thead>
             <tr>
-              <th style={th}>When</th>
-              <th style={th}>Tool</th>
-              <th style={th}>Model</th>
-              <th style={th}>Env</th>
-              <th style={th}>Pass rate</th>
-              <th style={th}>Cost</th>
-              <th style={th} />
+              <th>When</th>
+              <th>Project</th>
+              <th>Signal</th>
+              <th>Model / source</th>
+              <th>Pass rate</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {recent.length === 0 ? (
               <tr>
-                <td style={{ ...td, color: '#94a3b8' }} colSpan={7}>
+                <td className="muted" colSpan={6}>
                   No real ingested runs yet.
                 </td>
               </tr>
             ) : (
               recent.map((r) => (
                 <tr key={r.id}>
-                  <td style={{ ...td, color: '#64748b' }}>{fmtDate(r.started_at)}</td>
-                  <td style={td}>{r.tool}</td>
-                  <td style={td}>{r.model}</td>
-                  <td style={td}>{r.env}</td>
-                  <td style={td}>
-                    <Link href={`/runs/${r.id}`} style={{ color: '#4338ca' }}>
-                      {pct(r.pass_rate)}
-                    </Link>{' '}
-                    <RegressionBadge run={r} />
+                  <td className="muted nowrap" title={fmtDate(r.started_at)}>
+                    {relativeTime(r.started_at, now)}
                   </td>
-                  <td style={{ ...td, color: '#64748b' }}>{fmtCost(r.cost_usd)}</td>
-                  <td style={td}>
-                    <Link href={`/runs/${r.id}`} style={{ color: '#4338ca', fontSize: '0.85rem' }}>
+                  <td>
+                    <Link href={`/projects/${encodeURIComponent(r.tool)}`}>{r.tool}</Link>
+                  </td>
+                  <td className="secondary">{signalLabel(r)}</td>
+                  <td className="secondary">{r.model}</td>
+                  <td className="num">
+                    <span className="row" style={{ gap: '0.35rem' }}>
+                      <PassBadge passed={r.passed} /> {pct(r.pass_rate)} <RegressionBadge run={r} />
+                    </span>
+                  </td>
+                  <td>
+                    <Link href={`/runs/${r.id}`} className="small">
                       detail →
                     </Link>
                   </td>

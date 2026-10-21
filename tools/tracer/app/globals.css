@@ -1,0 +1,281 @@
+/* Tracer design tokens. Chart colours follow a validated categorical order (identity, never cycled)
+   and a reserved status palette (good/warning/serious/critical) that always ships with an icon and a
+   label. Dark mode is its own selected set of steps, not an inversion. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ee;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --accent: #2a78d6;
+  --accent-ink: #1c5cab;
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --good-wash: #e6f4e6;
+  --warning: #fab219;
+  --warning-ink: #7a5200;
+  --warning-wash: #fdf3dc;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --critical-ink: #a32828;
+  --critical-wash: #fbe9e9;
+  --neutral-wash: #f0efec;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --judge-wash: #f1effc;
+  --judge-border: #d6d1f5;
+  --judge-ink: #4a3aa7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+    --accent-ink: #86b6ef;
+    --good-ink: #0ca30c;
+    --good-wash: #13261a;
+    --warning-ink: #fab219;
+    --warning-wash: #2b2410;
+    --critical-ink: #e66767;
+    --critical-wash: #2d1616;
+    --neutral-wash: #383835;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --judge-wash: #1f1b33;
+    --judge-border: #3b3466;
+    --judge-ink: #b4abf0;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232321;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5;
+  --accent-ink: #86b6ef;
+  --good-ink: #0ca30c;
+  --good-wash: #13261a;
+  --warning-ink: #fab219;
+  --warning-wash: #2b2410;
+  --critical-ink: #e66767;
+  --critical-wash: #2d1616;
+  --neutral-wash: #383835;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --judge-wash: #1f1b33;
+  --judge-border: #3b3466;
+  --judge-ink: #b4abf0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.45;
+}
+
+a { color: var(--accent-ink); }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+code { font-size: 0.88em; }
+
+.topbar {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.8rem 1rem;
+  display: flex;
+  gap: 1.25rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.brand { font-weight: 700; font-size: 1.1rem; color: var(--ink); text-decoration: none; }
+.nav { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.95rem; }
+.nav a { color: var(--ink-2); text-decoration: none; font-weight: 600; }
+.nav a:hover { color: var(--accent-ink); }
+
+main { max-width: 1120px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.stack { display: grid; gap: 1.25rem; }
+.row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+
+h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.lede { margin: 0; color: var(--ink-2); max-width: 70ch; }
+.muted { color: var(--muted); }
+.secondary { color: var(--ink-2); }
+.small { font-size: 0.85rem; }
+.nowrap { white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.1rem;
+  background: var(--surface);
+  min-width: 0;
+}
+.card.flush { padding: 0; overflow: auto; }
+
+.grid-cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.grid-stats { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+
+.stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+
+table.data { width: 100%; border-collapse: collapse; }
+table.data th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+table.data td { padding: 0.5rem 0.75rem; border-top: 1px solid var(--grid); font-size: 0.9rem; vertical-align: top; }
+table.data tr:hover td { background: var(--surface-2); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.pill.good { background: var(--good-wash); color: var(--good-ink); }
+.pill.critical { background: var(--critical-wash); color: var(--critical-ink); }
+.pill.warning { background: var(--warning-wash); color: var(--warning-ink); }
+.pill.neutral { background: var(--neutral-wash); color: var(--ink-2); }
+.pill.info { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border); }
+
+.banner {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
+select, input[type='text'] {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--axis);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  max-width: 100%;
+}
+.btn {
+  padding: 0.38rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+}
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn.ghost { background: transparent; color: var(--accent-ink); }
+
+.project-card { display: grid; gap: 0.75rem; }
+.project-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+.project-card h2 { margin: 0; font-size: 1.1rem; }
+.project-card h2 a { color: var(--ink); text-decoration: none; }
+.project-card h2 a:hover { color: var(--accent-ink); }
+.signal-list { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+/* Name on its own line (labels like "truthset · synthetic_v1 · nightly" must stay readable), then the
+   sparkline and the latest verdict + freshness beneath it. */
+.signal-list { gap: 0.6rem; }
+.signal-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 0.6rem;
+  align-items: center;
+  font-size: 0.86rem;
+}
+.signal-name { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.signal-name a { color: inherit; text-decoration: none; }
+.signal-name a:hover { color: var(--accent-ink); }
+.kind-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.35rem; }
+
+.case { border-left: 4px solid var(--good); }
+.case.fail { border-left-color: var(--critical); }
+.field { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+pre.block { margin: 0.25rem 0 0; white-space: pre-wrap; word-break: break-word; font-size: 0.86rem; max-height: 22rem; overflow: auto; }
+.two-col { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.judge { background: var(--judge-wash); border: 1px solid var(--judge-border); border-radius: 8px; padding: 0.75rem 0.9rem; }
+.judge .field { color: var(--judge-ink); }
+.judge p { margin: 0.3rem 0 0; font-size: 0.9rem; white-space: pre-wrap; }
+
+/* Case × run matrix: each cell is a verdict glyph on a status wash, so colour never carries it alone. */
+table.matrix { border-collapse: separate; border-spacing: 2px; font-size: 0.8rem; }
+table.matrix th { font-weight: 600; color: var(--muted); padding: 0.2rem 0.4rem; text-align: left; white-space: nowrap; }
+table.matrix td.cell { width: 1.6rem; height: 1.6rem; text-align: center; border-radius: 4px; padding: 0; }
+table.matrix td.cell a { display: block; text-decoration: none; color: inherit; line-height: 1.6rem; }
+td.cell.pass { background: var(--good-wash); color: var(--good-ink); }
+td.cell.fail { background: var(--critical-wash); color: var(--critical-ink); }
+td.cell.none { background: transparent; color: var(--axis); }
+table.matrix td.name { padding-right: 0.75rem; white-space: nowrap; max-width: min(22rem, 45vw); overflow: hidden; text-overflow: ellipsis; }
+
+details > summary { cursor: pointer; }
+.diff-list { margin: 0.25rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; }
+
+.empty { color: var(--ink-2); display: grid; gap: 0.3rem; }
+.empty strong { color: var(--ink); }
+
+.chart-tip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}

@@ -66,6 +66,9 @@ importers:
       openai:
         specifier: ^4.77.0
         version: 4.104.0(ws@8.20.1)(zod@3.25.76)
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
       react:
         specifier: ^19.0.0
         version: 19.2.7
@@ -85,6 +88,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.0
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.17
@@ -3419,9 +3425,6 @@ packages:
     peerDependencies:
       pg: '>=8.0'
 
-  pg-protocol@1.15.0:
-    resolution: {integrity: sha512-cq9sECI5s0+uPUXjbz8ioyPJni6RzsRib0US67i5IoTZKw8fNeYlVE7u8F4dG7vEJJtc5wdD1K189lCCUwqWTQ==}
-
   pg-protocol@1.16.1:
     resolution: {integrity: sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==}
 
@@ -5589,7 +5592,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 22.20.0
+      '@types/node': 22.20.5
       form-data: 4.0.6
 
   '@types/node@18.19.130':
@@ -5603,7 +5606,6 @@ snapshots:
   '@types/node@22.20.5':
     dependencies:
       undici-types: 6.21.0
-    optional: true
 
   '@types/node@24.13.2':
     dependencies:
@@ -5611,8 +5613,8 @@ snapshots:
 
   '@types/pg@8.11.6':
     dependencies:
-      '@types/node': 22.20.0
-      pg-protocol: 1.15.0
+      '@types/node': 22.20.5
+      pg-protocol: 1.16.1
       pg-types: 4.1.0
 
   '@types/pg@8.20.0':
@@ -5620,7 +5622,6 @@ snapshots:
       '@types/node': 22.20.5
       pg-protocol: 1.16.1
       pg-types: 2.2.0
-    optional: true
 
   '@types/react@19.2.17':
     dependencies:
@@ -5628,7 +5629,7 @@ snapshots:
 
   '@types/sax@1.2.7':
     dependencies:
-      '@types/node': 22.20.0
+      '@types/node': 22.20.5
 
   '@types/unist@2.0.11': {}
 
@@ -7614,8 +7615,7 @@ snapshots:
   pg-cloudflare@1.4.1:
     optional: true
 
-  pg-connection-string@2.14.1:
-    optional: true
+  pg-connection-string@2.14.1: {}
 
   pg-int8@1.0.1: {}
 
@@ -7624,12 +7624,8 @@ snapshots:
   pg-pool@3.14.0(pg@8.22.0):
     dependencies:
       pg: 8.22.0
-    optional: true
 
-  pg-protocol@1.15.0: {}
-
-  pg-protocol@1.16.1:
-    optional: true
+  pg-protocol@1.16.1: {}
 
   pg-types@2.2.0:
     dependencies:
@@ -7638,7 +7634,6 @@ snapshots:
       postgres-bytea: 1.0.1
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
-    optional: true
 
   pg-types@4.1.0:
     dependencies:
@@ -7659,12 +7654,10 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.4.1
-    optional: true
 
   pgpass@1.0.5:
     dependencies:
       split2: 4.2.0
-    optional: true
 
   piccolore@0.1.3: {}
 
@@ -7696,27 +7689,23 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  postgres-array@2.0.0:
-    optional: true
+  postgres-array@2.0.0: {}
 
   postgres-array@3.0.4: {}
 
-  postgres-bytea@1.0.1:
-    optional: true
+  postgres-bytea@1.0.1: {}
 
   postgres-bytea@3.0.0:
     dependencies:
       obuf: 1.1.2
 
-  postgres-date@1.0.7:
-    optional: true
+  postgres-date@1.0.7: {}
 
   postgres-date@2.1.0: {}
 
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
-    optional: true
 
   postgres-interval@3.0.0: {}
 
@@ -8182,8 +8171,7 @@ snapshots:
 
   space-separated-tokens@2.0.2: {}
 
-  split2@4.2.0:
-    optional: true
+  split2@4.2.0: {}
 
   stackback@0.0.2: {}
 
@@ -8622,8 +8610,7 @@ snapshots:
 
   xml-naming@0.1.0: {}
 
-  xtend@4.0.2:
-    optional: true
+  xtend@4.0.2: {}
 
   xxhash-wasm@1.1.0: {}
 

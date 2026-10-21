@@ -1,14 +1,12 @@
+import Link from 'next/link';
 import { compareModels, filterOptions } from '../../lib/queries';
 import type { CompareCell } from '../../lib/types';
 import { BarChart } from '../components/BarChart';
-import { Card, EmptyState, EvidenceBanner, PassBadge, pct } from '../components/ui';
+import { Card, EmptyState, EvidenceBanner, PassBadge, Select, pct } from '../components/ui';
 
 export const dynamic = 'force-dynamic';
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || undefined;
-
-const th = { textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#64748b' } as const;
-const td = { padding: '0.6rem 0.75rem', borderTop: '1px solid #f1f5f9', fontSize: '0.9rem', verticalAlign: 'top' } as const;
 
 export default async function ComparePage({
   searchParams,
@@ -16,12 +14,15 @@ export default async function ComparePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const opts = await filterOptions();
-  const tool = one(sp.tool) ?? opts.tools[0] ?? 'tracer';
+  const all = await filterOptions();
+  const tool = one(sp.tool) ?? all.tools[0] ?? 'tracer';
+  // Mode/suite/env options are scoped to the chosen project so every choice is one that has data.
+  const opts = await filterOptions({ tool });
+  const mode = one(sp.mode) ?? (opts.modes.includes('eval') ? 'eval' : undefined);
+  const suite = one(sp.suite);
   const env = one(sp.env) ?? (opts.envs.includes('prod') ? 'prod' : opts.envs[0]) ?? 'prod';
 
-  // Compare every model that has a run in this (tool, env) suite.
-  const cells = await compareModels(tool, env, opts.models);
+  const cells = await compareModels({ tool, env, mode, suite });
 
   const models = [...new Set(cells.map((c) => c.model))].sort();
   const caseNames = [...new Set(cells.map((c) => c.name))];
@@ -31,39 +32,37 @@ export default async function ComparePage({
     model: m,
     pass_rate: cells.find((c) => c.model === m)?.pass_rate ?? null,
   }));
+  // Cases where the models disagree are the interesting rows; show them first.
+  const disagree = (name: string) => new Set(models.map((m) => byKey.get(`${name}|${m}`)?.passed)).size > 1;
+  caseNames.sort((a, b) => Number(disagree(b)) - Number(disagree(a)) || a.localeCompare(b));
 
   return (
-    <div style={{ display: 'grid', gap: '1.5rem' }}>
+    <div className="stack">
       <div>
-        <h1 style={{ margin: '0 0 0.25rem' }}>Compare models</h1>
-        <p style={{ margin: 0, color: '#64748b' }}>Latest real run per model or source on the same suite, aligned case by case.</p>
+        <h1>Compare models</h1>
+        <p className="lede">
+          The latest run of each model on the same project, mode and suite, aligned case by case. Cases the
+          models disagree on are listed first.
+        </p>
       </div>
 
       <EvidenceBanner />
 
       <Card>
-        <form method="get" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <label style={{ fontSize: '0.85rem', color: '#64748b' }}>
-            Tool{' '}
-            <select name="tool" defaultValue={tool} style={{ padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
-              {opts.tools.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+        <form method="get" className="row">
+          <label className="small secondary row" style={{ gap: '0.3rem' }}>
+            Project <Select name="tool" value={tool} options={all.tools} />
           </label>
-          <label style={{ fontSize: '0.85rem', color: '#64748b' }}>
-            Env{' '}
-            <select name="env" defaultValue={env} style={{ padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
-              {opts.envs.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </select>
+          <label className="small secondary row" style={{ gap: '0.3rem' }}>
+            Mode <Select name="mode" value={mode} options={opts.modes} all="any" />
           </label>
-          <button type="submit" style={{ padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #4338ca', background: '#4338ca', color: '#fff', cursor: 'pointer' }}>
+          <label className="small secondary row" style={{ gap: '0.3rem' }}>
+            Suite <Select name="suite" value={suite} options={opts.suites} all="any" />
+          </label>
+          <label className="small secondary row" style={{ gap: '0.3rem' }}>
+            Env <Select name="env" value={env} options={opts.envs} />
+          </label>
+          <button type="submit" className="btn">
             Compare
           </button>
         </form>
@@ -71,22 +70,38 @@ export default async function ComparePage({
 
       {models.length === 0 ? (
         <Card>
-          <EmptyState title="Nothing to compare yet">No real runs for <strong>{tool}</strong> in <strong>{env}</strong>. Ingest at least one run for this project/environment; ingest multiple models or sources to unlock a useful comparison.</EmptyState>
+          <EmptyState title="Nothing to compare yet">
+            No runs with cases for <strong>{tool}</strong>
+            {mode && (
+              <>
+                {' '}
+                · <strong>{mode}</strong>
+              </>
+            )}
+            {suite && (
+              <>
+                {' '}
+                · <strong>{suite}</strong>
+              </>
+            )}{' '}
+            in <strong>{env}</strong>. A comparison needs at least one run for this scope, and becomes useful
+            once two or more models or sources have reported.
+          </EmptyState>
         </Card>
       ) : (
         <>
           <Card>
-            <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Pass rate by model</h2>
+            <h2>Pass rate by model</h2>
             <BarChart data={perModelRate} />
           </Card>
 
-          <Card style={{ padding: 0, overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+          <Card className="flush">
+            <table className="data" style={{ minWidth: 640 }}>
               <thead>
                 <tr>
-                  <th style={th}>Case</th>
+                  <th>Case</th>
                   {models.map((m) => (
-                    <th key={m} style={th}>
+                    <th key={m}>
                       {m}
                       <div style={{ fontWeight: 400 }}>{pct(perModelRate.find((p) => p.model === m)?.pass_rate ?? null)}</div>
                     </th>
@@ -96,28 +111,33 @@ export default async function ComparePage({
               <tbody>
                 {caseNames.map((name) => (
                   <tr key={name}>
-                    <td style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap' }}>{name}</td>
+                    <td style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+                      {disagree(name) && models.length > 1 && <span title="models disagree">≠ </span>}
+                      {name}
+                    </td>
                     {models.map((m) => {
                       const cell = byKey.get(`${name}|${m}`);
                       return (
-                        <td key={m} style={td}>
+                        <td key={m}>
                           {cell ? (
-                            <div style={{ display: 'grid', gap: '0.35rem' }}>
-                              <span style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <div className="stack" style={{ gap: '0.3rem' }}>
+                              <span className="row" style={{ gap: '0.4rem' }}>
                                 <PassBadge passed={cell.passed} />
-                                {cell.score != null && <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{cell.score.toFixed(2)}</span>}
+                                {cell.score != null && <span className="small secondary num">{cell.score.toFixed(2)}</span>}
                               </span>
                               {cell.judge_rationale && (
                                 <details>
-                                  <summary style={{ cursor: 'pointer', color: '#6d28d9', fontSize: '0.8rem' }}>judge</summary>
-                                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#334155', lineHeight: 1.45 }}>
+                                  <summary className="small" style={{ color: 'var(--judge-ink)' }}>
+                                    judge
+                                  </summary>
+                                  <p className="small secondary" style={{ margin: '0.3rem 0 0' }}>
                                     {cell.judge_rationale}
                                   </p>
                                 </details>
                               )}
                             </div>
                           ) : (
-                            <span style={{ color: '#cbd5e1' }}>—</span>
+                            <span className="muted">—</span>
                           )}
                         </td>
                       );
@@ -127,6 +147,10 @@ export default async function ComparePage({
               </tbody>
             </table>
           </Card>
+          <p className="small muted">
+            Scope: <Link href={`/projects/${encodeURIComponent(tool)}`}>{tool}</Link> · {mode ?? 'any mode'} ·{' '}
+            {suite ?? 'any suite'} · {env}
+          </p>
         </>
       )}
     </div>

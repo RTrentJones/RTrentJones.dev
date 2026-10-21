@@ -1,6 +1,7 @@
 import { type SQL, sql } from 'drizzle-orm';
 import { getDb } from './db';
 import { deriveRegressions } from './regression';
+import type { MatrixCase } from './signals';
 import type {
   CompareCell,
   EvalCase,
@@ -11,31 +12,53 @@ import type {
 } from './types';
 
 // All reads are raw parameterised SQL via Drizzle's `sql` template (auto-parameterised — no
-// injection) executed with db.execute(), which returns { rows }. The DISTINCT ON queries are clearer
-// as SQL than as the query builder; regressions MUST be derived on read (in TS, see runsWithRegression).
+// injection) executed with db.execute(), which returns { rows }. The DISTINCT ON / window queries are
+// clearer as SQL than as the query builder; regressions MUST be derived on read (in TS, see
+// runsWithRegression) and the signal/diff/flaky shaping lives in lib/signals (pure, unit-tested).
 
 // A v4 UUID is the only valid run id (gen_randomUUID / crypto.randomUUID). Validate before binding it
 // into `WHERE id = …`: Postgres would otherwise raise `invalid input syntax for type uuid` on a
 // malformed value, surfacing as a misleading "DATABASE_URL misconfigured" boundary instead of a 404.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function rows<T>(query: SQL): Promise<T[]> {
-  const res = await getDb().execute(query);
-  return res.rows as T[];
+// Timestamps can arrive as a Date or as Postgres text (`2026-10-21 19:13:23.155+00`) depending on the
+// driver; normalise to ISO-8601 so pages, the public JSON, and the pure helpers (which compare
+// started_at lexically) all see one shape. Sub-millisecond precision is dropped, which only matters for
+// ordering — and the ordering queries compare in SQL (see previousInSeries), never on this string.
+export function toIso(v: unknown): unknown {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === 'string') {
+    const d = new Date(v.includes('T') ? v : v.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'));
+    return Number.isNaN(d.getTime()) ? v : d.toISOString();
+  }
+  return v;
 }
 
-// Build a WHERE fragment from optional (tool, model, env) filters + an optional recency bound.
+function normalise<T>(row: T): T {
+  const r = row as Record<string, unknown>;
+  if ('started_at' in r) r.started_at = toIso(r.started_at);
+  return row;
+}
+
+async function rows<T>(query: SQL): Promise<T[]> {
+  const res = await getDb().execute(query);
+  return (res.rows as T[]).map(normalise);
+}
+
+// Build a WHERE fragment from optional series-dimension filters + an optional recency bound.
 // Empty → no clause.
 function whereFilters(f: RunFilters, sinceDays?: number): SQL {
   const conds: SQL[] = [];
   if (f.tool) conds.push(sql`tool = ${f.tool}`);
+  if (f.mode) conds.push(sql`mode = ${f.mode}`);
+  if (f.suite) conds.push(sql`suite = ${f.suite}`);
   if (f.model) conds.push(sql`model = ${f.model}`);
   if (f.env) conds.push(sql`env = ${f.env}`);
   if (sinceDays != null) conds.push(sql`started_at >= now() - (${sinceDays}::int * interval '1 day')`);
   return conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
 }
 
-/** Most recent run per tool (the dashboard's "latest run per tool" table). */
+/** Most recent run per tool. */
 export function latestRunPerTool(): Promise<EvalRun[]> {
   return rows<EvalRun>(sql`
     SELECT DISTINCT ON (tool) *
@@ -44,8 +67,11 @@ export function latestRunPerTool(): Promise<EvalRun[]> {
   `);
 }
 
-/** Daily pass-rate per (tool, model) over the last N days — feeds the line chart. */
-export function passRateOverTime(days = 30): Promise<PassRatePoint[]> {
+/** Daily pass-rate per (tool, model) over the last N days, optionally for one tool/mode. */
+export function passRateOverTime(days = 30, f: RunFilters = {}): Promise<PassRatePoint[]> {
+  const extra: SQL[] = [];
+  if (f.tool) extra.push(sql`AND tool = ${f.tool}`);
+  if (f.mode) extra.push(sql`AND mode = ${f.mode}`);
   return rows<PassRatePoint>(sql`
     SELECT date_trunc('day', started_at)::date::text AS bucket,
            tool,
@@ -55,19 +81,49 @@ export function passRateOverTime(days = 30): Promise<PassRatePoint[]> {
     FROM eval_run
     WHERE started_at >= now() - (${days}::int * interval '1 day')
       AND pass_rate IS NOT NULL
+      ${sql.join(extra, sql` `)}
     GROUP BY 1, tool, model
     ORDER BY 1 ASC
   `);
 }
 
 /**
+ * The newest `perSignal` runs of EVERY signal — (tool, mode, suite, env) — within `sinceDays`, annotated
+ * with regression flags. One window-function scan feeds the whole overview: lib/signals.groupSignals
+ * turns these rows into per-signal latest + sparkline history, and projectHealth rolls them up.
+ * Regression flags are derived over the fetched window, so the oldest row of each signal has no
+ * in-window baseline (same trade-off as runsWithRegression).
+ */
+export async function recentSignalRuns(
+  f: Pick<RunFilters, 'tool'> = {},
+  perSignal = 20,
+  sinceDays = 180,
+): Promise<RunWithRegression[]> {
+  const toolFilter = f.tool ? sql`AND tool = ${f.tool}` : sql``;
+  const ordered = await rows<EvalRun>(sql`
+    SELECT * FROM (
+      SELECT r.*,
+             row_number() OVER (
+               PARTITION BY tool, mode, coalesce(suite, ''), env
+               ORDER BY started_at DESC, id DESC
+             ) AS rn
+      FROM eval_run r
+      WHERE started_at >= now() - (${sinceDays}::int * interval '1 day') ${toolFilter}
+    ) t
+    WHERE rn <= ${perSignal}
+    ORDER BY started_at ASC, id ASC
+  `);
+  return deriveRegressions(ordered.map(({ rn: _rn, ...r }: EvalRun & { rn?: unknown }) => r as EvalRun));
+}
+
+/**
  * Runs (optionally filtered) annotated with regression flags, derived on read by the unit-tested
  * `deriveRegressions` (lib/regression) — the single regression implementation; there is no SQL mirror.
  *
- * The filters (tool/model/env) are exactly the series-key dimensions, so a filter can only drop ENTIRE
- * (tool, model, env) series, never truncate one — every remaining series is complete and its baseline
- * stays correct. We fetch the matching rows oldest-first (with `id` as the equal-timestamp tiebreaker
- * for deterministic ordering), derive, then sort newest-first and take `limit`.
+ * The filters (tool/mode/suite/model/env) are exactly the series-key dimensions, so a filter can only
+ * drop ENTIRE series, never truncate one — every remaining series is complete and its baseline stays
+ * correct. We fetch the matching rows oldest-first (with `id` as the equal-timestamp tiebreaker for
+ * deterministic ordering), derive, then sort newest-first and take `limit`.
  *
  * `sinceDays` bounds the inner scan to recent history (default 90d) so it doesn't materialize the full
  * table on free-tier Neon. Trade-off: the earliest run in the window has no in-window predecessor, so
@@ -98,25 +154,69 @@ export async function getRun(id: string): Promise<EvalRun | null> {
 /** Cases for a run, failures first (the interpretability angle: show what broke at the top). */
 export function getCases(runId: string): Promise<EvalCase[]> {
   return rows<EvalCase>(sql`
-    SELECT * FROM eval_case WHERE run_id = ${runId} ORDER BY passed ASC, name
+    SELECT * FROM eval_case WHERE run_id = ${runId} ORDER BY passed ASC, category NULLS LAST, name
+  `);
+}
+
+/** The run immediately before `run` in its regression series (same tool/mode/suite/model/env), or null.
+ * This is the baseline the run's regression flag and case diff are computed against. */
+export async function previousInSeries(run: EvalRun): Promise<EvalRun | null> {
+  const r = await rows<EvalRun>(sql`
+    SELECT * FROM eval_run
+    WHERE tool = ${run.tool} AND mode = ${run.mode} AND suite IS NOT DISTINCT FROM ${run.suite}
+      AND model = ${run.model} AND env = ${run.env}
+      AND (started_at, id) < (SELECT started_at, id FROM eval_run WHERE id = ${run.id}::uuid)
+    ORDER BY started_at DESC, id DESC
+    LIMIT 1
+  `);
+  return r[0] ?? null;
+}
+
+/** The newest `limit` runs of one signal (tool, mode, suite, env), returned oldest → newest. */
+export async function signalRuns(
+  s: { tool: string; mode: string; suite: string | null; env: string },
+  limit = 15,
+): Promise<EvalRun[]> {
+  const r = await rows<EvalRun>(sql`
+    SELECT * FROM eval_run
+    WHERE tool = ${s.tool} AND mode = ${s.mode} AND suite IS NOT DISTINCT FROM ${s.suite} AND env = ${s.env}
+    ORDER BY started_at DESC, id DESC
+    LIMIT ${limit}
+  `);
+  return r.reverse();
+}
+
+/** Verdicts (no text columns) for a set of runs — the case × run matrix and flaky detection. */
+export function casesForRuns(runIds: string[]): Promise<MatrixCase[]> {
+  const ids = runIds.filter((id) => UUID_RE.test(id));
+  if (ids.length === 0) return Promise.resolve([]);
+  return rows<MatrixCase>(sql`
+    SELECT run_id, name, passed, score FROM eval_case
+    WHERE run_id IN (${sql.join(
+      ids.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )})
   `);
 }
 
 /**
- * Compare models on the same suite: the latest run per model for (tool, env), with each model's
- * cases. The page pivots these rows into a per-case matrix keyed by case name.
+ * Compare models on the same suite: the latest run per model for (tool, mode?, suite?, env), with each
+ * model's cases. The page pivots these rows into a per-case matrix keyed by case name.
  */
-export function compareModels(tool: string, env: string, models: string[]): Promise<CompareCell[]> {
-  if (models.length === 0) return Promise.resolve([]);
-  const modelList = sql.join(
-    models.map((m) => sql`${m}`),
-    sql`, `,
-  );
+export function compareModels(scope: {
+  tool: string;
+  env: string;
+  mode?: string;
+  suite?: string;
+}): Promise<CompareCell[]> {
+  const extra: SQL[] = [];
+  if (scope.mode) extra.push(sql`AND mode = ${scope.mode}`);
+  if (scope.suite) extra.push(sql`AND suite = ${scope.suite}`);
   return rows<CompareCell>(sql`
     WITH latest AS (
       SELECT DISTINCT ON (model) id, model, pass_rate
       FROM eval_run
-      WHERE tool = ${tool} AND env = ${env} AND model IN (${modelList})
+      WHERE tool = ${scope.tool} AND env = ${scope.env} ${sql.join(extra, sql` `)}
       ORDER BY model, started_at DESC
     )
     SELECT l.model, l.pass_rate, c.name, c.score, c.passed, c.judge_rationale
@@ -128,19 +228,27 @@ export function compareModels(tool: string, env: string, models: string[]): Prom
 
 export interface FilterOptions {
   tools: string[];
+  modes: string[];
+  suites: string[];
   models: string[];
   envs: string[];
 }
 
-/** Distinct values for the filter dropdowns (/runs, /compare). One round-trip (a UNION of the three
- * dimensions tagged by `k`) instead of three separate scans; grouped back into the three lists in TS. */
-export async function filterOptions(): Promise<FilterOptions> {
-  const all = await rows<{ k: 'tool' | 'model' | 'env'; v: string }>(sql`
+type Dim = 'tool' | 'mode' | 'suite' | 'model' | 'env';
+
+/** Distinct values for the filter dropdowns (/runs, /compare), optionally scoped to one tool. One
+ * round-trip (a UNION of the dimensions tagged by `k`), grouped back into lists in TS. */
+export async function filterOptions(f: Pick<RunFilters, 'tool'> = {}): Promise<FilterOptions> {
+  const scoped = f.tool ? sql`WHERE tool = ${f.tool}` : sql``;
+  const scopedAnd = f.tool ? sql`AND tool = ${f.tool}` : sql``;
+  const all = await rows<{ k: Dim; v: string }>(sql`
     SELECT DISTINCT 'tool'  AS k, tool  AS v FROM eval_run
-    UNION ALL SELECT DISTINCT 'model', model FROM eval_run
-    UNION ALL SELECT DISTINCT 'env',   env   FROM eval_run
+    UNION ALL SELECT DISTINCT 'mode',  mode  FROM eval_run ${scoped}
+    UNION ALL SELECT DISTINCT 'suite', suite FROM eval_run WHERE suite IS NOT NULL ${scopedAnd}
+    UNION ALL SELECT DISTINCT 'model', model FROM eval_run ${scoped}
+    UNION ALL SELECT DISTINCT 'env',   env   FROM eval_run ${scoped}
     ORDER BY k, v
   `);
-  const pick = (k: 'tool' | 'model' | 'env') => all.filter((r) => r.k === k).map((r) => r.v);
-  return { tools: pick('tool'), models: pick('model'), envs: pick('env') };
+  const pick = (k: Dim) => all.filter((r) => r.k === k).map((r) => r.v);
+  return { tools: pick('tool'), modes: pick('mode'), suites: pick('suite'), models: pick('model'), envs: pick('env') };
 }

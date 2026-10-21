@@ -80,3 +80,30 @@ describe('deriveRegressions', () => {
     expect(at('2026-01-03').is_regression).toBe(true);
   });
 });
+
+describe('deriveRegressions — series key includes mode and suite', () => {
+  it('does not compare across suites of the same tool/model/env', () => {
+    const at = flag([
+      run({ started_at: '2026-01-01', pass_rate: 1, suite: 'synthetic_v1' }),
+      run({ started_at: '2026-01-02', pass_rate: 0.5, suite: 'indel_v1' }),
+    ]);
+    expect(at('2026-01-02').is_regression).toBe(false);
+    expect(at('2026-01-02').prev_pass_rate).toBeNull();
+  });
+
+  it('does not compare across modes (signal types) of the same tool', () => {
+    const at = flag([
+      run({ started_at: '2026-01-01', pass_rate: 1, mode: 'build' }),
+      run({ started_at: '2026-01-02', pass_rate: 0, mode: 'verify' }),
+    ]);
+    expect(at('2026-01-02').is_regression).toBe(false);
+  });
+
+  it('still flags a drop within one suite', () => {
+    const at = flag([
+      run({ started_at: '2026-01-01', pass_rate: 1, mode: 'eval', suite: 'dracula' }),
+      run({ started_at: '2026-01-02', pass_rate: 0.75, mode: 'eval', suite: 'dracula' }),
+    ]);
+    expect(at('2026-01-02').is_regression).toBe(true);
+  });
+});

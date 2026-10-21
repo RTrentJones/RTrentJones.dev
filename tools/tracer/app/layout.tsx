@@ -1,49 +1,28 @@
 import type { ReactNode } from 'react';
+import './globals.css';
 
 export const metadata = {
   title: 'Tracer — project signals',
-  description: 'Evidence-only project signal dashboard: evals, CI checks, regressions, and comparisons.',
+  description:
+    'Evidence-only signal dashboard for RTrentJones projects: eval suites, CI checks, benchmarks, and delivery pipelines, with regressions, run diffs, and flaky-case detection.',
 };
-
-const navLink = { color: '#4338ca', textDecoration: 'none', fontWeight: 600 } as const;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body
-        style={{
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          background: '#f8fafc',
-          color: '#0f172a',
-          margin: 0,
-        }}
-      >
-        <header
-          style={{
-            borderBottom: '1px solid #e2e8f0',
-            background: '#fff',
-            padding: '0.9rem 1.5rem',
-            display: 'flex',
-            gap: '1.5rem',
-            alignItems: 'baseline',
-          }}
-        >
-          <a href="/" style={{ ...navLink, fontSize: '1.15rem', color: '#0f172a' }}>
+      <body>
+        <header className="topbar">
+          <a href="/" className="brand">
             Tracer
           </a>
-          <nav style={{ display: 'flex', gap: '1.25rem', fontSize: '0.95rem' }}>
-            <a href="/" style={navLink}>
-              Dashboard
-            </a>
-            <a href="/runs" style={navLink}>
-              Runs
-            </a>
-            <a href="/compare" style={navLink}>
-              Compare
-            </a>
+          <nav className="nav">
+            <a href="/">Overview</a>
+            <a href="/runs">Runs</a>
+            <a href="/compare">Compare</a>
+            <a href="https://github.com/RTrentJones/RTrentJones.dev/tree/main/tools/tracer#ingest-contract">Ingest API</a>
           </nav>
         </header>
-        <main style={{ maxWidth: 1040, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>{children}</main>
+        <main>{children}</main>
       </body>
     </html>
   );

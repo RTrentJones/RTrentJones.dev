@@ -14,3 +14,14 @@ describe('getRun id validation', () => {
     await expect(getRun('zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz')).resolves.toBeNull(); // right shape, bad hex
   });
 });
+
+describe('toIso', () => {
+  it('normalises Postgres text, Date, and ISO timestamps to ISO-8601', async () => {
+    const { toIso } = await import('../lib/queries');
+    expect(toIso('2026-10-21 19:13:23.155334+00')).toBe('2026-10-21T19:13:23.155Z');
+    expect(toIso('2026-10-21 21:13:23+02')).toBe('2026-10-21T19:13:23.000Z');
+    expect(toIso(new Date('2026-10-21T19:13:23Z'))).toBe('2026-10-21T19:13:23.000Z');
+    expect(toIso('2026-10-21T19:13:23.000Z')).toBe('2026-10-21T19:13:23.000Z');
+    expect(toIso('garbage')).toBe('garbage');
+  });
+});

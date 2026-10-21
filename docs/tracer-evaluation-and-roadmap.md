@@ -54,6 +54,28 @@ producer data.
 4. Keep the generic schema intact so real `bamcp`, `pg_kafka`, API, and LLM eval producers continue to
    ingest through the same path.
 
+## Status: dashboard completion (October 2026)
+
+The second pass implemented most of the roadmap below. What landed:
+
+- **Provenance** (§1, partial): runs carry `suite`, `repo`, `branch`, `source_url`, free-form
+  `labels` (producer, trigger, judge, dataset version) and numeric `metrics`; cases carry `category`
+  and `metrics`. Run pages link the commit, the CI run, and a code diff against the baseline.
+  Not done: signed/HMAC ingest, rejecting `demo` sources, a `config_hash`.
+- **Dataset taxonomy** (§2, partial): `suite` is a first-class series dimension; `category` groups
+  cases. Not done: semantic tags and case ownership.
+- **Regression detection** (§3, partial): the series key is now `(tool, mode, suite, model, env)`, so
+  suites and signal types never cross-compare; run pages diff cases against the previous run; the
+  project page's case × run matrix flags flaky cases. Not done: named baselines, rolling windows,
+  minimum sample sizes.
+- **Multi-project** (§4): projects are first-class (`/projects/[tool]`); metrics cover non-LLM signals
+  (pg_kafka msgs/sec and p99, BAMCP precision/recall/F1). BAMCP (truthset + LLM harness + model
+  comparison) and Polyphony (per-book evals) publish from their own CI.
+- **Presentation** (§5): overview of project health with sparklines, freshness and a needs-attention
+  list; public `/api/summary/[tool]` JSON and `/api/badge/[tool]` SVG.
+
+Still open: §6 export jobs, retention policy, a write audit log, and rate limiting.
+
 ## Next steps to become a top-tier side-project signal
 
 ### 1. Provenance and trust

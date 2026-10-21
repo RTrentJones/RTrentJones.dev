@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { REPO_RE } from './signals';
 
 // The ingest contract (POST /api/ingest). One eval_run + its eval_case[]. This is the seam
 // `greenlight verify --mode eval` POSTs to. Imported by the route handler AND the test suite so the
@@ -10,6 +11,25 @@ import { z } from 'zod';
 // fields cap at TEXT_MAX, matching the runtime cap() in lib/insert-run so validation and storage agree.
 const TEXT_MAX = 16_384; // ~16 KB per stored text field (input/expected/output/judge_rationale)
 const LABEL_MAX = 255; // short identifier columns (tool/model/mode/env)
+const URL_MAX = 2048;
+const MAP_KEYS = 64; // metrics/labels maps: enough for a report's headline numbers, not a data dump
+
+// Numeric metrics (`{ f1: 0.97, msgs_per_sec: 41000 }`): finite numbers only, bounded key count, so a
+// producer can't wedge a giant object into jsonb. Keys are short identifiers (dots allowed for
+// `step.metric` namespacing).
+const metricKey = z.string().min(1).max(80).regex(/^[\w.:/-]+$/);
+export const metricsMap = z
+  .record(metricKey, z.number().finite())
+  .refine((m) => Object.keys(m).length <= MAP_KEYS, `at most ${MAP_KEYS} metrics`);
+const labelsMap = z
+  .record(metricKey, z.string().max(LABEL_MAX))
+  .refine((m) => Object.keys(m).length <= MAP_KEYS, `at most ${MAP_KEYS} labels`);
+// A link must be http(s) — it is rendered as an <a href>, so `javascript:` must never round-trip.
+const httpUrl = z
+  .string()
+  .max(URL_MAX)
+  .url()
+  .refine((u) => /^https?:\/\//i.test(u), 'must be an http(s) URL');
 
 export const evalCaseInput = z.object({
   name: z.string().min(1).max(LABEL_MAX),
@@ -19,6 +39,8 @@ export const evalCaseInput = z.object({
   score: z.number().min(0).max(1).nullish(),
   passed: z.boolean(),
   judge_rationale: z.string().max(TEXT_MAX).nullish(),
+  category: z.string().max(LABEL_MAX).nullish(),
+  metrics: metricsMap.nullish(),
 });
 
 export const evalRunInput = z.object({
@@ -34,6 +56,17 @@ export const evalRunInput = z.object({
   tokens_out: z.number().int().nonnegative().nullish(),
   passed: z.boolean(),
   pass_rate: z.number().min(0).max(1).nullish(),
+  // Provenance (all optional): which dataset, which repo/branch, and the CI run that produced it.
+  suite: z.string().max(LABEL_MAX).nullish(),
+  repo: z
+    .string()
+    .max(LABEL_MAX)
+    .regex(REPO_RE, 'owner/name')
+    .nullish(),
+  branch: z.string().max(LABEL_MAX).nullish(),
+  source_url: httpUrl.nullish(),
+  metrics: metricsMap.nullish(),
+  labels: labelsMap.nullish(),
   cases: z.array(evalCaseInput).max(1000).default([]),
 });
 
