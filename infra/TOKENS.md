@@ -85,6 +85,7 @@ no extra account.
 ```sh
 TF_VAR_POLYPHONY_SECRET_KEY        # JWT signing key, >= 32 random chars (app refuses to boot without it)
 TF_VAR_POLYPHONY_ADMIN_PASSWORD    # first-boot admin password (admin mints the invite codes)
+TF_VAR_POLYPHONY_ANTHROPIC_API_KEY # optional: Claude for the emails in polyphony_anthropic_users (BRD R7.9)
 GREENLIGHT_STATUS_TOKEN_POLYPHONY  # PAT to post commit status back to RTrentJones/Polyphony (deploy workflow)
 ```
 
