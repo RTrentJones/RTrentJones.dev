@@ -47,6 +47,22 @@ try {
   process.exit(0);
 }
 
+// Provenance from the Actions env (absent locally): link the run to this commit and CI job.
+const gh = process.env;
+if (gh.GITHUB_REPOSITORY) {
+  result.repo ??= gh.GITHUB_REPOSITORY;
+  if (gh.GITHUB_SHA) result.git_sha ??= gh.GITHUB_SHA;
+  if (gh.GITHUB_REF_NAME) result.branch ??= gh.GITHUB_REF_NAME;
+  if (gh.GITHUB_RUN_ID)
+    result.source_url ??= `${gh.GITHUB_SERVER_URL || 'https://github.com'}/${gh.GITHUB_REPOSITORY}/actions/runs/${gh.GITHUB_RUN_ID}`;
+}
+
+// Name the system under test: without a model attribute Tracer files the run under 'unknown'.
+result.attributes = {
+  ...result.attributes,
+  'gen_ai.request.model': result.attributes?.['gen_ai.request.model'] ?? 'greenlight-verify',
+};
+
 const res = await fetch(`${baseUrl}/api/ingest`, {
   method: 'POST',
   headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },

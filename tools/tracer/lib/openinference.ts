@@ -26,6 +26,14 @@ export interface OpenInferenceResult {
   duration_ms?: number | null;
   passed: boolean;
   pass_rate?: number | null;
+  // Provenance passes straight through to the native shape (validated there).
+  suite?: string | null;
+  repo?: string | null;
+  branch?: string | null;
+  source_url?: string | null;
+  metrics?: Record<string, number> | null;
+  labels?: Record<string, string> | null;
+  gating?: boolean;
   // OTel-GenAI span attributes for the run:
   attributes?: {
     'gen_ai.request.model'?: string;
@@ -78,6 +86,13 @@ export function fromOpenInference(r: OpenInferenceResult): EvalRunInput {
     tokens_out: attrs['gen_ai.usage.output_tokens'] ?? null,
     passed: r.passed,
     pass_rate: runPassRate,
+    suite: r.suite ?? null,
+    repo: r.repo ?? null,
+    branch: r.branch ?? null,
+    source_url: r.source_url ?? null,
+    metrics: r.metrics ?? null,
+    labels: r.labels ?? null,
+    gating: r.gating, // validated downstream (evalRunInput); absent = gating
     cases,
   };
 }

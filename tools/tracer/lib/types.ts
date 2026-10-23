@@ -15,6 +15,14 @@ export interface EvalRun {
   tokens_out: number | null;
   passed: boolean;
   pass_rate: number | null;
+  suite: string | null;
+  repo: string | null;
+  branch: string | null;
+  source_url: string | null;
+  metrics: Record<string, number> | null;
+  labels: Record<string, string> | null;
+  /** false = "trended, not gated": shown and trended, never makes the project/badge/attention fail. */
+  gating: boolean;
 }
 
 export interface EvalCase {
@@ -27,34 +35,48 @@ export interface EvalCase {
   score: number | null;
   passed: boolean;
   judge_rationale: string | null;
+  category: string | null;
+  metrics: Record<string, number> | null;
 }
 
-// A run annotated with the previous run's pass_rate in its (tool, model, env) series and whether it
-// regressed. DERIVED on read — never stored (design §5).
+/** The judge (provider/model) changed between a run and its baseline, so their scores aren't comparable. */
+export interface JudgeChange {
+  from: string;
+  to: string;
+}
+
+// A run annotated against its BASELINE in its (tool, mode, suite, model, env) series — the latest earlier
+// run with a pass_rate that is not incomplete — and whether it regressed. DERIVED on read, never stored
+// (design §5); see lib/regression.
 export interface RunWithRegression extends EvalRun {
+  /** This run's cases whose category is not 'reported' (reported cases are informational, never gated);
+   * null when the run has no case rows at all (a run-level-only result). */
+  gated_cases: number | null;
   prev_pass_rate: number | null;
   is_regression: boolean;
+  baseline_id: string | null;
+  incomplete_reason: string | null;
+  judge_change: JudgeChange | null;
 }
 
-export interface PassRatePoint {
-  bucket: string; // ISO day
-  tool: string;
-  model: string;
-  pass_rate: number;
-  runs: number;
-}
-
+/** Series-dimension filters. `suite === NO_SUITE` (lib/signals) means "suite IS NULL". */
 export interface RunFilters {
   tool?: string;
+  mode?: string;
+  suite?: string;
   model?: string;
   env?: string;
 }
 
 export interface CompareCell {
   model: string;
+  run_id: string;
+  started_at: string;
+  git_sha: string | null;
   pass_rate: number | null;
   name: string; // case name
   score: number | null;
   passed: boolean;
   judge_rationale: string | null;
+  category: string | null;
 }

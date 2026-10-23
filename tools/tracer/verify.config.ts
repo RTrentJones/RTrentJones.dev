@@ -5,7 +5,9 @@
 //      per producer, and dogfood-tracer (`tracer:api+test`) and pg-kafka-tracer
 //      (`pg_kafka:benchmark`) must each be recent, since a stalled feed otherwise looks perfectly
 //      healthy (a manual /api/run writes `tracer:eval`, so it can't mask the dogfood feed). Beta gets no scheduled ingest, so freshness is prod-only. `/` runs live queries, so
-//      a broken DB renders error.tsx instead of the heading. An UNAUTHENTICATED POST to /api/ingest and
+//      a broken DB renders error.tsx instead of the heading. /projects/tracer, /api/summary and
+//      /api/badge cover the per-project reads (signals, case matrix, metrics) on a tool that always
+//      has data. An UNAUTHENTICATED POST to /api/ingest and
 //      /api/run must be rejected with 401 — the bearer guard is what stops anonymous visitors
 //      writing runs or spending provider tokens, so a regression there fails the gate.
 //      /__version serves the deployed commit (VERCEL_GIT_COMMIT_SHA); with --expect-sha (promote)
@@ -31,7 +33,9 @@ export default ({ env }: VerifyConfigContext) => [
           ...(env === 'prod'
             ? [
                 { path: 'latestRunAtBySource.tracer:api+test', maxAgeHours: 50 }, // dogfood-tracer
-                { path: 'latestRunAtBySource.pg_kafka:benchmark', maxAgeHours: 50 }, // pg-kafka-tracer
+                // pg-kafka-tracer runs daily but posts only when pg_kafka's bench.json changes (de-dup),
+                // and the bench itself is refreshed weekly: 9 days covers a full week plus a missed run.
+                { path: 'latestRunAtBySource.pg_kafka:benchmark', maxAgeHours: 216 },
               ]
             : []),
         ],
@@ -39,9 +43,20 @@ export default ({ env }: VerifyConfigContext) => [
       // A heading rendered only after the page's live queries resolve (a DB failure renders error.tsx
       // instead). Not a model name: those come from ingested data, and the old 'claude-opus-4-8'
       // marker went stale when the seeded demo runs were removed (#45).
-      { path: '/', status: 200, contains: 'Latest run per tool' },
+      { path: '/', status: 200, contains: 'Projects' },
       { path: '/runs', status: 200 },
       { path: '/compare', status: 200 },
+      // Per-project page + its public status surfaces. Only prod is guaranteed `tracer` runs (the
+      // daily dogfood feed; beta gets no scheduled ingest), so the data-dependent checks are
+      // prod-only. The badge renders (200, "no data") even for an empty project.
+      ...(env === 'prod'
+        ? [
+            { path: '/projects/tracer', status: 200, contains: 'Pass rate per run' },
+            { path: '/api/summary/tracer', status: 200, json: [{ path: 'tool', equals: 'tracer' }] },
+          ]
+        : []),
+      ...(env === 'preview' ? [] : [{ path: '/api/badge/tracer', status: 200, contains: '<svg' }]),
+      { path: '/projects/__no_such_project__', status: 404 },
       // Write guards: no credentials sent, so these can never write or spend tokens.
       {
         path: '/api/ingest',
@@ -75,13 +90,13 @@ export default ({ env }: VerifyConfigContext) => [
           scenarios: [
             {
               name: 'dashboard renders',
-              task: 'Open the home page and confirm the dashboard loads with a pass-rate-over-time chart and a latest-run-per-tool table.',
+              task: 'Open the home page and confirm the dashboard loads with a card per project showing its signals, and a recent-runs table.',
               asserts: [{ textContains: 'Project signals' }],
             },
             {
               name: 'run detail surfaces the judge rationale',
-              task: 'From the dashboard, open the most recent run by clicking a "detail" link, and confirm the per-case judge rationale is shown.',
-              asserts: [{ textContains: 'Judge rationale' }],
+              task: 'From the dashboard, open the most recent run by clicking a "detail" link, and confirm the run page compares it with the previous run.',
+              asserts: [{ textContains: 'Compared with the previous run' }],
             },
             {
               name: 'compare shows models',

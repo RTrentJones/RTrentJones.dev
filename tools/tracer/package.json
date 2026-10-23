@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "pnpm run db:migrate && next build",
     "start": "next start",
+    "preview": "sh -c 'next start -p \"${PORT:-4321}\"' preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "greenlight migrations scan && drizzle-kit migrate",
     "test": "vitest run"
@@ -17,6 +18,7 @@
     "drizzle-orm": "^0.36.0",
     "next": "^15.0.0",
     "openai": "^4.77.0",
+    "pg": "^8.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.13.0",
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@rtrentjones/greenlight": "^0.10.0",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "drizzle-kit": "^0.28.0",
     "typescript": "^5.6.0",
