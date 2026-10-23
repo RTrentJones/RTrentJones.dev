@@ -326,6 +326,28 @@ dbDescribe('tracer status (DB-backed): one status rule, baselines, counts', () =
     expect((await q.runWithBaseline((await q.getRun(b))!)).run.incomplete_reason).toBe('outline errored');
   });
 
+  it('the overview window still finds a baseline older than its displayed history', async () => {
+    // A complete 1.0 run, then 25 incomplete runs, then a complete 0.8: the baseline sits behind
+    // more runs than the 20 displayed, but the overview, summary and run page must all see the drop.
+    const { projectSummary } = await import('../../lib/summary');
+    const base = { tool: 'rt-deep', model: 'm', mode: 'eval', env: 'ci', suite: null, passed: true };
+    const first = await insertRun({ ...base, pass_rate: 1, cases: [scored] });
+    await setStarted(first, hoursAgo(100));
+    for (let i = 0; i < 25; i++) {
+      const id = await insertRun({ ...base, pass_rate: 0, labels: { errored: 'outline' }, cases: [scored] });
+      await setStarted(id, hoursAgo(90 - i));
+    }
+    const last = await insertRun({ ...base, pass_rate: 0.8, cases: [scored] });
+    await setStarted(last, hoursAgo(1));
+
+    const rows = await q.recentSignalRuns({ tool: 'rt-deep' }, 20);
+    expect(rows).toHaveLength(20); // only the displayed history comes back
+    expect(rows.every((r) => !('rn' in r))).toBe(true);
+    expect(rows.find((r) => r.id === last)).toMatchObject({ is_regression: true, baseline_id: first });
+    expect((await projectSummary('rt-deep')).regressed).toBe(1);
+    expect((await q.runWithBaseline((await q.getRun(last))!)).run.baseline_id).toBe(first);
+  });
+
   it('countRunsSince is a true count', async () => {
     const old = await insertRun({ tool: 'rt-count', model: 'm', mode: 'eval', env: 'ci', passed: true, cases: [] });
     await setStarted(old, hoursAgo(24 * 30));
