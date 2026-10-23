@@ -210,15 +210,22 @@ jobs:
       # rejects it if state drifted since plan, and `concurrency: infra` keeps runs serial.
       - run: terraform -chdir=infra init -input=false
       # A replaced OCI A1 instance's cores and memory are released minutes after its delete, so the
-      # create right after it can fail with LimitExceeded (2026-10-12, 2026-10-23). Then only the
-      # planned compute creates are re-applied, once a minute for up to 15 minutes; any other error
-      # fails as before.
+      # create right after it can fail with LimitExceeded (2026-10-12, 2026-10-23). When that is the
+      # ONLY error, the planned compute creates are re-applied once a minute for up to 15 minutes,
+      # and the job passes only if a full plan then shows nothing left of the approved one. Any
+      # other error, alone or alongside, fails as before.
       - name: Apply the verified plan (retrying a compute create that hits LimitExceeded)
         run: |
           set -o pipefail
           cd infra
+          only_capacity() {  # every Terraform error in apply.log is a LimitExceeded
+            local errors capacity
+            errors=$(grep -c "Error: " apply.log || true)
+            capacity=$(grep "Error: " apply.log | grep -c "LimitExceeded" || true)
+            [ "$errors" -gt 0 ] && [ "$errors" = "$capacity" ]
+          }
           terraform apply -input=false -no-color tf.plan 2>&1 | tee apply.log && exit 0
-          grep -q "LimitExceeded" apply.log || exit 1
+          only_capacity || exit 1
           TARGETS=$(terraform show -json tf.plan | jq -r '.resource_changes[]
             | select(.change.actions | index("create"))
             | select(.type | test("^(oci_container_instances_container_instance|oci_core_instance)$"))
@@ -228,8 +235,14 @@ jobs:
             echo "::warning::compute create hit LimitExceeded; retry $attempt/15 in 60s: $TARGETS"
             sleep 60
             # shellcheck disable=SC2086 # one -target per line, intentionally split
-            terraform apply -input=false -auto-approve -no-color $TARGETS 2>&1 | tee apply.log && exit 0
-            grep -q "LimitExceeded" apply.log || exit 1
+            if terraform apply -input=false -auto-approve -no-color $TARGETS 2>&1 | tee apply.log; then
+              # -target applies only the creates and their dependencies: confirm nothing else from
+              # the approved plan is still pending (exit 2 = changes remain) before passing.
+              terraform plan -input=false -no-color -detailed-exitcode >/dev/null && exit 0
+              echo "::error::compute recovered, but the rest of the plan is not applied; re-dispatch"
+              exit 1
+            fi
+            only_capacity || exit 1
           done
           echo "::error::compute capacity still not released after 15 minutes"
           exit 1
