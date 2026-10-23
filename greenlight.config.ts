@@ -19,6 +19,6 @@ export default defineConfig({
     // The LLM key rides the SHARED account secret (GEMINI_API_KEY), tracer-style — see infra.yml.
     // preview.path is /mcp (the app aliases /mcp, /mcp/health, /mcp/health/live), so the local gate
     // shares prod's /mcp base and verify/polyphony.config.ts's relative paths resolve identically.
-    { name: 'polyphony', lane: 'mcp', target: 'oci', data: 'none', auth: 'bearer', access: 'public', envs: ['prod'], dir: 'tools/polyphony', adopted: true, external: true, port: 8000, preview: { command: 'docker compose --profile preview up --build', teardown: 'docker compose --profile preview down -v', port: 8000, path: '/mcp' }, tokens: ['GREENLIGHT_STATUS_TOKEN_POLYPHONY', 'TF_VAR_POLYPHONY_GEMINI_API_KEY', 'TF_VAR_POLYPHONY_SECRET_KEY', 'TF_VAR_POLYPHONY_ADMIN_PASSWORD'] },
+    { name: 'polyphony', lane: 'mcp', target: 'oci', data: 'none', auth: 'bearer', access: 'public', envs: ['prod'], dir: 'tools/polyphony', adopted: true, external: true, port: 8000, preview: { command: 'docker compose --profile preview up --build', teardown: 'docker compose --profile preview down -v', port: 8000, path: '/mcp' }, tokens: ['GREENLIGHT_STATUS_TOKEN_POLYPHONY', 'TF_VAR_POLYPHONY_GEMINI_API_KEY', 'TF_VAR_POLYPHONY_ANTHROPIC_API_KEY', 'TF_VAR_POLYPHONY_SECRET_KEY', 'TF_VAR_POLYPHONY_ADMIN_PASSWORD'] },
   ],
 });
