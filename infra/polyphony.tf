@@ -62,6 +62,13 @@ module "polyphony_instance" {
     # bridge on this instance, so trust loopback + the docker range and nothing broader.
     TRUSTED_PROXY_CIDRS = "127.0.0.0/8,::1/128,172.16.0.0/12"
     GEMINI_API_KEY  = var.polyphony_gemini_api_key
+    # Claude for the named authors only (Polyphony BRD R7.9): their calls go to Anthropic when
+    # the key is set; everyone else stays on LLM_PROVIDER. Paid, so the monthly ceiling holds all
+    # priced spend (Claude's models carry prices; Gemini's free tier is priced at zero).
+    ANTHROPIC_API_KEY        = var.polyphony_anthropic_api_key
+    ANTHROPIC_USERS          = var.polyphony_anthropic_users
+    MONTHLY_COST_CEILING_USD = var.polyphony_monthly_cost_ceiling_usd
+
     SECRET_KEY      = var.polyphony_secret_key
     ALLOWED_ORIGINS = "https://polyphony.rtrentjones.dev"
     # First-boot admin (created only when the users table is empty); registration is invite-gated,
@@ -84,6 +91,25 @@ variable "polyphony_gemini_api_key" {
   default     = ""
   sensitive   = true
   description = "Gemini API key for the LLM backend (sourced from the SHARED account GEMINI_API_KEY secret in infra.yml, tracer-style)."
+}
+
+variable "polyphony_anthropic_api_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Anthropic API key for the authors in polyphony_anthropic_users (empty = everyone on Gemini)."
+}
+
+variable "polyphony_anthropic_users" {
+  type        = string
+  default     = "rtrentjones@gmail.com"
+  description = "Comma-separated Polyphony account emails whose LLM calls go to Anthropic."
+}
+
+variable "polyphony_monthly_cost_ceiling_usd" {
+  type        = string
+  default     = "50"
+  description = "Polyphony's 30-day spend ceiling in USD; a call that would cross it pauses its job."
 }
 
 variable "polyphony_secret_key" {
