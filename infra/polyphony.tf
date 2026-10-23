@@ -108,7 +108,7 @@ variable "polyphony_anthropic_users" {
 
 variable "polyphony_monthly_cost_ceiling_usd" {
   type        = string
-  default     = "20"
+  default     = "50"
   description = "Polyphony's 30-day spend ceiling in USD; a call that would cross it pauses its job."
 }
 
