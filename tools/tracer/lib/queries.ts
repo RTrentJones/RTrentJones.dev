@@ -66,12 +66,17 @@ const GATED_CASES = sql`(
 
 type RunRow = EvalRun & { gated_cases: number | null };
 
+/** How many earlier runs a regression baseline may sit behind (also runWithBaseline's lookback). */
+const BASELINE_LOOKBACK = 50;
+
 /**
  * The newest `perSignal` runs of EVERY signal — (tool, mode, suite, env) — within `sinceDays`, annotated
  * with regression flags. One window-function scan feeds the whole overview: lib/signals.groupSignals
  * turns these rows into per-signal latest + sparkline history, and projectHealth rolls them up.
- * Regression flags are derived over the fetched window, so the oldest row of each signal has no
- * in-window baseline (same trade-off as runsWithRegression).
+ * Regression flags are derived over a deeper window than is returned — each signal's newest
+ * `perSignal + BASELINE_LOOKBACK` runs — so a baseline older than the displayed history (behind a run
+ * of incomplete runs, or other models' runs in the same signal) still counts. The lookback matches
+ * runWithBaseline's, so the overview, summary and badge agree with the run page.
  */
 export async function recentSignalRuns(
   f: Pick<RunFilters, 'tool'> = {},
@@ -89,10 +94,13 @@ export async function recentSignalRuns(
       FROM eval_run e
       WHERE started_at >= now() - (${sinceDays}::int * interval '1 day') ${toolFilter}
     ) r
-    WHERE rn <= ${perSignal}
+    WHERE rn <= ${perSignal + BASELINE_LOOKBACK}
     ORDER BY started_at ASC, id ASC
   `);
-  return deriveRegressions(ordered.map(({ rn: _rn, ...r }) => r as RunRow));
+  // Derive over the whole fetched window, then return only the displayed history.
+  return deriveRegressions(ordered)
+    .filter((r) => Number(r.rn) <= perSignal)
+    .map(({ rn: _rn, ...r }) => r as RunWithRegression);
 }
 
 /**
@@ -142,7 +150,8 @@ export function getCases(runId: string): Promise<EvalCase[]> {
 /**
  * A run annotated against its baseline, plus that baseline row — the run page's "compared with previous"
  * uses the SAME rule as the run list (lib/regression: the latest earlier run in the series with a
- * pass_rate that is not incomplete). Reads the run and up to its 50 predecessors in the series.
+ * pass_rate that is not incomplete). Reads the run and up to BASELINE_LOOKBACK predecessors in the
+ * series.
  */
 export async function runWithBaseline(
   run: EvalRun,
@@ -153,7 +162,7 @@ export async function runWithBaseline(
       AND model = ${run.model} AND env = ${run.env}
       AND (started_at, id) <= (SELECT started_at, id FROM eval_run WHERE id = ${run.id}::uuid)
     ORDER BY started_at DESC, id DESC
-    LIMIT 51
+    LIMIT ${BASELINE_LOOKBACK + 1}
   `);
   const derived = deriveRegressions(series.reverse());
   const self = derived.find((r) => r.id === run.id) ?? deriveRegressions([{ ...run, gated_cases: null }])[0];
