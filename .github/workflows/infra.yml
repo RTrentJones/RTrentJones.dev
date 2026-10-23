@@ -162,8 +162,9 @@ jobs:
       # Downtime backstop (mirrors the Greenlight init template): replacing running compute (delete,
       # then create) takes the tool down, and on the OCI Always-Free A1 allotment the create can fail
       # with LimitExceeded because the deleted instance's cores are released minutes late — the
-      # 2026-10-12 Polyphony outage. Block it on push; a dispatch with allow_compute_replace=true
-      # accepts the downtime. If that create hits LimitExceeded, wait a few minutes and dispatch again.
+      # 2026-10-12 and 2026-10-23 Polyphony outages. Block it on push; a dispatch with
+      # allow_compute_replace=true accepts the downtime, and `apply` retries a create that hits
+      # LimitExceeded until the freed cores come back.
       - name: Guard — no unplanned replacement of running compute
         env:
           ALLOW_REPLACE: ${{ inputs.allow_compute_replace || false }}
@@ -208,4 +209,27 @@ jobs:
       # Re-init providers in this job (from the committed lock), then apply the SAVED plan — Terraform
       # rejects it if state drifted since plan, and `concurrency: infra` keeps runs serial.
       - run: terraform -chdir=infra init -input=false
-      - run: terraform -chdir=infra apply -input=false tf.plan
+      # A replaced OCI A1 instance's cores and memory are released minutes after its delete, so the
+      # create right after it can fail with LimitExceeded (2026-10-12, 2026-10-23). Then only the
+      # planned compute creates are re-applied, once a minute for up to 15 minutes; any other error
+      # fails as before.
+      - name: Apply the verified plan (retrying a compute create that hits LimitExceeded)
+        run: |
+          set -o pipefail
+          cd infra
+          terraform apply -input=false -no-color tf.plan 2>&1 | tee apply.log && exit 0
+          grep -q "LimitExceeded" apply.log || exit 1
+          TARGETS=$(terraform show -json tf.plan | jq -r '.resource_changes[]
+            | select(.change.actions | index("create"))
+            | select(.type | test("^(oci_container_instances_container_instance|oci_core_instance)$"))
+            | "-target=" + .address')
+          [ -n "$TARGETS" ] || exit 1
+          for attempt in $(seq 1 15); do
+            echo "::warning::compute create hit LimitExceeded; retry $attempt/15 in 60s: $TARGETS"
+            sleep 60
+            # shellcheck disable=SC2086 # one -target per line, intentionally split
+            terraform apply -input=false -auto-approve -no-color $TARGETS 2>&1 | tee apply.log && exit 0
+            grep -q "LimitExceeded" apply.log || exit 1
+          done
+          echo "::error::compute capacity still not released after 15 minutes"
+          exit 1
