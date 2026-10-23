@@ -79,8 +79,12 @@ export default ({ env }: VerifyConfigContext) => [
         : [{ path: '/__version', status: 200, json: [{ path: 'sha', matches: '^[0-9a-f]{40}$' }] }]),
     ],
     requireIdentity: true,
-    settleRetries: 6,
-    settleMs: 5000,
+    // Vercel builds tracer from its git integration AFTER promote fast-forwards main, and that build
+    // (migrations + next build) takes ~2-3 min, so `ship --expect-sha` must wait that long for
+    // /__version to flip. 30 × 6s = 3 min. A healthy run stops at the first match; only a broken
+    // deploy pays the full window.
+    settleRetries: 30,
+    settleMs: 6000,
   },
   { mode: 'test', command: 'pnpm test' },
   ...(anthropic
