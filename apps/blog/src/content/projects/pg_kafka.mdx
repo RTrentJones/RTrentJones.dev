@@ -7,7 +7,7 @@ verifyMode: test
 evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
 order: 3
 featured: true
-tagline: The Kafka wire protocol, inside Postgres — 23 APIs, 782 tests, 4 real clients.
+tagline: The Kafka wire protocol, inside Postgres — 26 APIs, 900+ tests, 4 real clients.
 date: 2026-06-26
 ---
 
@@ -18,8 +18,8 @@ import SessionCast from '../../components/SessionCast.astro';
 
 > A native PostgreSQL extension (Rust / `pgrx`) that embeds the **Kafka wire protocol** in the
 > database runtime. Point an unmodified Kafka client at Postgres on `:9092`, produce and consume —
-> and the messages are sitting in a SQL table. 23 Kafka APIs, consumer groups, idempotent +
-> transactional producers, shadow-forwarding to an external Kafka cluster, 782 tests.
+> and the messages are sitting in a SQL table. 26 Kafka APIs, consumer groups, idempotent +
+> transactional producers, shadow-forwarding to an external Kafka cluster, 900+ tests.
 
 ## Why this exists
 
@@ -54,11 +54,13 @@ The history lives in [Tracer](/tracer/), which is still a prototype.
 
 ## Client compatibility
 
-The report runs **kafkajs, librdkafka, kafka-python, and Sarama** against the 23 implemented APIs.
+The report runs **kafkajs, librdkafka, kafka-python, and Sarama** against 23 of the 26 implemented
+APIs. The three newest admin APIs (DeleteRecords, DescribeConfigs, IncrementalAlterConfigs) aren't in
+the grid yet.
 Where a client genuinely doesn't exercise an API — kafka-python has no transaction support — the
 cell is marked **N/A**. The grid shows both the covered surface and where it stops.
 
-**At a glance:** four client libraries, 23 Kafka APIs, every supported cell passing — with the
+**At a glance:** four client libraries, 23 Kafka APIs in the grid, every supported cell passing — with the
 transaction cells marked N/A for kafka-python, which doesn't expose them.
 
 <ConformanceMatrix />
@@ -66,7 +68,7 @@ transaction cells marked N/A for kafka-python, which doesn't expose them.
 ## What the verification loop caught
 
 The proof that the reportable version was worth building is a bug the grid caught that I never would
-have. My suite was 782 tests deep and green, but I'd only ever run it against one client — my own
+have. My suite was nearly 900 tests deep and green, but I'd only ever run it against one client — my own
 mental model in different hats. The four-client grid ran Sarama, the Go one, and it couldn't even
 connect.
 
@@ -88,11 +90,11 @@ like-for-like baseline, not each system's tuned throughput — in a single-clien
 dominates, so read the table for _shape_ (what the protocol layer costs, what batching buys), not as
 a leaderboard. Normalized scores also flow into
 [Tracer](https://tracer.rtrentjones.dev/runs?tool=pg_kafka) — the eval dashboard, with pg_kafka
-wired in first — on each tagged release, so regressions show up over time.
+wired in first — each time the evidence refreshes, so regressions show up over time.
 
 <BenchTable />
 
-The last two rows — `shadow-async` and `shadow-sync` — are the cost of the shadow-forwarding path below:
+The two `shadow-async` and `shadow-sync` rows are the cost of the shadow-forwarding path below:
 async forwarding runs off the ack path (≈ plain produce), sync waits (bounded) for the external broker's
 ack.
 
@@ -103,8 +105,8 @@ validation / hybrid path (produce to Postgres, forward to a real broker, per-top
 transaction-aware). The interesting part isn't that it forwards; it's that the forwarding is proven the
 same way everything else here is: each scenario produces to pg_kafka, drives the live outbox path, then
 **independently consumes the real broker** to confirm what actually landed — regenerated in CI, timestamped.
-It doubles as a regression guard: the counts are identical before and after removing the dead pre-outbox
-producer, which is objective proof the durable outbox is what does the work.
+It doubles as a regression guard: every scenario reruns on each evidence refresh, so a change that drops or
+misroutes forwarded records shows up as a failed row.
 
 <ShadowTable />
 
@@ -122,9 +124,10 @@ table are one store. Want the real thing instead of a recording of it? The repo 
 - **The protocol is the product.** Binary Kafka frames are parsed and answered from inside the
   Postgres runtime — produce/fetch with `RecordBatch v2`, a full consumer-group coordinator
   (find-coordinator → join → sync → heartbeat → rebalance), and EOS transactions with
-  read-committed isolation. The 782-test suite is what keeps all of that honest.
-- **The incomplete parts.** The implemented surface is ~46% of the protocol, and
+  read-committed isolation. The 900-plus-test suite is what keeps all of that honest.
+- **The incomplete parts.** The implemented surface is 26 of Kafka's ~50 standard APIs, about half
+  the protocol, and
   [`PROTOCOL_DEVIATIONS.md`](https://github.com/RTrentJones/pg_kafka/blob/main/docs/PROTOCOL_DEVIATIONS.md)
-  spells out exactly where it diverges from a real broker — fetch sessions, timestamp-based offset
-  lookup, sticky partitioning. A conformance claim is only worth anything if it tells you where it
-  stops.
+  spells out exactly where it diverges from a real broker — no fetch sessions, random rather than
+  sticky partitioning for null-keyed records, no wire-level auth. A conformance claim is only worth
+  anything if it tells you where it stops.

@@ -89,7 +89,7 @@ Still open: §6 export jobs, retention policy, a write audit log, and rate limit
 ### 2. Dataset and case taxonomy
 
 - Introduce stable dataset ids and semantic case tags (`safety`, `tool-use`, `latency`, `exactness`,
-  `pg_kafka.replication`, `pg_kafka.schema-change`, etc.).
+  `pg_kafka.shadow-forwarding`, `pg_kafka.transactions`, etc.).
 - Track case ownership and expected flake/noise level.
 - Show score distributions by tag, not only pass-rate by model.
 
@@ -103,13 +103,13 @@ Still open: §6 export jobs, retention policy, a write audit log, and rate limit
 ### 4. Multi-project support, including `pg_kafka`
 
 - Treat `tool` as the project key and `mode` as the signal type. Examples:
-  - `tool=pg_kafka`, `mode=integration` for Postgres-to-Kafka replication tests.
-  - `tool=pg_kafka`, `mode=compat` for Postgres/Kafka version-matrix checks.
+  - `tool=pg_kafka`, `mode=integration` for shadow-forwarding checks against a real Kafka broker.
+  - `tool=pg_kafka`, `mode=compat` for the Kafka-client conformance grid and Postgres-version checks.
   - `tool=pg_kafka`, `mode=benchmark` for throughput/latency runs.
   - `tool=tracer`, `mode=eval` for LLM judge suites.
 - Use case names and tags to encode project-specific dimensions without schema forks.
 - Add optional numeric metrics for non-LLM projects, either as attributes JSON or a side table, so
-  `pg_kafka` can track lag, throughput, p95 latency, and error counts alongside pass/fail.
+  `pg_kafka` can track forwarding lag, throughput, p99 latency, and error counts alongside pass/fail.
 
 ### 5. Portfolio-quality presentation
 

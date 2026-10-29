@@ -43,7 +43,7 @@ clustering. But the claim it makes is real, and — more to the point — it's f
 
 That last part is the part I actually care about. Getting a demo to work is cheap; anyone can produce one
 message and screenshot it. The honest version of this claim isn't a demo, it's a test somebody who isn't
-me could run and watch fail. My own suite was 782 tests deep and green, and it proved almost nothing — my
+me could run and watch fail. My own suite was nearly 900 tests deep and green, and it proved almost nothing — my
 test client and my server came out of the same head, on the same assumptions, so passing them only means
 I'm consistent with myself. The failures that matter live in the gap between "I implemented the API" and
 "a library nobody told about my mental model is happy."
@@ -68,8 +68,8 @@ line of intent: advertise the version I actually serve.
 Then there's the part Morling was right about. The grid proves what's covered; a claim is only worth
 something if it also says where it stops. So pg_kafka ships a
 [`PROTOCOL_DEVIATIONS.md`](https://github.com/RTrentJones/pg_kafka/blob/main/docs/PROTOCOL_DEVIATIONS.md)
-that names the seams out loud — no fetch sessions, no timestamp-based offset lookup, random partition
-assignment where Kafka would be sticky, no wire auth at all, one node. The implemented surface is about
+that names the seams out loud — no fetch sessions, random partitioning for null-keyed records where
+Kafka would be sticky, no wire auth at all, one node. The implemented surface is about
 46% of the protocol, and most of what's missing is exactly the ground Morling said Postgres gives up:
 retention, real fault tolerance, the streaming semantics a log is actually for. He's right, and pg_kafka
 doesn't argue otherwise. Writing that number down, next to a grid that could contradict me, is the point
