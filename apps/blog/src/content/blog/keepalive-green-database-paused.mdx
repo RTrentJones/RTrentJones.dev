@@ -1,0 +1,141 @@
+---
+title: The keepalive was green, and the database paused anyway
+date: 2026-10-30
+description: Greenlight's keepalive existed to stop HeistMind's database from pausing. In August it paused anyway, because the probe never reached the database. On Polyphony the same idea failed the other way, and kept a database awake that should have been asleep.
+---
+
+import ProbePath from '../../components/anim/ProbePath.astro';
+import AwakeStrip from '../../components/anim/AwakeStrip.astro';
+import Timeline from '../../components/anim/Timeline.astro';
+
+In June I wrote that [Greenlight](/blog/greenlight/) had brought HeistMind back after its Supabase
+database paused, and that it had been keeping my other projects alive since. In August HeistMind's
+database paused again. The keepalive built to prevent that had run on schedule the whole time and
+reported the project healthy.
+
+This post covers what went wrong, what it took to be sure the fix had actually been deployed, and a
+second project where the same idea failed in the opposite direction. Nothing here is exotic. Each
+failure was a check that measured something next to the thing I cared about, and on a side project
+with nobody on call, that kind of gap can stay hidden for months.
+
+## What the probe was asking
+
+Supabase pauses a free-tier project after a week without database activity. Greenlight's keepalive
+is a small Cloudflare Worker on a cron, once every three days, that probes each target and opens a
+GitHub issue when one fails. Through Greenlight 0.8, the probe for a Supabase target requested the
+root of the project's REST API, `/rest/v1/`.
+
+That endpoint is served by PostgREST, which can answer it from its in-memory schema cache without
+sending anything to Postgres. The request succeeded, the Worker recorded a healthy target, and the
+database saw nothing. Supabase measures idleness at the database, so the week-long timer never
+reset.
+
+<ProbePath />
+
+On August 16 the project paused. The next sweep got a 530 from the paused project and [opened an
+issue](https://github.com/RTrentJones/RTrentJones.dev/issues/55), so detection worked. Prevention
+had never worked, and none of the successful sweeps before it gave any sign of that.
+
+## A fix that existed but wasn't running
+
+The fix changes what a Supabase target has to declare. Since Greenlight 0.9 it must name a table,
+and the probe becomes `GET /rest/v1/<table>?select=<column>&limit=1`, which PostgREST can only
+answer by querying Postgres. Only a 2xx counts as healthy, so a rotated key or a revoked grant shows
+up as a failure instead of passing quietly.
+
+I had written HeistMind's side of that change at the end of July, two weeks before the pause. It
+did nothing, because the deployed Worker was still the 0.8 build and ignored the new setting. The
+release that understood it was published on August 24. Even then `pnpm update` left the old version
+in place: the dependency was declared as `^0.8.0`, and for a `0.x` version a caret range only
+allows patch releases, so 0.9.0 was out of range. The upgrade had to be explicit.
+
+Because a passing probe had already misled me once, I didn't treat the next green sweep as proof.
+Before closing the issue I checked three things directly:
+
+- the probe table answered an anonymous request with a real row, so the query was executing;
+- the Worker script deployed on Cloudflare was byte-identical to the 0.9.0 release, by SHA-256, so
+  the fix was the code actually running;
+- the Worker's deployed configuration named the table.
+
+I closed the issue that day for one more reason. The alerting sends nothing new while any keepalive
+issue is open, so as long as HeistMind's stayed open, a failure on BAMCP or Polyphony couldn't have
+alerted either.
+
+## October
+
+The fix held for about seven weeks. On October 10 I upgraded to Greenlight 0.10.0, and from the
+next sweep onwards the Worker threw before the probe left: it passed both `cache: 'no-store'` and
+`cf: { cacheTtl: 0 }`, a pair the Workers runtime rejects. The sweep reported the error and [opened
+an issue](https://github.com/RTrentJones/RTrentJones.dev/issues/86) on October 13, which is the
+alerting doing its job, but no probe has reached Postgres since.
+
+Separately, HeistMind closed its `profiles` table to anonymous reads, because it exposed display
+names and Discord IDs, and added a one-row `keepalive_probe` table for this purpose. So the probe
+target has to move as well.
+
+The Worker fix is [merged in Greenlight](https://github.com/RTrentJones/greenlight/pull/28) and
+waiting on a release. The probe-table change is
+[open here](https://github.com/RTrentJones/RTrentJones.dev/pull/90). As I write this, on October 30,
+HeistMind's database is up, but the keepalive is not the reason, and I won't call it fixed until a
+sweep reaches the new table and I've checked the deployed Worker the way I did in August.
+
+<Timeline
+  caption="The keepalive for HeistMind's database, July to October 2026."
+  entries={[
+    { date: 'Jul 31', text: 'Probe table added to the config; inert on the deployed 0.8 Worker' },
+    { date: 'Aug 16', text: 'Database pauses; the next sweep sees a 530 and opens an issue', tone: 'fail', href: 'https://github.com/RTrentJones/RTrentJones.dev/issues/55' },
+    { date: 'Aug 24', text: 'Greenlight 0.9.0 deployed; probe reaches Postgres; Worker verified by hash', tone: 'fix' },
+    { date: 'Oct 10', text: 'Upgrade to Greenlight 0.10.0' },
+    { date: 'Oct 13', text: 'Every sweep now throws before the probe is sent; issue opened', tone: 'fail', href: 'https://github.com/RTrentJones/RTrentJones.dev/issues/86' },
+    { date: 'Oct 17', text: 'Worker fix merged upstream; probe-table change opened', tone: 'fix', href: 'https://github.com/RTrentJones/greenlight/pull/28' },
+    { date: 'Oct 30', text: 'Database up; keepalive still failing until the release ships' },
+  ]}
+/>
+
+## The opposite mistake
+
+Polyphony, a book-writing app on this site, uses Neon instead of Supabase. Neon suspends a database's
+compute after about five minutes without connections and bills for the hours it stays awake, so it
+needs no keepalive. For an idle app, the right amount of database traffic is none.
+
+In September I found that an idle Polyphony was querying Postgres about 50,000 times a day. Three
+timers were responsible, none of them doing useful work:
+
+- the job worker checked an empty queue every 2 seconds, about 43,200 queries a day;
+- the stale-job reaper ran every 60 seconds, about 1,440;
+- the container healthcheck hit `/health`, which checks the database and pgvector, every 30
+  seconds, about 5,760.
+
+Since suspension needs five quiet minutes, the compute never slept. That came to roughly 720 awake
+hours a month, which by my estimate at the time used most or all of the free tier's compute
+allowance before anyone had generated a scene.
+
+<AwakeStrip />
+
+The fix was to stop asking. The worker now waits to be woken when a job is enqueued, and schedules a
+single wake-up for work that is due later, such as a retry. The reaper runs only while a job is
+running. Liveness is split from readiness: `/health/live` answers from the process without touching
+the database, and it is what the container healthcheck and the keepalive probe use. `/health` still
+checks Postgres, but only when someone asks, mainly Greenlight's verify step at deploy time.
+
+The keepalive probe for Polyphony had also pointed at `/health`. Its cron runs only every three days,
+so it was never what kept the compute awake, but it was probing the wrong layer. That probe exists to
+notice a reclaimed or dead container, which it answers by re-applying the infrastructure and
+redeploying. Going through the database told it nothing it needed, and woke a database that should
+have been left alone.
+
+## What I changed in how I check things
+
+A probe has to touch exactly the layer whose state it is managing. HeistMind's needed to reach
+Postgres, because a database's idle timer was the thing at risk. Polyphony's needed to stop at the
+application, because the container was the thing at risk and the database was better left alone.
+
+A check that passes for the wrong reason is worse than having none, because it is the one I trust.
+I now verify the deployed artifact, rather than the pipeline's report that it deployed, for anything
+whose whole job is to keep something else alive.
+
+In Greenlight, a Supabase target now has to name a table and only a 2xx counts as healthy. On this
+site I keep the probes for container targets shallow. None of that would have caught the October
+failure, which was
+an exception thrown before the probe left the Worker. The alert did catch it. The remaining gap is
+the time between an alert and a release, and that one is mine.

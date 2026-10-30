@@ -1,0 +1,119 @@
+---
+// A dated sequence of events that reveals one entry at a time. Pure CSS: with scroll-driven animation
+// support each entry fades in as it enters the viewport; otherwise they stagger in on load; with
+// reduced motion everything is simply shown. `tone` marks an entry as a failure or a fix so the dot
+// carries meaning beyond color (the label text always says what happened).
+interface Entry {
+  date: string;
+  text: string;
+  tone?: 'fail' | 'fix' | 'neutral';
+  href?: string;
+}
+interface Props {
+  entries: Entry[];
+  caption?: string;
+}
+const { entries, caption } = Astro.props;
+const glyph = { fail: '✕', fix: '✓', neutral: '•' } as const;
+---
+
+<figure class="timeline">
+  <ol>
+    {
+      entries.map((e, i) => (
+        <li class:list={['entry', e.tone ?? 'neutral']} style={`--i: ${i}`}>
+          <span class="dot" aria-hidden="true">
+            {glyph[e.tone ?? 'neutral']}
+          </span>
+          <time>{e.date}</time>
+          <span class="text">
+            {e.href ? <a href={e.href}>{e.text}</a> : e.text}
+          </span>
+        </li>
+      ))
+    }
+  </ol>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .timeline {
+    margin: 1.8rem 0 2.2rem;
+  }
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--border);
+  }
+  .entry {
+    position: relative;
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    gap: 0.2rem 0.9rem;
+    padding: 0.35rem 0 0.75rem 1.4rem;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+  .dot {
+    position: absolute;
+    left: -0.62rem;
+    top: 0.42rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+  }
+  .fail .dot {
+    color: var(--warn);
+    border-color: var(--warn);
+  }
+  .fix .dot {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  time {
+    color: var(--fg-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  figcaption {
+    margin-top: 0.4rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  @media (max-width: 30rem) {
+    .entry {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .entry {
+      animation: rise 0.5s ease-out both;
+      animation-delay: calc(var(--i) * 120ms);
+    }
+    @supports (animation-timeline: view()) {
+      .entry {
+        animation-delay: 0s;
+        animation-timeline: view();
+        animation-range: entry 0% entry 60%;
+      }
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

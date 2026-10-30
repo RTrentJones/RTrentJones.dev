@@ -1,0 +1,132 @@
+---
+// Two 24-hour strips showing when a Neon compute is awake. Neon suspends after ~5 minutes with no
+// connections, so any timer that queries more often than that keeps it awake all day. The first strip
+// is Polyphony before September 15 (three timers: a 2 s job poll, a 60 s reaper, a 30 s container
+// healthcheck on /health); the second is after (the worker is woken on enqueue and the healthcheck
+// moved to a DB-free /health/live). The second strip's sessions are illustrative, which the caption
+// says. Pure SVG + CSS: the strips sweep in left to right; with reduced motion they render filled.
+const W = 420;
+const hour = (h: number) => (h / 24) * W;
+// Illustrative usage for the "after" strip: two writing sessions, each followed by the ~5 minute
+// idle window before Neon suspends.
+const sessions = [
+  { start: 9, end: 9 + 50 / 60 },
+  { start: 20.5, end: 20.5 + 35 / 60 },
+].map((s) => ({ x: hour(s.start), w: hour(s.end + 5 / 60) - hour(s.start) }));
+const ticks = [0, 6, 12, 18, 24];
+---
+
+<figure class="awake">
+  <svg viewBox={`0 0 ${W} 176`} role="img" aria-labelledby="awake-title awake-desc">
+    <title id="awake-title">When Polyphony's database compute was awake, before and after</title>
+    <desc id="awake-desc">
+      Before September 15 the compute is awake for all 24 hours because background timers queried
+      Postgres every few seconds. After, it is awake only around periods of real use, shown here as
+      two illustrative writing sessions, and asleep the rest of the day.
+    </desc>
+
+    <text class="label" x="0" y="14">Before: three timers querying Postgres</text>
+    <rect class="track" x="0" y="24" width={W} height="18" rx="4" />
+    <rect class="fill sweep" x="0" y="24" width={W} height="18" rx="4" />
+    <text class="note" x="0" y="58">~50,000 queries a day · awake 24 h</text>
+
+    <text class="label" x="0" y="92">After: queries only when there is work</text>
+    <rect class="track" x="0" y="102" width={W} height="18" rx="4" />
+    <g class="sweep-group">
+      {sessions.map((s) => <rect class="fill" x={s.x} y="102" width={s.w} height="18" rx="3" />)}
+    </g>
+    <text class="note" x="0" y="136">awake around use, then suspended after ~5 minutes</text>
+
+    {
+      ticks.map((t) => (
+        <g>
+          <line class="tick" x1={hour(t)} x2={hour(t)} y1="146" y2="152" />
+          <text
+            class="tick-label"
+            x={hour(t)}
+            y="168"
+            text-anchor={t === 0 ? 'start' : t === 24 ? 'end' : 'middle'}
+          >
+            {String(t).padStart(2, '0')}:00
+          </text>
+        </g>
+      ))
+    }
+  </svg>
+  <figcaption>
+    One day of compute time. The two sessions in the second strip are illustrative; the point is
+    that between them nothing touches the database.
+  </figcaption>
+</figure>
+
+<style>
+  .awake {
+    margin: 1.8rem 0 2.2rem;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .label {
+    font-size: 14px;
+    font-weight: 600;
+    fill: var(--fg);
+  }
+  .note,
+  .tick-label {
+    font-size: 12.5px;
+    fill: var(--fg-muted);
+  }
+  .track {
+    fill: var(--bg-subtle);
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .fill {
+    fill: var(--accent);
+  }
+  .tick {
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  .sweep,
+  .sweep-group {
+    transform-box: view-box;
+    transform-origin: 0 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sweep,
+    .sweep-group {
+      animation: sweep 2.4s ease-out both;
+    }
+    .sweep-group {
+      animation-delay: 0.6s;
+    }
+    @supports (animation-timeline: view()) {
+      .sweep,
+      .sweep-group {
+        animation-delay: 0s;
+        animation-duration: 1ms;
+        animation-timeline: view();
+        animation-range: entry 20% cover 45%;
+      }
+    }
+  }
+  @keyframes sweep {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+</style>
