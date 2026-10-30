@@ -1,13 +1,15 @@
 ---
 // Latest absolute benchmark numbers (p50/p99 + msgs/sec), with a raw-INSERT and a real-broker
 // figure measured by the SAME single-client synchronous harness — like-for-like reference points,
-// not tuned-throughput ceilings. The regression-aware trend over releases lives in Tracer
+// not tuned-throughput ceilings. The per-run history lives in Tracer
 // (normalized scores are POSTed there by the wrapper's ingest) — linked below. Single source of
 // truth is the evidence branch; no fabricated fallback.
 import { loadBench, fmtVerified, REPO_URL, TRACER_TREND_URL } from '../lib/evidence';
 
 const { data } = await loadBench();
 const n = (x: number) => x.toLocaleString('en-US');
+// Latencies are reported to two decimals, so 0 means "under 0.01 ms", not zero.
+const ms = (x: number) => (x < 0.01 ? '<0.01 ms' : `${x} ms`);
 ---
 
 {
@@ -19,7 +21,7 @@ const n = (x: number) => x.toLocaleString('en-US');
     <figure class="bench">
       <figcaption>
         <strong>Throughput &amp; latency</strong>
-        <span class="meta">warm-up excluded · verified {fmtVerified(data.generatedAt)} UTC</span>
+        <span class="meta">warm-up excluded · measured {fmtVerified(data.generatedAt)} UTC</span>
       </figcaption>
 
       <div class="scroll">
@@ -37,21 +39,21 @@ const n = (x: number) => x.toLocaleString('en-US');
               <tr>
                 <td class="mono">{s.name}</td>
                 <td class="num">{n(s.msgsPerSec)}</td>
-                <td class="num">{s.p50Ms} ms</td>
-                <td class="num">{s.p99Ms} ms</td>
+                <td class="num">{ms(s.p50Ms)}</td>
+                <td class="num">{ms(s.p99Ms)}</td>
               </tr>
             ))}
             <tr class="baseline">
               <td class="mono">raw INSERT (psql, single-row) — baseline</td>
               <td class="num">{n(data.baselines.rawInsert.msgsPerSec)}</td>
-              <td class="num">{data.baselines.rawInsert.p50Ms} ms</td>
-              <td class="num">{data.baselines.rawInsert.p99Ms} ms</td>
+              <td class="num">{ms(data.baselines.rawInsert.p50Ms)}</td>
+              <td class="num">{ms(data.baselines.rawInsert.p99Ms)}</td>
             </tr>
             <tr class="baseline">
               <td class="mono">Apache Kafka (same harness) — baseline</td>
               <td class="num">{n(data.baselines.realBroker.msgsPerSec)}</td>
-              <td class="num">{data.baselines.realBroker.p50Ms} ms</td>
-              <td class="num">{data.baselines.realBroker.p99Ms} ms</td>
+              <td class="num">{ms(data.baselines.realBroker.p50Ms)}</td>
+              <td class="num">{ms(data.baselines.realBroker.p99Ms)}</td>
             </tr>
           </tbody>
         </table>
@@ -63,7 +65,7 @@ const n = (x: number) => x.toLocaleString('en-US');
         messages per round-trip, so cross-row comparisons are methodology-bound.
       </p>
       <p class="trend">
-        Regression-aware trend across tagged releases → <a href={TRACER_TREND_URL}>Tracer ↗</a>
+        History across evidence runs → <a href={TRACER_TREND_URL}>Tracer ↗</a>
       </p>
     </figure>
   )
