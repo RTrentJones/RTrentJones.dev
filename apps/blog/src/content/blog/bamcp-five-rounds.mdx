@@ -1,0 +1,175 @@
+---
+title: Does a model need to see the reads? Five rounds of finding out
+date: 2026-10-30
+description: I built BAMCP's pileup viewer on the assumption that a model would judge variants better if it could see the reads. Five rounds of pre-registered evaluation said otherwise, and the improvement that held up came from fixing BAMCP's text.
+---
+
+import PileupColours from '../../components/anim/PileupColours.astro';
+import SpanningReads from '../../components/anim/SpanningReads.astro';
+import HBars from '../../components/anim/HBars.astro';
+import Dumbbell from '../../components/anim/Dumbbell.astro';
+
+I spent the first few years of my career at Fulgent Genetics, building software for clinical
+genomics, and a lot of that work was about helping scientists look at the evidence behind a variant
+call. When I built [BAMCP](/bamcp/), an MCP server that lets a model inspect sequencing reads, the
+feature I cared about most was its pileup viewer: the aligned reads at a locus, rendered inline in
+the conversation, the way a curator would look at them.
+
+I assumed a model would judge variants better if it could see that picture. This post is about
+testing that assumption over five rounds. It didn't hold, and the improvement that did hold came from
+somewhere I wasn't looking.
+
+## How the rounds worked
+
+Each round showed a set of sites to three Claude models of different sizes and asked the same two
+questions: is there a variant here, and is it real or an artifact. A site could be shown as the raw
+reads in text form, as BAMCP's structured evidence, as the rendered pileup, or as a combination. The
+score was joint accuracy, both answers right.
+
+The evaluation plan for each confirmatory round was committed to the repository before any model
+saw a site: the items, the conditions, the hypotheses and the tests. Every run was a fresh agent
+that could read only its own input files, the answers were sealed until all runs finished, and the
+transcripts were audited afterwards. Real sites came from the Genome in a Bottle HG002 sample, with
+truth from its benchmark calls and the coordinates disguised so a model couldn't look them up. The
+plans, data and results are all in BAMCP's
+[`docs/eval`](https://github.com/RTrentJones/BAMCP/tree/main/docs/eval).
+
+I'm summarising the main findings here; the
+[results write-up](https://github.com/RTrentJones/BAMCP/blob/main/docs/eval/visual-results.md) has
+every number, interval and caveat.
+
+## Rounds 1 and 2: the picture was hard to read
+
+The first round used 26 synthetic sites. Raw text was right 95% of the time and the picture alone
+82%. The picture failed most on homozygous variants, getting them right in only one case in six,
+and the reason turned out to be the rendering. Every base was coloured, so a column where every read
+carried the same non-reference base was just another coloured column.
+
+<PileupColours />
+
+Round 2 redrew the viewer with grey reads and only mismatches coloured. On the same sites the
+picture alone rose to 91%, and homozygous variants from one in six to five in six. Because that round
+was designed after seeing which sites failed, I treated it as encouraging rather than settled.
+
+## Round 3: the reads as text were the best evidence
+
+Round 3 was the first real test: fresh synthetic sites plus 36 real HG002 sites, under a plan
+registered in advance with three confirmatory comparisons. None of the three was supported. On the
+real sites the reads as text were right 99% of the time, and adding the picture to them changed
+nothing measurable.
+
+<HBars
+  title="Round 3: accuracy on 36 real sites"
+  subtitle="Joint accuracy, three models pooled. Each site was shown in one of four forms."
+  rows={[
+    { label: 'Reads as text', value: 0.991 },
+    { label: 'Text + picture', value: 0.981 },
+    { label: "BAMCP's summary", value: 0.926 },
+    { label: 'Picture only', value: 0.87 },
+  ]}
+  caption="On the fresh synthetic sites the order was similar: text 98.1%, picture 88.9%, BAMCP's structured summary 82.4%."
+/>
+
+The picture on its own was usable but weaker, at 87–89%, and it was overconfident when it was wrong.
+Model size mattered most here. The largest model read pictures almost perfectly, and the smallest
+got about seven in ten of the real sites right from the picture alone.
+
+## Round 4: looking for sites where text struggles
+
+If text is already near the ceiling, a picture has nowhere to help. So round 4 went looking for real
+sites where a model reading text would get only about 70% right: the classes that trip up short-read
+variant callers, such as low-fraction variants, caller false positives and variants in duplicated
+genes. In pilots, those sites weren't hard at all. Models were right 94% of the time from raw
+`samtools mpileup` output and 96% with a careful text summary.
+
+Only one kind of site was hard: insertions and deletions inside long runs of a single repeated base,
+where the sequencer's own slippage produces reads that look like a real variant. Round 4's main run
+used 60 fresh sites of that kind, half real variants and half slippage. Neither BAMCP's text tools
+nor the picture improved accuracy over raw `mpileup`, and both made the smallest model miss more
+real variants.
+
+There was one thing the picture did that text didn't. When they could see the reads, the larger
+models called the genotype correctly, one copy or two, two to three times as often. That was a secondary
+measure, and the first sign in four rounds that the picture added something.
+
+## What BAMCP's text was getting wrong
+
+Looking at why BAMCP's own text tools hadn't helped explained the genotype result as well. Two things
+in BAMCP's curation summary were misleading the models on these sites.
+
+It raised a high homopolymer warning on every indel inside a run of four or more identical bases,
+whether or not the variant was real, so the warning carried no information. And it measured the
+variant's share against every read at the site, including the many reads that start or stop partway
+through the run and so cannot show how long it is. Those reads count as reference, which pulls a
+heterozygous variant, present in about half the reads, down to something that looks like a
+low-fraction one.
+
+<SpanningReads />
+
+The picture had been supplying the missing information: a model could see which reads crossed the
+whole run. So I changed BAMCP to use only those reads. The homopolymer warning now appears only when
+the called length is rare among reads that span the run, and the variant's share is measured among
+them. Re-run on the same 60 sites, BAMCP's text took accuracy from 84% to 91%, all three models
+improved, and correct genotypes on real variants went from 13 of 90 to 42 of 90.
+
+Those were the sites that had prompted the change, so the result could easily have been a fit to
+them. It needed a fresh test.
+
+## Round 5: confirmation on sites no round had seen
+
+Round 5 was registered before any site was drawn: 90 new sites, from four more chromosomes plus
+fresh draws from round 4's, none within 10 kb of a round 4 site. It had two pre-registered
+hypotheses, that BAMCP's text would improve accuracy and genotype calls over raw `mpileup`. Both
+were supported. Accuracy rose from 83% to 89%, with each model improving by a similar amount, and
+correct genotypes from 30 of 135 to 54 of 135, with no loss of specificity.
+
+<Dumbbell
+  title="Accuracy on repeat-run indels"
+  subtitle="Balanced accuracy, three models pooled, against raw mpileup output alone."
+  fromLabel="Raw mpileup"
+  toLabel="With BAMCP's output"
+  domain={[0.75, 0.95]}
+  ticks={[0.75, 0.8, 0.85, 0.9, 0.95]}
+  rows={[
+    { label: 'Round 4', sub: 'BAMCP text, original', from: 0.839, to: 0.817 },
+    { label: 'Round 4', sub: 'BAMCP viewer', from: 0.839, to: 0.811 },
+    { label: 'Round 4 re-run', sub: 'spanning-read text', from: 0.839, to: 0.911 },
+    { label: 'Round 5', sub: 'fresh sites', from: 0.826, to: 0.885 },
+  ]}
+  caption="The round 4 re-run used the sites that motivated the change and is exploratory; round 5 is the pre-registered confirmation."
+/>
+
+<Dumbbell
+  title="Real indels called real, with the right genotype"
+  subtitle="Share of true-variant answers with both the call and the genotype correct."
+  fromLabel="Raw mpileup"
+  toLabel="With BAMCP's output"
+  domain={[0, 0.5]}
+  ticks={[0, 0.1, 0.2, 0.3, 0.4, 0.5]}
+  rows={[
+    { label: 'Round 4', sub: 'BAMCP text, original', from: 13 / 90, to: 13 / 90, fromText: '13/90', toText: '13/90' },
+    { label: 'Round 4', sub: 'BAMCP viewer', from: 13 / 90, to: 27 / 90, fromText: '13/90', toText: '27/90' },
+    { label: 'Round 4 re-run', sub: 'spanning-read text', from: 13 / 90, to: 42 / 90, fromText: '13/90', toText: '42/90' },
+    { label: 'Round 5', sub: 'fresh sites', from: 30 / 135, to: 54 / 135, fromText: '30/135', toText: '54/135' },
+  ]}
+/>
+
+The gain came from heterozygous variants, which the models now called heterozygous far more often. Homozygous variants in long runs are still usually called
+heterozygous, because the reads that stop inside the run dilute every fraction a model sees. That is
+the next thing to fix.
+
+## What it changed
+
+The viewer is for the person. A model working through BAMCP gets the evidence as text, and the
+viewer is there so the human in the conversation can see what the model is reasoning about. The
+evaluation also changed the viewer itself, which is now grey with only mismatches coloured.
+
+The more useful lesson for me was about the method. Most of what I learned came from the rounds that
+didn't confirm what I expected. Writing the plan down first is what made those results usable: when
+round 3 came back null, there was no reading of it that rescued the picture, and when round 5 came
+back positive, there was no question of which analysis to believe.
+
+There are limits worth stating. Every model in the evaluation was a Claude model, each site was run
+once per model, the early rounds were synthetic, and the hard sites are one narrow class of variant.
+The result is that, for indels in long repeats, BAMCP's text now helps models more than raw reads
+do. It isn't a general claim about pictures, or about models reading genomic data.

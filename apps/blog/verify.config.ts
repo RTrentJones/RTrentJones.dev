@@ -26,6 +26,7 @@ export default ({ env }: VerifyConfigContext) => ({
     { path: '/pg_kafka/', status: 200 },
     { path: '/tracer/', status: 200 },
     { path: '/blog/greenlight/', status: 200 },
+    { path: '/blog/bamcp-five-rounds/', status: 200, contains: 'span-title' },
     { path: '/blog/pg-kafka-proof/', status: 200 },
     { path: '/blog/starting-here/', status: 200 },
     { path: '/blog/keepalive-green-database-paused/', status: 200, contains: 'probe-title' },
