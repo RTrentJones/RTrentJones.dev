@@ -26,8 +26,7 @@ companion I'd have wanted on day one.
 
 Play-by-post campaigns are collaborative software without the software: characters, crews, factions,
 clocks, harm, XP, and a table's worth of house rules, spread across Discord threads, pinned messages,
-and spreadsheets. HeistMind puts that state in one place and only offers actions that are legal for
-the ruleset in play.
+and spreadsheets. HeistMind puts that state in one place.
 
 It's built to take what you want and leave the rest — a lightweight character tracker for a live
 table, or the full campaign layer (crews, factions, clocks, a shared log, join-by-code) for an async,
@@ -63,8 +62,8 @@ only ever offers moves your ruleset allows, and a sheet you can bring to any tab
   poster="/heistmind-character.png"
   alt="A HeistMind character sheet for a Blades in the Dark 'razor' — attributes, a Battle-Born special ability, a stress track, harm slots, and a per-score loadout."
 >
-  The finished sheet — stress, harm, XP, special abilities, and a per-score loadout, every affordance
-  constrained to the active ruleset, so nobody's re-reading the book mid-scene.
+  The finished sheet — stress, harm, XP, special abilities, and a per-score loadout, so nobody's
+  re-reading the book mid-scene.
 </Shot>
 
 And the campaign it lives in — the shared mechanical layer a table builds up as the story posts over
@@ -78,6 +77,22 @@ days:
   clocks that tick as the story moves. Everyone sees the same truth, whether they're at the table or
   posting async on Discord.
 </Shot>
+
+## How it's verified
+
+Vercel deploys every push, and each deployment reports back to GitHub, which runs Greenlight's
+verify against that exact deployment. The checks have to confirm that `/__version` reports the
+commit Vercel built, so a check can't pass against an older deployment that happens to still be
+answering. They also confirm that the Discord endpoint rejects an unsigned request, and run the
+Playwright end-to-end suite in a browser.
+
+The signed-in journeys are the part a unit test skips. On preview and beta deployments, the suite
+creates throwaway accounts through Supabase's admin API, injects their sessions, and walks through
+the GM's journeys (rulesets, characters, crews, clocks, factions, the campaign log) and joining a game
+by code, then deletes the accounts. Player-side and tenant-isolation journeys are written as
+placeholders and not yet running. It doesn't do this on production, because the
+user table is shared across environments. Production only ever deploys commits whose CI has
+passed, which is enforced by branch protection on `main`.
 
 ## The stack
 
@@ -96,11 +111,9 @@ days:
 It's the first thing I built greenfield with an agent, and it's had two lives: a first pass with
 Cline in 2025, then a near-total rebuild with Claude Code in 2026.
 
-That rebuild is also where Greenlight came from. Coming back to HeistMind after a while, I found
-Supabase had paused and then archived the original backend, so I had to stand the whole thing up
-again — dev loop and all. Recreating that deploy → verify → release loop by hand, for a single
-project, is what made me realize every project I had wanted the same primitives. That became
-[Greenlight](https://github.com/RTrentJones/greenlight).
+That rebuild is also where [Greenlight](/greenlight/) came from: Supabase had paused and then
+archived the original backend, and standing it up again by hand made me realize every project I had
+wanted the same deploy → verify → release loop. [The story is in a post](/blog/greenlight/).
 
-Prod itself is behind a pre-launch gate right now while I finish a security pass — the full app runs
-on beta and preview today, and the public launch flips on once that's done.
+As of October 2026, production is behind a pre-launch holding page while I finish a security pass.
+The full app runs on beta and preview, and the public launch follows once that's done.
