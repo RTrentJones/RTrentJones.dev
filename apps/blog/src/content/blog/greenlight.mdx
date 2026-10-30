@@ -28,13 +28,13 @@ somewhere else.
 
 So I pulled those out into a thing of their own — [Greenlight](https://github.com/RTrentJones/greenlight)
 — and, in the way these things go, promptly spent more time on the tool than on the project that needed
-it. It's an npm package now; the site you're reading pulls it in at arm's length, and it's grown up in
-public across a stack of releases, the latest of which pins the whole verify-then-promote path to a
-single commit, so the thing that gets checked is the thing that ships. The machinery lives on the
+it. It's an npm package now; the site you're reading pulls it in at arm's length, and it has grown up in
+public across a stack of releases. One of them pinned the whole verify-then-promote path to a single
+commit, so the build that gets checked is the build that ships. The machinery lives on the
 [project page](/greenlight/); this isn't really a post about how it works. It's about why it exists,
 which is plainer than the architecture suggests: I got tired of rebuilding the same loop, and
 doing it with an agent finally made "one more small tool" cheap enough to actually finish. HeistMind
-was the first thing it brought back; it's been quietly keeping the others alive since.
+was the first project it brought back to a working beta.
 
 What makes it worth building, though, is that it's aimed at the problem that's actually next, not the
 one we just spent two years on. Getting an agent to write the feature is close to solved; what comes
@@ -43,10 +43,9 @@ bottleneck and I become it. I'm the part that doesn't scale — I can start fift
 afternoon and I cannot hold fifteen features in my head, read fifteen diffs with the attention each
 deserves, and still have room left for whether any of them were worth building.
 
-I'm not the first to land here; it's becoming the obvious shape. Boris Cherny, who leads Claude Code,
-talks about the loop, and plenty of people building with agents are circling the same idea from their
-own directions. Where I part from the default is which side of the loop to spend on. Almost all of the
-tooling energy right now goes into the agent's context — better prompts, better retrieval, more of the
+I'm not the first to land here; it's becoming the obvious shape, and plenty of people building with
+agents are circling the same idea from their own directions. Where I part from the default is which
+side of the loop to spend on. Almost all of the tooling energy right now goes into the agent's context — better prompts, better retrieval, more of the
 world crammed into the model. The scarcer thing to manage is the human's, because the human is the one
 that got slower relative to everything else.
 
@@ -66,3 +65,8 @@ hold all of it. I don't think it's the final shape — I'd be suspicious of anyo
 this early — so if you're circling the same loop from your own side, or you've built your own version
 and it looks nothing like mine, I'd genuinely like to see it. A fresh take on this is worth more to me
 than agreement.
+
+_Update, October 30, 2026: an earlier version of this post said Greenlight had been keeping my other
+projects alive since HeistMind came back. In August HeistMind's database paused anyway, because the
+keepalive's probe never reached it. I wrote up what happened in [a separate
+post](/blog/keepalive-green-database-paused/)._
