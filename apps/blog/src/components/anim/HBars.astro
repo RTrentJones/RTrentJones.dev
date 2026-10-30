@@ -1,0 +1,195 @@
+---
+// Single-series horizontal bar chart (0–100%), drawn as SVG with bars that grow from the baseline
+// as the chart scrolls into view (on load where scroll-driven animation isn't supported; not at all
+// under reduced motion). Each bar carries a native tooltip, the value is labelled at the bar tip,
+// and a table view sits underneath. One series, so no legend: the title names it.
+interface Row {
+  label: string;
+  value: number; // 0..1
+  detail?: string;
+}
+interface Props {
+  title: string;
+  subtitle?: string;
+  rows: Row[];
+  caption?: string;
+}
+const { title, subtitle, rows, caption } = Astro.props;
+const W = 420;
+const labelW = 168;
+const plotW = W - labelW - 44;
+const rowH = 34;
+const barH = 18;
+const top = 8;
+const H = top + rows.length * rowH + 26;
+const pct = (v: number) => `${(v * 100).toFixed(1).replace(/\.0$/, '')}%`;
+const ticks = [0, 0.25, 0.5, 0.75, 1];
+---
+
+<figure class="hbars">
+  <p class="title">{title}</p>
+  {subtitle && <p class="subtitle">{subtitle}</p>}
+  <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}. ${rows.map((r) => `${r.label}: ${pct(r.value)}`).join('; ')}.`}>
+    {
+      ticks.map((t) => (
+        <g>
+          <line class="grid" x1={labelW + t * plotW} x2={labelW + t * plotW} y1={top - 4} y2={H - 22} />
+          <text class="tick" x={labelW + t * plotW} y={H - 6} text-anchor="middle">
+            {t * 100}%
+          </text>
+        </g>
+      ))
+    }
+    {
+      rows.map((r, i) => {
+        const y = top + i * rowH + (rowH - barH) / 2;
+        const w = Math.max(0, r.value * plotW);
+        return (
+          <g class="row">
+            <title>{`${r.label}: ${pct(r.value)}${r.detail ? ` (${r.detail})` : ''}`}</title>
+            <text class="row-label" x={labelW - 10} y={y + barH / 2 + 4.5} text-anchor="end">
+              {r.label}
+            </text>
+            <path
+              class="bar"
+              d={`M${labelW},${y} h${w - 4} a4,4 0 0 1 4,4 v${barH - 8} a4,4 0 0 1 -4,4 h${-(w - 4)} z`}
+            />
+            <text class="value" x={labelW + w + 6} y={y + barH / 2 + 4.5}>
+              {pct(r.value)}
+            </text>
+            <rect class="hit" x="0" y={top + i * rowH} width={W} height={rowH} />
+          </g>
+        );
+      })
+    }
+  </svg>
+  <details>
+    <summary>Table</summary>
+    <table>
+      <thead>
+        <tr><th>Condition</th><th class="num">Accuracy</th></tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => <tr><td>{r.label}{r.detail && <span class="muted"> · {r.detail}</span>}</td><td class="num">{pct(r.value)}</td></tr>)}
+      </tbody>
+    </table>
+  </details>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .hbars {
+    margin: 1.8rem 0 2.2rem;
+    --series: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    .hbars {
+      --series: #3987e5;
+    }
+  }
+  .title {
+    margin: 0;
+    font-weight: 600;
+    font-size: var(--text-base);
+  }
+  .subtitle {
+    margin: 0.1rem 0 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .grid {
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .tick {
+    font-size: 12.5px;
+    fill: var(--fg-muted);
+  }
+  .row-label {
+    font-size: 14px;
+    fill: var(--fg);
+  }
+  .value {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    fill: var(--fg);
+  }
+  .bar {
+    fill: var(--series);
+    transform-box: fill-box;
+    transform-origin: left center;
+  }
+  .hit {
+    fill: transparent;
+  }
+  .row:hover .bar {
+    opacity: 0.85;
+  }
+  details {
+    margin-top: 0.4rem;
+    font-size: var(--text-sm);
+  }
+  summary {
+    cursor: pointer;
+    color: var(--fg-muted);
+  }
+  table {
+    border-collapse: collapse;
+    margin-top: 0.4rem;
+  }
+  th,
+  td {
+    padding: 0.2rem 0.8rem 0.2rem 0;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .bar {
+      animation: grow 0.9s ease-out both;
+    }
+    .value {
+      animation: appear 0.9s ease-out both;
+    }
+    @supports (animation-timeline: view()) {
+      .bar,
+      .value {
+        animation-timeline: view();
+        animation-range: entry 10% cover 35%;
+      }
+    }
+  }
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes appear {
+    0%,
+    60% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+</style>

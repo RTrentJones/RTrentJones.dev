@@ -1,0 +1,199 @@
+---
+// Illustration for the BAMCP eval post: why colouring every base hid homozygous variants. A small
+// synthetic pileup (generated deterministically here, not real data) with one homozygous column
+// where every read differs from the reference, plus a few scattered single-read errors. The figure
+// alternates between the original style (every base coloured) and the current one (reads grey,
+// only mismatches coloured). With reduced motion both panels are shown side by side, statically.
+const REF = 'TGCATTGACCTGAAGTCCAGTTGCAAGTCA';
+const ALT_COL = 14; // the homozygous column (ref A -> G)
+const READS = 11;
+const BASES = ['A', 'C', 'G', 'T'] as const;
+const COLOUR: Record<string, string> = {
+  A: 'var(--b-a)',
+  C: 'var(--b-c)',
+  G: 'var(--b-g)',
+  T: 'var(--b-t)',
+};
+
+// Deterministic pseudo-random generator so the figure is identical on every build.
+let seed = 7;
+const rand = () => {
+  seed = (seed * 1103515245 + 12345) % 2147483648;
+  return seed / 2147483648;
+};
+
+type Cell = { x: number; y: number; base: string; mismatch: boolean };
+const cells: Cell[] = [];
+for (let r = 0; r < READS; r++) {
+  // Staggered read starts and ends so the stack looks like a pileup.
+  const start = Math.floor(rand() * 6);
+  const end = REF.length - Math.floor(rand() * 6);
+  for (let c = start; c < end; c++) {
+    let base = REF[c];
+    if (c === ALT_COL) base = 'G';
+    else if (rand() < 0.025) base = BASES.filter((b) => b !== REF[c])[Math.floor(rand() * 3)];
+    cells.push({ x: c, y: r, base, mismatch: base !== REF[c] });
+  }
+}
+// The homozygous column must be covered by every read for the illustration to hold.
+const coverAlt = new Set(cells.filter((c) => c.x === ALT_COL).map((c) => c.y)).size;
+if (coverAlt !== READS) throw new Error('PileupColours: alt column not fully covered');
+
+const CW = 13;
+const CH = 11;
+const GAP = 2;
+const top = 38;
+const W = REF.length * CW;
+const H = top + (READS + 1) * (CH + GAP) + 4;
+---
+
+<figure class="pileup">
+  <div class="panels">
+    {
+      (['before', 'after'] as const).map((mode) => (
+        <div class:list={['panel', mode]}>
+          <p class="panel-label">
+            {mode === 'before' ? 'Every base coloured' : 'Reads grey, mismatches coloured'}
+          </p>
+          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={mode === 'before' ? 'Pileup with every base coloured; the homozygous column is hard to pick out.' : 'Pileup with grey reads and only mismatches coloured; the homozygous column stands out as a solid stripe.'}>
+            <text class="axis" x="0" y="11">reference</text>
+            {REF.split('').map((b, i) => (
+              <rect x={i * CW + 1} y={top - CH - 6} width={CW - 2} height={CH} rx="2" style={`fill: ${COLOUR[b]}`} />
+            ))}
+            {cells.map((c) => (
+              <rect
+                x={c.x * CW + 1}
+                y={top + c.y * (CH + GAP)}
+                width={CW - 2}
+                height={CH}
+                rx="2"
+                class:list={[c.mismatch ? 'mm' : 'match']}
+                style={`--base: ${COLOUR[c.base]}`}
+              />
+            ))}
+            <rect
+              class="col-mark"
+              x={ALT_COL * CW - 1}
+              y={top - 3}
+              width={CW + 2}
+              height={READS * (CH + GAP) + 3}
+              rx="3"
+            />
+          </svg>
+        </div>
+      ))
+    }
+  </div>
+  <figcaption>
+    A synthetic pileup with one homozygous variant (the outlined column), where every read differs
+    from the reference. With every base coloured it is one more coloured column among many; with
+    only mismatches coloured it is the only solid stripe.
+  </figcaption>
+</figure>
+
+<style>
+  .pileup {
+    margin: 1.8rem 0 2.2rem;
+    --b-a: #1baf7a;
+    --b-c: #2a78d6;
+    --b-g: #eda100;
+    --b-t: #e34948;
+    --read: #d6d6d1;
+  }
+  @media (prefers-color-scheme: dark) {
+    .pileup {
+      --b-a: #199e70;
+      --b-c: #3987e5;
+      --b-g: #c98500;
+      --b-t: #e66767;
+      --read: #3a3a40;
+    }
+  }
+  .panels {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
+  }
+  .panel-label {
+    margin: 0 0 0.3rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .axis {
+    font-size: 10px;
+    fill: var(--fg-muted);
+  }
+  .before .match,
+  .before .mm,
+  .after .mm {
+    fill: var(--base);
+  }
+  .after .match {
+    fill: var(--read);
+  }
+  .col-mark {
+    fill: none;
+    stroke: var(--fg);
+    stroke-width: 1.5;
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  @media (max-width: 36rem) {
+    .panels {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* With motion allowed, show one panel at a time and recolour the matching bases in place:
+     the "after" panel is laid over the "before" one and fades its grey reads in and out. */
+  @media (prefers-reduced-motion: no-preference) {
+    .panels {
+      grid-template-columns: 1fr;
+      max-width: 30rem;
+    }
+    .panel {
+      grid-area: 1 / 1;
+    }
+    .before {
+      animation: show-first 7s ease-in-out infinite;
+    }
+    .after {
+      animation: show-second 7s ease-in-out infinite;
+    }
+  }
+  @keyframes show-first {
+    0%,
+    40% {
+      opacity: 1;
+    }
+    50%,
+    90% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes show-second {
+    0%,
+    40% {
+      opacity: 0;
+    }
+    50%,
+    90% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+</style>

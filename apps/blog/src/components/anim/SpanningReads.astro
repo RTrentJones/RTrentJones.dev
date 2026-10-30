@@ -1,0 +1,191 @@
+---
+// Illustration for the BAMCP eval post: why a heterozygous insertion in a long homopolymer looks
+// like a low-fraction variant when every read at the site is counted, and like a heterozygous one
+// when only the reads that span the whole run are. Synthetic and fixed: 20 reads, 6 carry the
+// insertion and span the run, 6 span the run without it, and 8 end (or start) inside the run and
+// so cannot show its length. Naive fraction 6/20 = 30%; spanning-read fraction 6/12 = 50%.
+// Animated: the reads that cannot show the length fade out and the fraction updates. With reduced
+// motion both fractions are shown and the partial reads are drawn dashed.
+const RUN = { start: 14, end: 26 }; // homopolymer columns [start, end)
+const COLS = 40;
+const CW = 10;
+const RH = 7;
+const GAP = 3;
+const top = 34;
+
+type Read = { from: number; to: number; ins: boolean; spans: boolean };
+const reads: Read[] = [];
+const spanStarts = [1, 3, 5, 7, 9, 11, 2, 4, 6, 8, 10, 12];
+spanStarts.forEach((s, i) => {
+  reads.push({ from: s, to: Math.min(COLS, s + 28), ins: i < 6, spans: true });
+});
+// Reads that end inside the run (from the left) or start inside it (from the right).
+[
+  [0, 18],
+  [2, 21],
+  [5, 23],
+  [8, 20],
+].forEach(([f, t]) => {
+  reads.push({ from: f, to: t, ins: false, spans: false });
+});
+[
+  [17, 40],
+  [19, 39],
+  [22, 40],
+  [24, 38],
+].forEach(([f, t]) => {
+  reads.push({ from: f, to: t, ins: false, spans: false });
+});
+// Interleave so partial reads sit among spanning ones, like a real pileup.
+const order = [0, 12, 6, 1, 13, 7, 2, 16, 8, 3, 14, 9, 4, 17, 10, 15, 5, 18, 11, 19];
+const rows = order.map((i) => reads[i]);
+const W = COLS * CW;
+const H = top + rows.length * (RH + GAP) + 6;
+const insX = RUN.start * CW + 3 * CW; // where the inserted base is marked within the run
+---
+
+<figure class="spanning">
+  <svg viewBox={`0 0 ${W} ${H + 44}`} role="img" aria-labelledby="span-title span-desc">
+    <title id="span-title">Counting a heterozygous insertion in a homopolymer run</title>
+    <desc id="span-desc">
+      Twenty reads cover a run of twelve identical bases. Six carry a one-base insertion and span
+      the run, six span it without the insertion, and eight end or start inside it. Counted over
+      all twenty reads the insertion is at 30 percent, which looks like a low-fraction variant.
+      Counted over the twelve reads that span the run it is at 50 percent, which is what a
+      heterozygous variant looks like.
+    </desc>
+    <rect class="run" x={RUN.start * CW} y="4" width={(RUN.end - RUN.start) * CW} height={H - 4} rx="4" />
+    <text class="label" x={(RUN.start + RUN.end) / 2 * CW} y="18" text-anchor="middle">
+      12-base run of A
+    </text>
+    {
+      rows.map((r, i) => (
+        <g class:list={['read', r.spans ? 'spans' : 'partial']}>
+          <rect x={r.from * CW} y={top + i * (RH + GAP)} width={(r.to - r.from) * CW} height={RH} rx="3" />
+          {r.ins && <rect class="ins" x={insX - 2} y={top + i * (RH + GAP) - 2} width="4" height={RH + 4} rx="1" />}
+        </g>
+      ))
+    }
+    <g class="counts" transform={`translate(0 ${H + 14})`}>
+      <text class="count all">Counting every read: 6 of 20 carry the insertion = 30%</text>
+      <text class="count span" y="22">Counting reads that span the run: 6 of 12 = 50%</text>
+    </g>
+  </svg>
+  <figcaption>
+    A synthetic example. The purple marks are the inserted base. Reads that stop inside the run
+    can't show how long it is, so counting them as reference drags a heterozygous variant down to
+    something that looks like a low-fraction one.
+  </figcaption>
+</figure>
+
+<style>
+  .spanning {
+    margin: 1.8rem 0 2.2rem;
+    --ins: #6250d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    .spanning {
+      --ins: #9085e9;
+    }
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .run {
+    fill: var(--bg-subtle);
+    stroke: var(--border);
+  }
+  .label {
+    font-size: 13px;
+    fill: var(--fg-muted);
+  }
+  .read rect:first-child {
+    fill: var(--fg-muted);
+    opacity: 0.55;
+  }
+  .ins {
+    fill: var(--ins);
+  }
+  .count {
+    font-size: 14px;
+    fill: var(--fg);
+  }
+  .count.all {
+    fill: var(--fg-muted);
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+
+  /* Static (reduced motion): partial reads drawn as outlines, both counts visible. */
+  .partial rect:first-child {
+    fill: none;
+    stroke: var(--fg-muted);
+    stroke-dasharray: 3 3;
+    opacity: 0.8;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .partial rect:first-child {
+      fill: var(--fg-muted);
+      stroke: none;
+      opacity: 0.55;
+      animation: fade-partial 8s ease-in-out infinite;
+    }
+    .count.all {
+      animation: count-all 8s ease-in-out infinite;
+    }
+    .count.span {
+      animation: count-span 8s ease-in-out infinite;
+    }
+  }
+  @keyframes fade-partial {
+    0%,
+    35% {
+      opacity: 0.55;
+    }
+    45%,
+    85% {
+      opacity: 0.08;
+    }
+    95%,
+    100% {
+      opacity: 0.55;
+    }
+  }
+  @keyframes count-all {
+    0%,
+    35% {
+      fill: var(--fg);
+    }
+    45%,
+    85% {
+      fill: var(--fg-muted);
+      opacity: 0.45;
+    }
+    95%,
+    100% {
+      fill: var(--fg);
+    }
+  }
+  @keyframes count-span {
+    0%,
+    35% {
+      opacity: 0.35;
+    }
+    45%,
+    85% {
+      opacity: 1;
+    }
+    95%,
+    100% {
+      opacity: 0.35;
+    }
+  }
+</style>

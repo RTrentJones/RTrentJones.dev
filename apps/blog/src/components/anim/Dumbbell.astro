@@ -1,0 +1,289 @@
+---
+// Two-series dumbbell chart: for each row, a baseline value (series 1, blue) and the value with a
+// treatment (series 2, orange), joined by a line. Dots, not bars, so the axis may start above zero;
+// the domain is passed in and shown on the axis. Animated: the treatment dot slides out from the
+// baseline as the chart scrolls into view (on load without scroll-driven support; static under
+// reduced motion). Legend always shown (two series), values labelled at both dots, native tooltip per
+// row, and a table view underneath.
+interface Row {
+  label: string;
+  sub?: string;
+  from: number;
+  to: number;
+  fromText?: string;
+  toText?: string;
+}
+interface Props {
+  title: string;
+  subtitle?: string;
+  fromLabel: string;
+  toLabel: string;
+  domain: [number, number];
+  ticks: number[];
+  format?: 'pct' | 'raw';
+  rows: Row[];
+  caption?: string;
+}
+const { title, subtitle, fromLabel, toLabel, domain, ticks, format = 'pct', rows, caption } =
+  Astro.props;
+const W = 420;
+const labelW = 150;
+const plotL = labelW + 14;
+const plotR = W - 46;
+const rowH = 46;
+const top = 6;
+const H = top + rows.length * rowH + 24;
+const x = (v: number) => plotL + ((v - domain[0]) / (domain[1] - domain[0])) * (plotR - plotL);
+const fmt = (v: number) => (format === 'pct' ? `${(v * 100).toFixed(1).replace(/\.0$/, '')}%` : String(v));
+const tickFmt = (v: number) => (format === 'pct' ? `${Math.round(v * 100)}%` : String(v));
+---
+
+<figure class="dumbbell">
+  <p class="title">{title}</p>
+  {subtitle && <p class="subtitle">{subtitle}</p>}
+  <ul class="legend" aria-hidden="true">
+    <li><span class="swatch s1"></span>{fromLabel}</li>
+    <li><span class="swatch s2"></span>{toLabel}</li>
+  </ul>
+  <svg
+    viewBox={`0 0 ${W} ${H}`}
+    role="img"
+    aria-label={`${title}. ${rows
+      .map((r) => `${r.label}${r.sub ? ` (${r.sub})` : ''}: ${fromLabel} ${r.fromText ?? fmt(r.from)}, ${toLabel} ${r.toText ?? fmt(r.to)}`)
+      .join('; ')}.`}
+  >
+    {
+      ticks.map((t) => (
+        <g>
+          <line class="grid" x1={x(t)} x2={x(t)} y1={top} y2={H - 22} />
+          <text class="tick" x={x(t)} y={H - 6} text-anchor="middle">
+            {tickFmt(t)}
+          </text>
+        </g>
+      ))
+    }
+    {
+      rows.map((r, i) => {
+        const cy = top + i * rowH + rowH / 2;
+        const x1 = x(r.from);
+        const x2 = x(r.to);
+        const right = x2 >= x1;
+        return (
+          <g class="row">
+            <title>{`${r.label}${r.sub ? ` (${r.sub})` : ''}: ${fromLabel} ${r.fromText ?? fmt(r.from)}, ${toLabel} ${r.toText ?? fmt(r.to)}`}</title>
+            <text class="row-label" x={labelW} y={cy - 2} text-anchor="end">
+              {r.label}
+            </text>
+            {r.sub && (
+              <text class="row-sub" x={labelW} y={cy + 13} text-anchor="end">
+                {r.sub}
+              </text>
+            )}
+            <line class="link" x1={x1} x2={x2} y1={cy} y2={cy} style={`--len: ${Math.abs(x2 - x1)}`} />
+            <circle class="dot s1" cx={x1} cy={cy} r="5.5" />
+            <circle class="dot s2" cx={x2} cy={cy} r="5.5" style={`--dx: ${x1 - x2}px`} />
+            <text class="val" x={right ? x1 - 9 : x1 + 9} y={cy - 9} text-anchor={right ? 'end' : 'start'}>
+              {r.fromText ?? fmt(r.from)}
+            </text>
+            <text class="val strong" x={right ? x2 + 9 : x2 - 9} y={cy - 9} text-anchor={right ? 'start' : 'end'}>
+              {r.toText ?? fmt(r.to)}
+            </text>
+            <rect class="hit" x="0" y={top + i * rowH} width={W} height={rowH} />
+          </g>
+        );
+      })
+    }
+  </svg>
+  <details>
+    <summary>Table</summary>
+    <table>
+      <thead>
+        <tr><th></th><th class="num">{fromLabel}</th><th class="num">{toLabel}</th></tr>
+      </thead>
+      <tbody>
+        {
+          rows.map((r) => (
+            <tr>
+              <td>{r.label}{r.sub && <span class="muted"> · {r.sub}</span>}</td>
+              <td class="num">{r.fromText ?? fmt(r.from)}</td>
+              <td class="num">{r.toText ?? fmt(r.to)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </details>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .dumbbell {
+    margin: 1.8rem 0 2.2rem;
+    --s1: #2a78d6;
+    --s2: #eb6834;
+  }
+  @media (prefers-color-scheme: dark) {
+    .dumbbell {
+      --s1: #3987e5;
+      --s2: #d95926;
+    }
+  }
+  .title {
+    margin: 0;
+    font-weight: 600;
+  }
+  .subtitle {
+    margin: 0.1rem 0 0.4rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.2rem;
+    list-style: none;
+    margin: 0 0 0.4rem;
+    padding: 0;
+    font-size: var(--text-sm);
+  }
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .swatch {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+  }
+  .swatch.s1 {
+    background: var(--s1);
+  }
+  .swatch.s2 {
+    background: var(--s2);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .grid {
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .tick {
+    font-size: 12.5px;
+    fill: var(--fg-muted);
+  }
+  .row-label {
+    font-size: 14px;
+    fill: var(--fg);
+  }
+  .row-sub {
+    font-size: 12.5px;
+    fill: var(--fg-muted);
+  }
+  .link {
+    stroke: var(--fg-muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.5;
+  }
+  .dot {
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+  .dot.s1 {
+    fill: var(--s1);
+  }
+  .dot.s2 {
+    fill: var(--s2);
+  }
+  .val {
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    fill: var(--fg-muted);
+  }
+  .val.strong {
+    fill: var(--fg);
+    font-weight: 600;
+  }
+  .hit {
+    fill: transparent;
+  }
+  details {
+    margin-top: 0.4rem;
+    font-size: var(--text-sm);
+  }
+  summary {
+    cursor: pointer;
+    color: var(--fg-muted);
+  }
+  table {
+    border-collapse: collapse;
+    margin-top: 0.4rem;
+  }
+  th,
+  td {
+    padding: 0.2rem 0.8rem 0.2rem 0;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .dot.s2 {
+      animation: slide 1.1s ease-out both;
+    }
+    .link {
+      stroke-dasharray: calc(var(--len) * 1px) 1000px;
+      animation: draw 1.1s ease-out both;
+    }
+    .val.strong {
+      animation: appear 1.1s ease-out both;
+    }
+    @supports (animation-timeline: view()) {
+      .dot.s2,
+      .link,
+      .val.strong {
+        animation-timeline: view();
+        animation-range: entry 10% cover 35%;
+      }
+    }
+  }
+  @keyframes slide {
+    from {
+      transform: translateX(var(--dx));
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes draw {
+    from {
+      stroke-dashoffset: calc(var(--len) * 1px);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes appear {
+    0%,
+    70% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+</style>
