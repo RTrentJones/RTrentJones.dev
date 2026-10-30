@@ -1,0 +1,115 @@
+---
+title: Polyphony
+summary: An invite-only writing app for long fiction, where the author's own book is the source of truth for every outline, scene and character the model writes.
+repoUrl: https://github.com/RTrentJones/Polyphony
+status: experimental
+verifyMode: api
+evidenceUrl: https://tracer.rtrentjones.dev/projects/polyphony
+order: 6
+tagline: Model-assisted fiction that has to stay faithful to the author's book.
+date: 2026-10-30
+---
+
+import SynopsisCut from '../../components/anim/SynopsisCut.astro';
+
+> Polyphony is a multi-user writing app for novels. An author adds their own material, and
+> Polyphony proposes the book's canon from it: the cast, the facts of the world, a style guide and a
+> synopsis. The author reviews and commits that canon. Every outline, scene and revision the model
+> writes afterwards is built from it and checked against it. It is invite-only, runs on free-tier
+> models by default, and is in the middle of a long evaluation effort, which this page describes as
+> it stands.
+
+## The incident that shaped it
+
+Polyphony's requirements document opens with a failure. An author supplied a 20,001-character
+synopsis for a satirical novel about a lich systems analyst, an uncontrollable sorceress and a
+four-hundred-year-old Chief Executive Lich. Polyphony returned a twelve-chapter outline starring
+"Elara", a character who appears nowhere in the book. It read "the CEL" as a company called
+"Corporeal Energy Logistics", left out the entire cast, and turned a quiet story about consent into
+a chosen-one rebellion. The author's note on the output reads "THIS IS CLEARLY NOTHING LIKE MY
+DESCRIPTION."
+
+The cause wasn't the prompt. A sanitizer cut the synopsis to its first 2,000 characters, a filter
+meant to block prompt injection rewrote every `--` in the text, and the character list came back
+empty because a foreign key was never written.
+
+<SynopsisCut />
+
+Everything since follows from that. The book is the root of every concept in the data model,
+extraction proposes and the author commits, the outline has to pass a check that the book's
+principal cast appears in it, and the author's text reaches the model as quoted story material
+instead of being filtered.
+
+## What it does today
+
+- **Sources.** An author creates a book and adds sources, uploaded files or pasted text.
+- **Canon.** Polyphony extracts a proposed cast, world facts, a style guide and a synopsis, which
+  the author reviews and commits. Entities are versioned, so earlier versions can be restored.
+- **Voices.** Each character's lines are indexed, and scene generation draws on samples of how
+  that character speaks.
+- **Outline.** A staged outline runs as a background job: the premise is restated for the author to
+  confirm, then chapters and beats are planned, with a hard check that the principal cast appears.
+- **Scenes.** Outline chapters become chapters with planned beats, and scenes are generated one at
+  a time or for a whole chapter.
+- **Revision and continuity.** Revisions arrive as proposals the author accepts or discards, and
+  continuity findings quote the passage they refer to.
+- **Export.** A book exports as a manuscript, by chapter range.
+
+## How it's built
+
+Polyphony is one FastAPI application serving a statically exported Next.js frontend from a single
+container on an Oracle Cloud free-tier instance, behind a Cloudflare tunnel. One Neon Postgres
+database holds both the book data and the voice index, using pgvector, and embeddings are computed
+locally with fastembed.
+
+The model layer is a registry of providers chosen by configuration. By default every account writes
+with Gemini Flash-Lite on its free tier, paced to its rate limits. An allowlisted account can be
+routed to Claude, and a monthly spend ceiling is checked before every paid call; a call that would
+cross it pauses the job instead of failing it. Background jobs pause the same way on quota limits,
+and the worker sits idle without querying the database, so Neon can suspend it between uses.
+Registration needs an invite code, because every account shares the same model quota.
+
+## How it's evaluated
+
+The evaluations use public-domain novels as labelled data: *Frankenstein*, *Dracula* and *Wuthering
+Heights*, with every character and place renamed. There is also a synthetic book written to
+reproduce the Elara failure. A finished novel provides a true cast, each character's real dialogue,
+a plot and a timeline, so the pipeline's output can be scored against it. Renaming removes the
+easiest cue but doesn't stop a model from recognising famous prose. Because the prompts have been
+tuned against those books for many rounds, two further novels are held out and run only once per
+release.
+
+The measures cover extraction against the true cast, retrieval quality, whether an outline keeps
+the book's cast, whether continuity checks catch errors planted in a chapter, and the quality of the
+prose. The prose is judged by a model from a different family than the one that wrote it. In CI, an
+outline of the synthetic book has to keep at least 90% of its principal cast.
+
+Most of the recent work has gone into making those measurements trustworthy before relying on them
+for product decisions. In late October that meant a fixed $64 budget spent on a series of
+experiments:
+
+- Claude Sonnet as a judge caught every visible kind of damage planted in test chapters, including
+  a removed plot change that the free judge mostly missed. Its scores also varied little between
+  two passes over the same chapters.
+- A narrator test that the free judge had failed turned out to be the judge's limitation, not the
+  test's. A redesigned version picks the right narrator with both judges: every time with Sonnet,
+  and three times in four with the free judge.
+- An earlier comparison couldn't tell whether retrieving each character's voice samples writes
+  better scenes than a simpler approach, which quotes each character's first few lines. With the
+  stronger judge it remains a near tie, 0.56 with a 95% interval of 0.36 to 0.75 over 18 scenes. A
+  paid multi-model ensemble came last in every comparison.
+- The main question, whether the newest release writes better chapters than the one before, is
+  being measured blind on whole chapters through November 10. Its judgments stay sealed until
+  generation ends, under a plan signed before any data was produced.
+
+## Where it stands
+
+Polyphony works end to end for invited accounts, and it is still experimental. Ensemble writing is
+switched off on the free tier, accessibility work is partly done, and the evaluation above found
+that an outline can plan chapter beats that name no character, which generation then refuses. That
+defect is queued for a later release.
+
+The status link on this page goes to Polyphony's signals on [Tracer](/tracer/), which currently
+show red. Those runs come from the experiments described above, which collect judgments for
+separate analysis instead of scoring cases, and Polyphony's eval report marks any run with no scored
+cases as failed. For the chapter comparison, the judgments stay sealed until November 10 by design.

@@ -24,6 +24,7 @@ export default ({ env }: VerifyConfigContext) => ({
     { path: '/heistmind/', status: 200 },
     { path: '/bamcp/', status: 200 },
     { path: '/pg_kafka/', status: 200 },
+    { path: '/polyphony/', status: 200, contains: 'cut-title' },
     { path: '/tracer/', status: 200 },
     { path: '/blog/greenlight/', status: 200 },
     { path: '/blog/pg-kafka-proof/', status: 200 },
