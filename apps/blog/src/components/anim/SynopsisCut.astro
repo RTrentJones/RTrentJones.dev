@@ -1,0 +1,87 @@
+---
+// Figure for the Polyphony page: how much of the author's synopsis the model actually received in
+// the incident that shaped the project. 2,000 of 20,001 characters (6.5%), from docs/BRD.md §1.1.
+// A bar for the full synopsis, then a second bar that shrinks to the 2,000 characters that were
+// sent. Pure SVG + CSS; static (already cut) under reduced motion.
+const TOTAL = 20001;
+const SENT = 2000;
+const W = 420;
+const sentW = (SENT / TOTAL) * W;
+---
+
+<figure class="cut">
+  <svg viewBox={`0 0 ${W} 132`} role="img" aria-labelledby="cut-title cut-desc">
+    <title id="cut-title">How much of the synopsis the model received</title>
+    <desc id="cut-desc">
+      The author's synopsis was 20,001 characters long. The model received the first 2,000, about
+      6.5 percent, and an empty character list.
+    </desc>
+    <text class="label" x="0" y="14">The author's synopsis: 20,001 characters</text>
+    <rect class="full" x="0" y="24" width={W} height="20" rx="4" />
+    <text class="label" x="0" y="74">What the model received</text>
+    <rect class="track" x="0" y="84" width={W} height="20" rx="4" />
+    <rect class="sent" x="0" y="84" width={W} height="20" rx="4" style={`--keep: ${sentW / W}`} />
+    <text class="note" x="0" y="124">2,000 characters (6.5%), and an empty character list</text>
+  </svg>
+  <figcaption>From the incident write-up in Polyphony's requirements document.</figcaption>
+</figure>
+
+<style>
+  .cut {
+    margin: 1.8rem 0 2.2rem;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .label {
+    font-size: 14px;
+    font-weight: 600;
+    fill: var(--fg);
+  }
+  .note {
+    font-size: 13px;
+    fill: var(--fg-muted);
+  }
+  .full,
+  .sent {
+    fill: var(--accent);
+  }
+  .track {
+    fill: var(--bg-subtle);
+    stroke: var(--border);
+  }
+  .sent {
+    transform-box: fill-box;
+    transform-origin: left center;
+    transform: scaleX(var(--keep));
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sent {
+      animation: cut 2.2s ease-in-out both;
+    }
+    @supports (animation-timeline: view()) {
+      .sent {
+        animation-timeline: view();
+        animation-range: entry 20% cover 45%;
+      }
+    }
+  }
+  @keyframes cut {
+    0%,
+    30% {
+      transform: scaleX(1);
+    }
+    100% {
+      transform: scaleX(var(--keep));
+    }
+  }
+</style>

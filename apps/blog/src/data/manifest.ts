@@ -30,10 +30,20 @@ const PROVIDER_LABEL: Record<string, string> = {
   gemini: 'Gemini',
 };
 
+/** How a tool's stack is SHOWN where the manifest cell describes the deploy shape rather than the app.
+ * polyphony's manifest lane is 'mcp' only because that lane gates the oci target (it is a FastAPI
+ * app, not an MCP server), and its Neon database is instantiated directly in infra/polyphony.tf, so
+ * the manifest's data is 'none'. Display only: URLs and verify still read the real manifest entry. */
+const DISPLAY: Record<string, Partial<Facets>> = {
+  polyphony: { lane: 'fastapi', data: 'neon' },
+};
+const shown = (t: Facets): Facets => ({ ...t, ...DISPLAY[t.name] });
+
 /** The providers a tool leans on, derived from its lane × target × data (mirrors the CLI's packs).
  * Cloudflare is the edge/DNS for every tool; target adds the host; data adds the store; the agent
  * lane adds the LLM. */
-export function providersFor(t: Facets): string[] {
+export function providersFor(tool: Facets): string[] {
+  const t = shown(tool);
   const ids = new Set(['cloudflare']);
   if (t.target === 'vercel') ids.add('vercel');
   if (t.target === 'oci') ids.add('oci');
@@ -46,7 +56,8 @@ export function providersFor(t: Facets): string[] {
 }
 
 /** Compact "lane · target · data" for the card. */
-export function stackLine(t: Facets): string {
+export function stackLine(tool: Facets): string {
+  const t = shown(tool);
   const parts = [t.lane, t.target];
   if (t.data && t.data !== 'none') parts.push(t.data);
   return parts.join(' · ');
