@@ -5,7 +5,8 @@
 // alternates between the original style (every base coloured) and the current one (reads grey,
 // only mismatches coloured). With reduced motion both panels are shown side by side, statically.
 const REF = 'TGCATTGACCTGAAGTCCAGTTGCAAGTCA';
-const ALT_COL = 14; // the homozygous column (ref A -> G)
+const ALT_COL = 12; // the homozygous column: REF[12] is A, and every read carries G
+const ALT_BASE = 'G';
 const READS = 11;
 const BASES = ['A', 'C', 'G', 'T'] as const;
 const COLOUR: Record<string, string> = {
@@ -30,14 +31,17 @@ for (let r = 0; r < READS; r++) {
   const end = REF.length - Math.floor(rand() * 6);
   for (let c = start; c < end; c++) {
     let base = REF[c];
-    if (c === ALT_COL) base = 'G';
+    if (c === ALT_COL) base = ALT_BASE;
     else if (rand() < 0.025) base = BASES.filter((b) => b !== REF[c])[Math.floor(rand() * 3)];
     cells.push({ x: c, y: r, base, mismatch: base !== REF[c] });
   }
 }
-// The homozygous column must be covered by every read for the illustration to hold.
-const coverAlt = new Set(cells.filter((c) => c.x === ALT_COL).map((c) => c.y)).size;
-if (coverAlt !== READS) throw new Error('PileupColours: alt column not fully covered');
+// The illustration only holds if every read covers the homozygous column and every one of those
+// cells differs from the reference; fail the build otherwise.
+const altCells = cells.filter((c) => c.x === ALT_COL);
+if (new Set(altCells.map((c) => c.y)).size !== READS || !altCells.every((c) => c.mismatch)) {
+  throw new Error('PileupColours: the homozygous column must be covered by every read and differ from REF');
+}
 
 const CW = 13;
 const CH = 11;
