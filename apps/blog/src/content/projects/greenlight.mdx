@@ -10,85 +10,104 @@ tagline: A deploy → verify → promote framework for my side projects.
 date: 2026-06-23
 ---
 
-> Greenlight is a verification engine and deployment framework. From one manifest entry per tool it
-> emits provider-pluggable Terraform — Cloudflare Workers, Vercel, Oracle Cloud, Neon — and runs a
-> strict **deploy → verify → promote** loop. Six verification modes, combinable per tool, decide
-> whether a deploy is good; the promote gate only advances commits that passed. It's the framework
-> that runs this whole site — the blog you're reading ships through it.
+> Greenlight is a deployment and verification framework for small projects. From one manifest
+> entry per tool it emits Terraform for pluggable providers (Cloudflare Workers, Vercel, Oracle
+> Cloud, a Docker host, Neon and Supabase) and runs a strict **deploy → verify → promote** loop. Six
+> verification modes, combinable per tool, decide whether a deploy is good, and promotion only
+> advances the exact commit that passed. Every project on this site ships through it, including the
+> blog you're reading.
 
-I didn't set out to build another deployment framework. I was trying to revive HeistMind after its
-free-tier database had been archived and realized I had rebuilt roughly the same deploy-and-check
-loop several times already. Every project needed environments, deployment, some way to check the
-deployed version, and a safe path to production. I pulled that repeated glue into its own tool.
+Part of my work at Amazon, on Alexa, was developer tooling and the machinery that ships software:
+environments, deploys, and the checks that decide whether a build is fit to promote. Greenlight is a
+small, personal version of that kind of system. I built it while reviving HeistMind, after noticing that I had rebuilt the
+same deploy-and-check loop for several side projects; [the story is in a
+post](/blog/greenlight/).
 
-Most personal infrastructure rots the moment you look away. Free-tier databases pause, a dependency
-drifts, a "live" link quietly 404s, and you find out months later. Greenlight treats "deployed and
-working" as a property the platform _asserts on every push_, not a thing you remember to check. The
-same harness that deploys a tool is the one that proves it, and the same code runs locally and in CI
-— so the local check and the prod gate exercise the same verification contract.
+Most personal infrastructure decays once you stop looking at it. Free-tier databases pause, a
+dependency drifts, a "live" link starts returning 404, and you find out months later. Greenlight
+treats "deployed and working" as something each push has to demonstrate. The same harness that
+deploys a tool also verifies it, and the same code runs on my laptop, in CI and for an agent, so a
+local check and the production gate mean the same thing.
 
-## Six verify modes — what each one proves
+## Six verify modes, and what each one shows
 
-A tool declares how it must be verified; the harness runs one `verify(baseUrl, spec)` with the modes
-that fit its lane, combinable as an array. Each mode answers a different question:
+A tool declares how it must be verified, and the harness runs one `verify(baseUrl, spec)` with the
+modes that fit, combinable as a list. Each mode answers a different question:
 
-- **`api`** — does the deployed surface respond correctly? HTTP status and body checks (for the blog:
-  every route is 200, the RSS and sitemap parse, no internal link is broken).
-- **`playwright`** — do the real UI flows work in a browser, not just in unit tests?
-- **`test`** — does the tool's own suite still pass against what's about to ship? (It's also the
-  ship-gate: CI won't deploy a tool whose tests are red.)
-- **`mcp`** — does an MCP server speak the protocol? `initialize` → `tools/list` → call a tool and
-  assert the response shape → assert that an unauthenticated call is rejected. A drift-guard pins the
-  exact tool set, so a dropped or renamed tool fails the deploy.
-- **`eval`** — are the answers actually good? An LLM-as-judge grades an MCP server's responses, so
-  quality regressions are caught, not just crashes.
-- **`agent-web`** — can an agent accomplish a real goal? An LLM drives a live browser through a
-  scenario end-to-end and scores the result.
+- **`api`.** Does the deployed surface respond correctly? HTTP status and body checks. For this
+  blog that means every route returns 200, the RSS feed and sitemap parse, and no internal link is
+  broken.
+- **`playwright`.** Do the real UI flows work in a browser, including signed-in ones?
+- **`test`.** Does the tool's own suite pass against what's about to ship? CI won't deploy a tool
+  whose tests are red.
+- **`mcp`.** Does an MCP server speak the protocol? It runs `initialize`, lists the tools, calls
+  one and checks the response, and checks that an unauthenticated call is rejected. The tool list
+  has to match exactly, so a dropped or renamed tool fails the deploy.
+- **`eval`.** Are an MCP server's answers good? A model grades its responses against a rubric, so
+  quality regressions show up alongside crashes.
+- **`agent-web`.** Can an agent complete a real task? A model drives a live browser through a
+  scenario and the result is scored.
 
-The point isn't the count. It's that "verified" means something specific and appropriate to each kind
-of tool — an HTTP probe for a static site, a protocol handshake for an MCP server, an LLM judge for
-something whose output is a judgment call.
+The number matters less than the fit. Verification means something specific to each kind of tool:
+an HTTP check for a static site, a protocol handshake for an MCP server, a graded answer for a tool
+whose output is a judgement.
 
-## The promote gate — why prod only holds verified commits
+## Releasing exactly what was verified
 
-Branch maps to environment, enforced in CI: **PR → preview**, **`develop` → beta**, **`main` →
-prod**. Promotion is never a merge button. `greenlight promote` is an explicit, gated fast-forward:
+Branches map to environments: **`develop` → beta** and **`main` → prod**. Pull requests are checked
+locally with `greenlight preview`, which builds the tool, serves it and runs the same verification.
+A release is one `greenlight ship`: build, deploy, verify that the deployed `/__version` reports the
+commit that was just shipped, and roll back if verification fails.
 
-1. Verify **beta** — the candidate must be passing where it already runs.
-2. Fast-forward `develop` onto `main` (never a force-push, never a divergent merge).
-3. Deploy **prod**, then **verify prod** as the closing gate.
+Promotion is an explicit, gated fast-forward, pinned to a single commit from start to finish:
 
-Because the only path onto `main` is a fast-forward of an already-verified `develop`, the promotion
-path won't advance a commit that didn't pass the gate. Deploys are creds-guarded — without the token
-they skip cleanly instead of failing — but **promotion is not**: a missing credential fails the promote
-loudly rather than fast-forwarding an unverified build, so an unverified commit can't reach prod even
-when creds are absent.
+1. Record `develop`'s tip commit.
+2. Verify beta, including that it is serving that exact commit.
+3. Fast-forward `main` to that commit and no further, so commits that landed on `develop` after the
+   verification don't ride along.
+4. Ship prod at that commit and verify it, rolling back on failure.
+
+Deploys skip cleanly when cloud credentials are missing, but promotion doesn't. A missing credential
+can skip an action, never a check, so a promote without what it needs to verify fails loudly.
 
 ## Infrastructure as emitted code
 
-The manifest is the single source of truth. `greenlight add <name> --lane <l> --target <t>` scaffolds
-a tool and appends one entry describing what it is, where it runs, and how it's verified. From that,
-the CLI emits the Terraform — one module per tool, git-pinned in lockstep with the npm release — and
-gathers the tokens. Adding Workers, Vercel, OCI, or Neon to a tool is a manifest change, not a new
-pile of bespoke YAML; the providers are pluggable behind the same lifecycle.
+The manifest is the single source of truth. `greenlight add <name> --lane <l> --target <t>`
+scaffolds a tool, appends one entry describing what it is, where it runs and how it is verified, and
+emits a Terraform file for it that uses Greenlight's shared modules, pinned to the same version as the
+npm package. The CLI edits the infrastructure code; CI applies it. For the common combinations, a
+new target or data store is a manifest change. Anything unusual can still be written by hand beside
+the generated files.
 
-## Liveness as a feature
+## Liveness
 
-For the things that can pause — a free-tier database, an idle OCI container — a Cloudflare Worker
-cron health-checks them and, on an outage, fires a `repository_dispatch` that re-applies, redeploys,
-and re-verifies. Recover-on-alert keeps them on the free tier without a pay-as-you-go fallback. If a
-"live" link on this site ever goes dead, the same gate that ships everything else is meant to catch it
-before I do.
+Some things go quiet when nobody uses them. A Supabase database pauses after a week without database
+activity, so a Cloudflare Worker on a cron is meant to query a real table often enough to keep it
+awake. An
+Oracle Cloud free-tier container can be reclaimed, so the same Worker probes it and, for tools that
+opt in, fires a `repository_dispatch` that re-applies the infrastructure, redeploys and re-verifies.
+Neon suspends itself between uses and wakes on the next connection, so it is deliberately left
+alone. A failed probe opens a GitHub issue.
+
+The keepalive has failed in instructive ways, once by reporting a database healthy while it paused,
+and the details are in [a post of their own](/blog/keepalive-green-database-paused/).
+
+## What it has caught
+
+Checking the deployed commit is the part that has paid for itself most clearly. When Polyphony
+reworked its API in July, its verify spec still probed an endpoint that no longer existed, and yet
+deploys had been passing. The earlier passes had been checking the old container, which was still
+serving traffic after the deploy. Once verify had to confirm the deployed `/__version`, it checked
+the new image, the stale probe failed, and the gap became visible.
 
 ## A few design choices
 
-- **The checks are enforced, not remembered.** Every push re-asserts a tool's declared verification
-  contract — deploy health and the invariants it names — in the modality that actually proves it,
-  instead of trusting the last green run.
-- **One harness, many providers.** The same loop ships an Astro site to Workers, a Next app to
-  Vercel, and a Python MCP server to an OCI container. The lane and target are manifest cells; the
-  discipline doesn't change.
-- **It's published and consumed at arm's length.** Greenlight ships to npm as
-  [`@rtrentjones/greenlight`](https://www.npmjs.com/package/@rtrentjones/greenlight); this site is a
-  thin consumer pinned to a release, so the framework evolves upstream and arrives as a version bump
-  rather than copied-in source.
+- **Checks are enforced on every push.** Each push re-runs a tool's declared verification, in the
+  mode that fits it, instead of trusting the last green run.
+- **One harness, many providers.** The same loop ships an Astro site to Workers, a Next.js app to
+  Vercel, and Python services to Oracle Cloud containers. Lane and target are manifest fields, and
+  the discipline doesn't change between them.
+- **Published and consumed at arm's length.** Greenlight ships to npm as
+  [`@rtrentjones/greenlight`](https://www.npmjs.com/package/@rtrentjones/greenlight). This site is a
+  thin consumer pinned to a release, so framework changes arrive as a version bump, never as
+  copied-in source.
