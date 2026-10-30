@@ -138,6 +138,9 @@ const label = (key: string) => LABELS[key] ?? key;
     color: #c0392b;
   }
   .scroll {
+    /* Positioned so the absolutely positioned .sr labels inside the table are clipped by this
+       scroller; without it they resolve against the page and widen it on narrow screens. */
+    position: relative;
     overflow-x: auto;
     border: 1px solid var(--border);
     border-radius: 10px;

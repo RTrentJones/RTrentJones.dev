@@ -7,7 +7,7 @@ verifyMode: test
 evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
 order: 3
 featured: true
-tagline: The Kafka wire protocol, inside Postgres — 26 APIs, 900+ tests, 4 real clients.
+tagline: The Kafka wire protocol, inside Postgres — 26 APIs, nearly 900 tests, 4 real clients.
 date: 2026-06-26
 ---
 
@@ -19,7 +19,7 @@ import SessionCast from '../../components/SessionCast.astro';
 > A native PostgreSQL extension (Rust / `pgrx`) that embeds the **Kafka wire protocol** in the
 > database runtime. Point an unmodified Kafka client at Postgres on `:9092`, produce and consume —
 > and the messages are sitting in a SQL table. 26 Kafka APIs, consumer groups, idempotent +
-> transactional producers, shadow-forwarding to an external Kafka cluster, 900+ tests.
+> transactional producers, shadow-forwarding to an external Kafka cluster, nearly 900 tests.
 
 ## Why this exists
 
@@ -40,16 +40,18 @@ broker is a database extension?** That's the claim the rest of this page tries t
 
 ## Letting the clients try it
 
-I built the first version of pg_kafka in about three weeks with Claude Code, then didn't touch it for
-months. It was the first time the deploy-and-verify loop really clicked for me — because a Kafka
-implementation comes with its own test harness built in. The whole claim is that unmodified clients
+I built the first version of pg_kafka in about three weeks with Claude Code, testing it end to end
+through one client library, rust-rdkafka, and then didn't touch it for months. It was the first time
+the deploy-and-verify loop really clicked for me, because a Kafka implementation comes with its own
+test harness built in. The whole claim is that unmodified clients
 just work, so the clients _are_ the check: if kafkajs and librdkafka can produce and consume without
 knowing they're talking to Postgres, it works, and if they can't, it doesn't. I didn't have to invent
 a way to verify it.
 
 I came back to it later and wanted a demo that was more interesting than producing one message. An
 extension has no button to click, but it does have a large collection of independently written
-clients. So I run those clients on every tagged release and publish the coverage grid and benchmarks.
+clients. So I run four of them weekly and on every tagged release, and publish the coverage grid and
+benchmarks.
 The history lives in [Tracer](/tracer/), which is still a prototype.
 
 ## Client compatibility
@@ -57,8 +59,8 @@ The history lives in [Tracer](/tracer/), which is still a prototype.
 The report runs **kafkajs, librdkafka, kafka-python, and Sarama** against 23 of the 26 implemented
 APIs. The three newest admin APIs (DeleteRecords, DescribeConfigs, IncrementalAlterConfigs) aren't in
 the grid yet.
-Where a client genuinely doesn't exercise an API — kafka-python has no transaction support — the
-cell is marked **N/A**. The grid shows both the covered surface and where it stops.
+Where a client genuinely doesn't exercise an API, the cell is marked **N/A**: kafka-python 2.0.2,
+the version the grid pins, has no transaction support. The grid shows both the covered surface and where it stops.
 
 **At a glance:** four client libraries, 23 Kafka APIs in the grid, every supported cell passing — with the
 transaction cells marked N/A for kafka-python, which doesn't expose them.
@@ -68,8 +70,8 @@ transaction cells marked N/A for kafka-python, which doesn't expose them.
 ## What the verification loop caught
 
 The proof that the reportable version was worth building is a bug the grid caught that I never would
-have. My suite was nearly 900 tests deep and green, but I'd only ever run it against one client — my own
-mental model in different hats. The four-client grid ran Sarama, the Go one, and it couldn't even
+have. My suite was nearly 900 tests deep and green, but its end-to-end tests had only ever reached
+the server through one client library, and the unit tests came from the same head as the server. The four-client grid ran Sarama, the Go one, and it couldn't even
 connect.
 
 I'd recently tightened version negotiation so pg_kafka strictly rejected any request whose version ran
@@ -88,9 +90,13 @@ p50/p99 and msgs/sec — run next to two reference points under the _same_ singl
 harness: a raw-`INSERT` (the storage layer with no protocol) and a real Kafka broker. They're a
 like-for-like baseline, not each system's tuned throughput — in a single-client loop batching
 dominates, so read the table for _shape_ (what the protocol layer costs, what batching buys), not as
-a leaderboard. Normalized scores also flow into
-[Tracer](https://tracer.rtrentjones.dev/runs?tool=pg_kafka) — the eval dashboard, with pg_kafka
-wired in first — each time the evidence refreshes, so regressions show up over time.
+a leaderboard. Run unbatched against the same harness, the real broker is several times faster than
+pg_kafka, which is the cost of going through the protocol layer. Batching more than makes up for it,
+which is why the batched rows look flattering next to the unbatched baselines and shouldn't be read
+against them. Each refresh is also
+posted to [Tracer](https://tracer.rtrentjones.dev/projects/pg_kafka), which keeps the per-scenario
+history. Its pass rate for pg_kafka is a ratio that is always at its cap, so it can't flag a
+throughput drop yet; the scenario charts are where a change would show.
 
 <BenchTable />
 
@@ -124,9 +130,9 @@ table are one store. Want the real thing instead of a recording of it? The repo 
 - **The protocol is the product.** Binary Kafka frames are parsed and answered from inside the
   Postgres runtime — produce/fetch with `RecordBatch v2`, a full consumer-group coordinator
   (find-coordinator → join → sync → heartbeat → rebalance), and EOS transactions with
-  read-committed isolation. The 900-plus-test suite is what keeps all of that honest.
-- **The incomplete parts.** The implemented surface is 26 of Kafka's ~50 standard APIs, about half
-  the protocol, and
+  read-committed isolation. The test suite of nearly 900 tests is what keeps all of that honest.
+- **The incomplete parts.** The implemented surface is 26 APIs, which the project's deviations
+  document counts as about half of the ~50 it considers standard, and
   [`PROTOCOL_DEVIATIONS.md`](https://github.com/RTrentJones/pg_kafka/blob/main/docs/PROTOCOL_DEVIATIONS.md)
   spells out exactly where it diverges from a real broker — no fetch sessions, random rather than
   sticky partitioning for null-keyed records, no wire-level auth. A conformance claim is only worth
