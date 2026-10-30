@@ -1,0 +1,280 @@
+---
+// Animated diagram for the keepalive post: what a Supabase keepalive probe reached before and after
+// Greenlight 0.9. Before, the probe asked PostgREST for /rest/v1/, which PostgREST answers from its
+// schema cache, so Postgres never saw a query and its 7-day idle timer kept running. After, the
+// probe selects one row from a table, which has to reach Postgres and resets the timer.
+// Pure SVG + CSS (no client JS). With reduced motion the packets are hidden and each row shows its
+// end state: an empty timer marked "paused" before, a full one after.
+---
+
+<figure class="probe">
+  <svg
+    viewBox="0 0 420 262"
+    role="img"
+    aria-labelledby="probe-title probe-desc"
+  >
+    <title id="probe-title">What the keepalive probe reached, before and after Greenlight 0.9</title>
+    <desc id="probe-desc">
+      Two rows, each showing the keepalive Worker, PostgREST and Postgres. In the first row the
+      probe requests /rest/v1/, PostgREST answers from its schema cache, Postgres sees no query and
+      its seven-day idle timer runs out. In the second row the probe selects one row from a table,
+      the request reaches Postgres, and the idle timer resets.
+    </desc>
+
+    <!-- Row 1: before -->
+    <g class="row before">
+      <circle class="packet p-before" cx="106" cy="52" r="6" />
+      <text class="row-label" x="0" y="16">Greenlight 0.8 — GET /rest/v1/</text>
+      <rect class="box" x="0" y="30" width="100" height="44" rx="8" />
+      <text class="box-label" x="50" y="57">Worker</text>
+      <rect class="box cacheable" x="160" y="30" width="100" height="44" rx="8" />
+      <text class="box-label" x="210" y="57">PostgREST</text>
+      <rect class="box" x="320" y="30" width="100" height="44" rx="8" />
+      <text class="box-label" x="370" y="57">Postgres</text>
+
+      <line class="wire" x1="100" y1="52" x2="160" y2="52" />
+      <line class="wire idle" x1="260" y1="52" x2="320" y2="52" />
+      <text class="note" x="290" y="44">no query</text>
+
+      <text class="note" x="210" y="94">answered from schema cache</text>
+
+      <rect class="timer-track" x="320" y="84" width="100" height="8" rx="4" />
+      <rect class="timer drain" x="320" y="84" width="100" height="8" rx="4" />
+      <text class="note" x="370" y="108">7-day idle timer</text>
+      <text class="paused" x="370" y="124">paused</text>
+
+    </g>
+
+    <!-- Row 2: after -->
+    <g class="row after" transform="translate(0 136)">
+      <circle class="packet p-after" cx="106" cy="52" r="6" />
+      <text class="row-label" x="0" y="16">Greenlight 0.9 — GET /rest/v1/&lt;table&gt;?limit=1</text>
+      <rect class="box" x="0" y="30" width="100" height="44" rx="8" />
+      <text class="box-label" x="50" y="57">Worker</text>
+      <rect class="box" x="160" y="30" width="100" height="44" rx="8" />
+      <text class="box-label" x="210" y="57">PostgREST</text>
+      <rect class="box reached" x="320" y="30" width="100" height="44" rx="8" />
+      <text class="box-label" x="370" y="57">Postgres</text>
+
+      <line class="wire" x1="100" y1="52" x2="160" y2="52" />
+      <line class="wire" x1="260" y1="52" x2="320" y2="52" />
+      <text class="note" x="290" y="44">SELECT</text>
+
+      <rect class="timer-track" x="320" y="84" width="100" height="8" rx="4" />
+      <rect class="timer reset" x="320" y="84" width="100" height="8" rx="4" />
+      <text class="note" x="370" y="108">timer resets</text>
+
+    </g>
+  </svg>
+  <figcaption>
+    An illustration of one probe per cycle. The first request succeeds without Postgres ever seeing
+    it, so the idle timer runs out. The second can only be answered by running a query.
+  </figcaption>
+</figure>
+
+<style>
+  .probe {
+    margin: 1.8rem 0 2.2rem;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+  }
+  .row-label {
+    font-size: 14px;
+    font-weight: 600;
+    fill: var(--fg);
+  }
+  .box {
+    fill: var(--bg-subtle);
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .box-label {
+    font-size: 15px;
+    text-anchor: middle;
+    fill: var(--fg);
+  }
+  .note {
+    font-size: 12.5px;
+    text-anchor: middle;
+    fill: var(--fg-muted);
+  }
+  .wire {
+    stroke: var(--fg-muted);
+    stroke-width: 1.5;
+  }
+  .wire.idle {
+    stroke-dasharray: 3 4;
+    opacity: 0.6;
+  }
+  .timer-track {
+    fill: var(--border);
+  }
+  .timer {
+    fill: var(--accent);
+    transform-box: fill-box;
+    transform-origin: left center;
+  }
+  .paused {
+    font-size: 13px;
+    font-weight: 600;
+    text-anchor: middle;
+    fill: var(--warn);
+  }
+  .packet {
+    fill: var(--accent);
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+
+  /* Static end states: what reduced-motion readers (and any browser that skips the animation) see. */
+  .timer.drain {
+    transform: scaleX(0);
+  }
+  .timer.reset {
+    transform: scaleX(1);
+  }
+  .packet {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .packet {
+      animation: 6s ease-in-out infinite;
+    }
+    .p-before {
+      animation-name: probe-before;
+    }
+    .p-after {
+      animation-name: probe-after;
+    }
+    .timer.drain {
+      animation: drain 6s linear infinite;
+    }
+    .timer.reset {
+      animation: reset 6s linear infinite;
+    }
+    .paused {
+      animation: show-paused 6s linear infinite;
+    }
+    .cacheable {
+      animation: flash-cache 6s ease-in-out infinite;
+    }
+    .reached {
+      animation: flash-reached 6s ease-in-out infinite;
+    }
+  }
+
+  @keyframes probe-before {
+    0% {
+      transform: translateX(0);
+      opacity: 0;
+    }
+    6% {
+      opacity: 1;
+    }
+    30%,
+    40% {
+      transform: translateX(48px);
+      opacity: 1;
+    }
+    64% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    70%,
+    100% {
+      transform: translateX(0);
+      opacity: 0;
+    }
+  }
+  @keyframes probe-after {
+    0% {
+      transform: translateX(0);
+      opacity: 0;
+    }
+    6% {
+      opacity: 1;
+    }
+    34%,
+    42% {
+      transform: translateX(208px);
+      opacity: 1;
+    }
+    70% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    76%,
+    100% {
+      transform: translateX(0);
+      opacity: 0;
+    }
+  }
+  @keyframes drain {
+    0% {
+      transform: scaleX(1);
+    }
+    85%,
+    100% {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes show-paused {
+    0%,
+    84% {
+      opacity: 0;
+    }
+    88%,
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes reset {
+    0% {
+      transform: scaleX(0.55);
+    }
+    34% {
+      transform: scaleX(0.4);
+    }
+    37% {
+      transform: scaleX(1);
+    }
+    100% {
+      transform: scaleX(0.55);
+    }
+  }
+  @keyframes flash-cache {
+    0%,
+    28%,
+    44%,
+    100% {
+      fill: var(--bg-subtle);
+    }
+    32%,
+    38% {
+      fill: var(--border);
+    }
+  }
+  @keyframes flash-reached {
+    0%,
+    32%,
+    46%,
+    100% {
+      fill: var(--bg-subtle);
+    }
+    36%,
+    42% {
+      fill: var(--border);
+    }
+  }
+</style>

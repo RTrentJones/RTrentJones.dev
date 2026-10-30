@@ -28,6 +28,7 @@ export default ({ env }: VerifyConfigContext) => ({
     { path: '/blog/greenlight/', status: 200 },
     { path: '/blog/pg-kafka-proof/', status: 200 },
     { path: '/blog/starting-here/', status: 200 },
+    { path: '/blog/keepalive-green-database-paused/', status: 200, contains: 'probe-title' },
     // The custom 404 page serves (with a 404 status) for unmatched paths — confirms
     // wrangler's not_found_handling: "404-page" is wired and the silly page is reachable.
     // A reserved sentinel path (never a real route) so adding a page can't break this check.
