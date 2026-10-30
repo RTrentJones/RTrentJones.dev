@@ -10,52 +10,87 @@ const person = {
   jobTitle: 'Senior Software Development Engineer',
   worksFor: { '@type': 'Organization', name: 'Audible' },
   alumniOf: { '@type': 'CollegeOrUniversity', name: 'University of Southern California' },
+  knowsAbout: [
+    'Software engineering',
+    'Developer tooling',
+    'Clinical genomics software',
+    'Model Context Protocol',
+  ],
   sameAs: ['https://github.com/RTrentJones', 'https://www.linkedin.com/in/rtrentjones'],
 };
 ---
 
 <Base
   title="About"
-  description="About Trent Jones, a software engineer who builds side projects out of curiosity."
+  description="Trent Jones is a software engineer at Audible, previously on Alexa at Amazon, who started out building software for a clinical genetics lab."
   prose
   structuredData={person}
 >
   <h1>About</h1>
 
   <p>
-    I'm Trent. I'm a software engineer, currently working at Audible on the Creator side of the
-    business.
+    I'm Trent, a software engineer. I work at Audible, on the Creator side of the business, and
+    before that I spent most of my time at Amazon working on Alexa.
   </p>
 
-  <p>
-    Before that I spent most of my time at Amazon working on Alexa, across web, mobile, backend
-    services, developer tooling, and the machinery required to actually ship all of it.
-  </p>
-  <p>
-    I started my career at <a href="https://www.fulgentgenetics.com/">Fulgent Genetics</a>, when the
-    company was still small enough that being a software engineer meant working on whatever the lab
-    needed: the LIMS, tools for variant curation and clinical reporting, and the patient-facing
-    portal. I studied neuroscience and computer science at USC, so that part of my background has
-    never really disappeared. <a href="/bamcp/">BAMCP</a> is probably the most obvious example of it
-    showing back up.
-  </p>
+  <h2>Experience</h2>
+
+  <dl class="roles">
+    <dt>Audible</dt>
+    <dd>Software engineering on the Creator side of the business.</dd>
+
+    <dt>Amazon, Alexa</dt>
+    <dd>
+      Most of my time at Amazon, across web, mobile, backend services, developer tooling, and the
+      machinery required to actually ship all of it.
+    </dd>
+
+    <dt><a href="https://www.fulgentgenetics.com/">Fulgent Genetics</a></dt>
+    <dd>
+      Where I started, when the company was still small enough that being a software engineer meant
+      working on whatever the lab needed: the LIMS, tools for variant curation and clinical
+      reporting, and the patient-facing portal.
+    </dd>
+
+    <dt>University of Southern California</dt>
+    <dd>Neuroscience and computer science.</dd>
+  </dl>
 
   <p>
-    Outside work, I tend to build things because I want them to exist or because implementing
-    something seems like the best way to understand it.
+    The biology never entirely went away. <a href="/bamcp/">BAMCP</a>, an MCP server for inspecting
+    sequencing reads, is the most obvious place it shows up again. The release work did too:
+    <a href="/greenlight/">Greenlight</a> came from rebuilding the same deployment and verification
+    setup for several different side projects.
   </p>
 
+  <h2>Outside work</h2>
+
   <p>
-    <a href="/pg_kafka/">pg_kafka</a> started with me taking an argument about Postgres a little too
-    seriously. <a href="/heistmind/">HeistMind</a> was a tool I wanted for a tabletop game.
-    <a href="/greenlight/">Greenlight</a> came later, after I realized I'd rebuilt essentially the
-    same deployment and verification setup for several different projects.
+    I tend to build things because I want them to exist, or because implementing something seems
+    like the best way to understand it. <a href="/pg_kafka/">pg_kafka</a> started with me taking an
+    argument about Postgres a little too seriously. <a href="/heistmind/">HeistMind</a> was a tool I
+    wanted for a tabletop game. The rest are on the <a href="/projects/">projects page</a>.
   </p>
   <p>
-    This site is where I keep those things and occasionally write about what I learned building them.
+    This site is where I keep those things and write about what I learned building them, including
+    the parts that didn't work the first time.
   </p>
   <p>
     You can also find me on <a href="https://github.com/RTrentJones">GitHub</a> and
     <a href="https://www.linkedin.com/in/rtrentjones">LinkedIn</a>.
   </p>
 </Base>
+
+<style>
+  .roles {
+    margin: 0 0 1.4rem;
+  }
+  .roles dt {
+    font-weight: 600;
+    margin-top: 0.9rem;
+  }
+  .roles dd {
+    margin: 0.15rem 0 0;
+    color: var(--fg-muted);
+  }
+</style>
