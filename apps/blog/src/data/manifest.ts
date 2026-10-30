@@ -118,7 +118,8 @@ export const registeredTools: RegisteredTool[] = [
     name: 'blog',
     facets: blogFacets,
     providers: providersFor(blogFacets),
-    envs: ['prod'],
+    // deploy.yml ships develop → beta and main → prod.
+    envs: ['beta', 'prod'],
     access: 'public',
   },
   ...(config as unknown as { tools: (Facets & { access?: string; envs?: string[] })[] }).tools.map(
