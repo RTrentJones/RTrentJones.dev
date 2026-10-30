@@ -1,58 +1,103 @@
 ---
 title: Tracer
-summary: A small dashboard for keeping benchmark and eval history around after the CI run that produced it is gone.
+summary: A small dashboard that keeps the evals, checks, benchmarks and deploys of the projects on this site, so their history outlives the CI runs that produced it.
 repoUrl: https://github.com/RTrentJones/RTrentJones.dev/tree/main/tools/tracer
 status: prototype
-evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
+evidenceUrl: https://tracer.rtrentjones.dev/
 order: 5
 date: 2026-06-24
 ---
 
 import Shot from '../../components/BamcpDemo.astro';
 
-> Tracer is a place to keep benchmark and eval results after the CI run that produced them is gone.
-> Today it holds pg_kafka's benchmark history.
+> Tracer is where the projects on this site report their results: model evals, CI checks,
+> benchmarks, and the build, deploy and verify stages of each release. It keeps every run, groups
+> runs into signals, and shows each project's state the same way on its overview, its project
+> page, a JSON summary and an embeddable badge. It holds only what producers have posted, and it
+> seeds nothing.
 
 ## Why it exists
 
-I wanted benchmark history to outlive the CI log it appeared in. Tracer is the small persistence and
-UI layer for that: a run lands in Postgres and shows up as a trend instead of disappearing behind a
-green check.
+A CI run is a poor place to keep a result. The log scrolls away, the green check says nothing about
+whether a number moved, and comparing this week's eval with last month's means digging through
+artifacts. I wanted one place where every project's checks land, with enough history to see a
+trend and enough detail to see what changed between two runs.
 
-Where it stands today: the dashboard is deployed and holds **real runs from pg_kafka's benchmark
-pipeline** — a daily job reads pg_kafka's published benchmark and posts a normalized score whenever a
-new one appears (pg_kafka refreshes it on tagged releases, weekly, and on demand).
-I'm wiring the other tools' `eval` and browser-agent runs into it next, so for now it remains a
-prototype with one real source of data.
-
-## What's in it now
-
-- pg_kafka's normalized benchmark scores, one point per new benchmark
-- the commit SHA and verification timestamp behind each point
-- enough metadata to click a chart point back to the run that produced it
+There are mature tools for this, such as Langfuse, Braintrust and Arize Phoenix. Tracer is
+deliberately small and built around how this site ships. It stores scores on a 0 to 1 scale and
+accepts a run in its own JSON shape or one using the OpenTelemetry generative-AI attribute names, so
+the data could move to one of those tools later.
 
 ## See it
 
-The public view is currently filtered to pg_kafka: runs that persist instead of scrolling past.
+<Shot
+  poster="/tracer-overview.png"
+  alt="Tracer's overview page: summary tiles, a Needs attention list of four failing Polyphony eval signals, and project cards for polyphony, blog, tracer and pg_kafka with per-signal sparklines, verdicts and freshness."
+>
+  The overview on October 30. Each card is a project and each line is a signal with its trend,
+  latest verdict and age. The four red signals are Polyphony experiment runs that report no scored
+  cases; the Polyphony write-up explains why.
+</Shot>
+
+## How it reads the data
+
+- **Signals.** A signal is one feed: a project, a kind of check, a suite and an environment, such
+  as `pg_kafka · benchmark · ci` or `blog · verify · prod`. The model is left out, so a feed keeps
+  its history when the model under test changes.
+- **Regressions.** A run regresses when its pass rate falls below the last complete run of the same
+  model on the same feed. A run judged by a different model than its baseline is marked as not
+  comparable instead of regressed.
+- **Freshness.** Each producer declares a cadence. A daily feed goes stale after eight days without
+  a run and a weekly one after fifteen; an on-demand feed is never stale. Stale signals don't count
+  toward a project's status, so an abandoned feed can't hold a project red or green.
+- **Tracked feeds.** A producer can mark a feed as tracked instead of gating. It keeps its trend
+  but never turns the project, its badge or the attention list red, which suits measurements still
+  being calibrated.
+- **Runs and cases.** Each run page shows its commit, branch and CI run, its metrics against the
+  baseline's, and a case-by-case diff against that baseline run. Each project page has a matrix of
+  cases over the last fifteen runs that flags a case as flaky when its verdict keeps flipping.
+
+## What reports to it
+
+As of late October:
+
+- **The blog.** Every build, deploy and verify stage of a release, on beta and prod, posted by
+  Greenlight's `ship` from this site's deploy and promote workflows.
+- **pg_kafka.** Its published benchmark, read daily and posted when a new one appears, with each
+  scenario's throughput and p99 latency as metrics.
+- **Polyphony.** Its model evals, posted from its evaluation workflow when one is run.
+- **Tracer itself.** A daily check of its own API and test suite against prod.
+- **BAMCP.** Its CI and nightly evals are wired to publish a ground-truth score and an LLM-judged
+  eval, but no runs have arrived yet.
 
 <Shot
-  poster="/tracer-runs.png"
-  alt="Tracer's Runs page filtered to pg_kafka — a table of benchmark runs, one per commit, each in 'benchmark' mode and 'ci' env at 100% pass rate, with a 'detail' link per row."
+  poster="/tracer-project.png"
+  alt="Tracer's project page for pg_kafka: one benchmark signal at 12,299 msgs/s, and a pass-rate chart that sits at 100% for every run since September."
 >
-  Filtered to pg_kafka: one row per published benchmark, each run normalized to a pass rate, every
-  row clickable back to the run behind it. This is the history under the chart — the part a green check
-  in a CI log throws away.
+  pg_kafka's project page. The pass rate sits at 100% on every run, which is the limitation
+  described below.
 </Shot>
+
+## What it doesn't do yet
+
+pg_kafka's pass rate is its best throughput divided by a real Kafka broker's on the same harness,
+capped at 1. Because pg_kafka's best scenario is already faster than that reference, the pass rate
+is always 100%, and a drop in throughput can't register as a regression. Over the last two runs the
+headline figure fell by about 40% and nothing flagged it. A better rule would compare the scenario
+metrics, which Tracer already stores, instead of a ratio that saturates.
+
+The other gaps are smaller. Some early Polyphony experiments used the environment field for
+experiment names, which left stale feeds on its card. HeistMind and Muse don't report anything yet.
+An operator control can run a small demo suite across model providers, but it isn't part of any
+release gate.
 
 ## The stack
 
-- **Next.js on Vercel**, backed by **Neon** Postgres — a branch per env (prod + beta), so beta evals
-  never touch the prod record. (It's the first deployed tool on Greenlight's Neon backend.)
-- **Schema as code** — migrations run on the build against Neon's direct connection; the pooled
-  connection serves the app. Prod and beta hit different branches by design.
-
-## What's next
-
-- wire Greenlight's `eval` and `agent-web` runs into the same schema, so it's not just pg_kafka
-- run-detail pages: rubric, judge model, prompt, score, and artifact links per run
-- diff beta against the prod baseline _before_ a promote, not after
+- **Next.js on Vercel**, backed by **Neon** Postgres, with a database branch per environment so
+  beta runs never touch the production record.
+- **Schema as code.** Drizzle migrations run during the build, against the same branch the app
+  reads, after Greenlight's scan for dangerous SQL. The app reads through Neon's pooled connection.
+- **Ingest** is a bearer-authenticated `POST`, validated against a schema, with every link checked
+  as http(s). The summary and badge endpoints are public and cached.
+- **Tests.** A Vitest suite covers the signal, regression and ingest logic. A second set runs
+  against a throwaway Neon branch in CI, which is created for the run and deleted afterwards.
