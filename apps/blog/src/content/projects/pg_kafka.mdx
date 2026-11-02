@@ -7,7 +7,7 @@ verifyMode: test
 evidenceUrl: https://tracer.rtrentjones.dev/runs?tool=pg_kafka
 order: 3
 featured: true
-tagline: The Kafka wire protocol, inside Postgres — 26 APIs, nearly 900 tests, 4 real clients.
+tagline: The Kafka wire protocol, inside Postgres — 26 APIs, 925 tests, 4 real clients.
 date: 2026-06-26
 ---
 
@@ -19,7 +19,7 @@ import SessionCast from '../../components/SessionCast.astro';
 > A native PostgreSQL extension (Rust / `pgrx`) that embeds the **Kafka wire protocol** in the
 > database runtime. Point an unmodified Kafka client at Postgres on `:9092`, produce and consume —
 > and the messages are sitting in a SQL table. 26 Kafka APIs, consumer groups, idempotent +
-> transactional producers, shadow-forwarding to an external Kafka cluster, nearly 900 tests.
+> transactional producers, shadow-forwarding to an external Kafka cluster, 925 tests.
 
 ## Why this exists
 
@@ -130,7 +130,7 @@ table are one store. Want the real thing instead of a recording of it? The repo 
 - **The protocol is the product.** Binary Kafka frames are parsed and answered from inside the
   Postgres runtime — produce/fetch with `RecordBatch v2`, a full consumer-group coordinator
   (find-coordinator → join → sync → heartbeat → rebalance), and EOS transactions with
-  read-committed isolation. The test suite of nearly 900 tests is what keeps all of that honest.
+  read-committed isolation. The 925-test suite is what keeps all of that honest.
 - **The incomplete parts.** The implemented surface is 26 APIs, which the project's deviations
   document counts as about half of the ~50 it considers standard, and
   [`PROTOCOL_DEVIATIONS.md`](https://github.com/RTrentJones/pg_kafka/blob/main/docs/PROTOCOL_DEVIATIONS.md)
