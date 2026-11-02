@@ -57,7 +57,11 @@ jobs:
           fi
           terraform -chdir=infra init -input=false
           # -target pulls in the instance's deps (network/tunnel/neon outputs) automatically.
-          terraform -chdir=infra plan -input=false -out=tf.plan -target=module.polyphony_instance
+          # The keepalive Worker dispatches every remediate-<tool> in the same sweep, and they all share
+          # one HCP workspace while sitting in different concurrency groups, so the heals race for the
+          # state lock and the loser used to fail on "workspace already locked". -lock-timeout makes
+          # a heal wait its turn instead.
+          terraform -chdir=infra plan -input=false -lock-timeout=10m -out=tf.plan -target=module.polyphony_instance
           # Destroy-guard (matches infra.yml's): refuse if the heal would delete/replace a
           # stateful data store. Matches by resource TYPE, so address renames can't dodge it.
           terraform -chdir=infra show -json tf.plan > heal-plan.json
@@ -66,7 +70,7 @@ jobs:
             echo "::error::heal plan would destroy $BAD stateful store resource(s) — refusing to auto-apply. Use the gated infra workflow."
             exit 1
           fi
-          terraform -chdir=infra apply -input=false tf.plan
+          terraform -chdir=infra apply -input=false -lock-timeout=10m tf.plan
       # Same resolve→restart→verify as greenlight-deploy-polyphony (shared composite). The
       # terraform re-apply above recreates the box if it was reclaimed; this then restarts +
       # re-pulls + gates.
