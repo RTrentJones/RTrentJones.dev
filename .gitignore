@@ -18,3 +18,6 @@ crash.log
 
 .DS_Store
 *.log
+
+# Claude Code local (per-user) settings — "don't ask again" allowlists can capture tokens
+.claude/settings.local.json
