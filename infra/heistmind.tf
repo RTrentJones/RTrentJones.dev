@@ -214,12 +214,14 @@ module "keepalive" {
       # run `select ... limit 1`, a query that actually reaches Postgres. Supabase counts DATABASE
       # activity, so the old root ping (/rest/v1/, answered from PostgREST's schema cache) never
       # reset the 7-day timer — heistmind-db was paused in 2026-08 (keepalive alerted on the 530, but had never kept it up).
-      # `public.keepalive_probe` is the right table: it exists for this probe, `anon` has SELECT on
-      # it, and the request returns 200 with one row (checked against the live project 2026-11-15).
+      # `public.keepalive_probe` is the right table: HeistMind's 00022_launch_security_hardening
+      # migration created it for this probe (one non-PII row, anon SELECT), and the request returns
+      # 200 with one row (checked against the live project 2026-11-15).
       # The earlier choice, `public.profiles`, returns 401 "permission denied for table profiles"
-      # (Postgres 42501): the 00003_schema_grants migration that would grant anon SELECT on it was
-      # never applied to this database (only 00001 and 00002 are). The Worker counts only 2xx as
-      # healthy, so with `profiles` every sweep would report heistmind as failing.
+      # (Postgres 42501) since 2026-10-17: that same migration revoked anon's access to profiles on
+      # purpose (they were world-readable). `public` is shared by both env schemas, so the revoke
+      # reached prod as soon as it ran for development. The Worker counts only 2xx as healthy, so
+      # with `profiles` every sweep would report heistmind as failing.
       probeTable  = "keepalive_probe"
       probeSelect = "id"
     },
