@@ -66,9 +66,16 @@ jobs:
           # exceeded") so every later run fails. Only branches older than an hour are removed, so a
           # concurrent run on another ref keeps its own.
           CUTOFF=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
-          { neonctl branches list --project-id "$PID" --output json || echo '[]'; } \
-            | jq -r --arg p "ci-${TOOL}-" --arg c "$CUTOFF" \
-                '(if type == "array" then . else .branches end)[] | select((.name | startswith($p)) and .created_at < $c) | .name' \
+          # A failed listing must not read as "nothing to prune" (it used to be `|| echo '[]'`).
+          BRANCHES=$(neonctl branches list --project-id "$PID" --output json) \
+            || { echo "::error::could not list Neon branches for $PID"; exit 1; }
+          BRANCHES=$(jq -c '(if type == "array" then . else .branches end)' <<<"$BRANCHES")
+          # Branch names and dates are not secrets: print them so a "branches limit exceeded" run
+          # shows what holds the slots.
+          echo "Neon branches in $PID ($(jq length <<<"$BRANCHES")):"
+          jq -r '.[] | "  \(.name)\tcreated \(.created_at)\(if .default or .primary then "\t(default)" else "" end)"' <<<"$BRANCHES"
+          jq -r --arg p "ci-${TOOL}-" --arg c "$CUTOFF" \
+                '.[] | select((.name | startswith($p)) and .created_at < $c) | .name' <<<"$BRANCHES" \
             | while read -r stale; do
                 echo "pruning stale branch $stale"
                 neonctl branches delete "$stale" --project-id "$PID" > /dev/null \
