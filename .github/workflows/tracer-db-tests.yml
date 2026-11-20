@@ -28,6 +28,8 @@ jobs:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }} # account-level; neonctl reads it natively
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # every branch's history: the prune step checks preview/<branch> against it
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
 
@@ -80,6 +82,26 @@ jobs:
                 echo "pruning stale branch $stale"
                 neonctl branches delete "$stale" --project-id "$PID" > /dev/null \
                   || echo "::warning::could not delete stale branch $stale"
+              done
+          # Vercel's Neon integration makes a preview/<git-branch> branch per previewed git branch and
+          # never deletes it, so merged feature branches fill the plan's cap. Drop one when its git
+          # branch is gone or already merged into develop or main (its preview is stale; a new preview
+          # deploy recreates it). preview/develop and preview/main back beta/prod previews: kept.
+          jq -r '.[] | select(.name | startswith("preview/")) | .name' <<<"$BRANCHES" \
+            | while read -r preview; do
+                ref="${preview#preview/}"
+                case "$ref" in develop|main) continue ;; esac
+                if git rev-parse --verify -q "refs/remotes/origin/$ref" > /dev/null; then
+                  git merge-base --is-ancestor "origin/$ref" origin/develop \
+                    || git merge-base --is-ancestor "origin/$ref" origin/main \
+                    || continue
+                  why="merged"
+                else
+                  why="git branch deleted"
+                fi
+                echo "pruning $preview ($why)"
+                neonctl branches delete "$preview" --project-id "$PID" > /dev/null \
+                  || echo "::warning::could not delete $preview"
               done
           BRANCH="ci-${TOOL}-${{ github.run_id }}-${{ github.run_attempt }}"
           neonctl branches create --project-id "$PID" --name "$BRANCH" --output json > /dev/null
