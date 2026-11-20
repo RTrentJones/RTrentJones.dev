@@ -28,6 +28,8 @@ jobs:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }} # account-level; neonctl reads it natively
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # every branch's history: the prune step checks preview/<branch> against it
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
 
@@ -66,13 +68,40 @@ jobs:
           # exceeded") so every later run fails. Only branches older than an hour are removed, so a
           # concurrent run on another ref keeps its own.
           CUTOFF=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
-          { neonctl branches list --project-id "$PID" --output json || echo '[]'; } \
-            | jq -r --arg p "ci-${TOOL}-" --arg c "$CUTOFF" \
-                '(if type == "array" then . else .branches end)[] | select((.name | startswith($p)) and .created_at < $c) | .name' \
+          # A failed listing must not read as "nothing to prune" (it used to be `|| echo '[]'`).
+          BRANCHES=$(neonctl branches list --project-id "$PID" --output json) \
+            || { echo "::error::could not list Neon branches for $PID"; exit 1; }
+          BRANCHES=$(jq -c '(if type == "array" then . else .branches end)' <<<"$BRANCHES")
+          # Branch names and dates are not secrets: print them so a "branches limit exceeded" run
+          # shows what holds the slots.
+          echo "Neon branches in $PID ($(jq length <<<"$BRANCHES")):"
+          jq -r '.[] | "  \(.name)\tcreated \(.created_at)\(if .default or .primary then "\t(default)" else "" end)"' <<<"$BRANCHES"
+          jq -r --arg p "ci-${TOOL}-" --arg c "$CUTOFF" \
+                '.[] | select((.name | startswith($p)) and .created_at < $c) | .name' <<<"$BRANCHES" \
             | while read -r stale; do
                 echo "pruning stale branch $stale"
                 neonctl branches delete "$stale" --project-id "$PID" > /dev/null \
                   || echo "::warning::could not delete stale branch $stale"
+              done
+          # Vercel's Neon integration makes a preview/<git-branch> branch per previewed git branch and
+          # never deletes it, so merged feature branches fill the plan's cap. Drop one when its git
+          # branch is gone or already merged into develop or main (its preview is stale; a new preview
+          # deploy recreates it). preview/develop and preview/main back beta/prod previews: kept.
+          jq -r '.[] | select(.name | startswith("preview/")) | .name' <<<"$BRANCHES" \
+            | while read -r preview; do
+                ref="${preview#preview/}"
+                case "$ref" in develop|main) continue ;; esac
+                if git rev-parse --verify -q "refs/remotes/origin/$ref" > /dev/null; then
+                  git merge-base --is-ancestor "origin/$ref" origin/develop \
+                    || git merge-base --is-ancestor "origin/$ref" origin/main \
+                    || continue
+                  why="merged"
+                else
+                  why="git branch deleted"
+                fi
+                echo "pruning $preview ($why)"
+                neonctl branches delete "$preview" --project-id "$PID" > /dev/null \
+                  || echo "::warning::could not delete $preview"
               done
           BRANCH="ci-${TOOL}-${{ github.run_id }}-${{ github.run_attempt }}"
           neonctl branches create --project-id "$PID" --name "$BRANCH" --output json > /dev/null

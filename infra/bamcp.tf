@@ -52,6 +52,10 @@ module "bamcp_instance" {
     BAMCP_ISSUER_URL                 = "https://bamcp.rtrentjones.dev"
     BAMCP_RESOURCE_SERVER_URL        = "https://bamcp.rtrentjones.dev"
     BAMCP_ALLOW_REMOTE_FILES         = "true"
+    # Remote-only demo: callers may name only http(s) URLs (on the allow-list below), never a
+    # path on the container's filesystem. Needs BAMCP with BAMCP_ALLOW_LOCAL_FILES (unknown
+    # BAMCP_* vars are ignored by older images, so the order of rollout doesn't matter).
+    BAMCP_ALLOW_LOCAL_FILES          = "false"
     # SSRF blast-radius bound: remote fetch stays ON (region-scoped streaming of public
     # datasets + remote reference FASTA is a core feature), but restricted to trusted public
     # genomics hosts instead of "any public IP". Append the user's own cloud-bucket hosts here
