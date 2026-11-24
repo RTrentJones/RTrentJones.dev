@@ -204,6 +204,13 @@ module "keepalive" {
   # needs contents:write (dispatch) in addition to issues:write (alerts).
   dispatch_github_repo = "RTrentJones/RTrentJones.dev"
   github_token         = var.keepalive_github_token
+  # Every 4 hours, not the module's old every-3-days default. Supabase pauses a free project on
+  # TOO LITTLE database activity over a week ("a few user requests to the database each day", per
+  # its project-pausing docs). On the 3-day cadence keepalive_probe returned 200 on 11-16, 11-19
+  # and 11-22, and heistmind-db was paused on 2026-11-22 at 07:19 UTC regardless, an hour after the
+  # last probe. Explicit here so the fix applies now rather than at the next greenlight bump (the
+  # upstream module default is moving to the same value); safe to drop once it has.
+  cron = "0 */4 * * *"
   targets_json = jsonencode([
     {
       name    = "heistmind"
